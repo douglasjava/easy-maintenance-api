@@ -1,0 +1,12 @@
+package com.brainbyte.easy_maintenance.org_users.infrastructure.persistence;
+
+import com.brainbyte.easy_maintenance.org_users.domain.Organization;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface OrganizationRepository extends JpaRepository<Organization, Long> {
+
+  boolean existsByCode(String code);
+
+}
