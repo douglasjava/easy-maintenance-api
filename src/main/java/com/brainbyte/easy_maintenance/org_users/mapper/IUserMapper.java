@@ -5,14 +5,14 @@ import com.brainbyte.easy_maintenance.org_users.domain.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.factory.Mappers;
 
-import java.time.Instant;
-
 @Mapper(componentModel = "spring")
 public interface IUserMapper {
 
   IUserMapper INSTANCE = Mappers.getMapper(IUserMapper.class);
 
   UserDTO.UserResponse toUserResponse(User user);
+
+  UserDTO.LoginResponse toLoginResponse(User user);
 
   default User toUser(UserDTO.CreateUserRequest request, String orgCode) {
 
@@ -22,9 +22,8 @@ public interface IUserMapper {
             .name(request.name())
             .role(request.role())
             .status(request.status())
-            .passwordHash(request.passwordHash())
-            .createdAt(Instant.now())
-            .updatedAt(Instant.now())
+            // passwordHash será definido no service após criptografia
+            // timestamps serão definidos no service
             .build();
   }
 

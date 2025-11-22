@@ -13,7 +13,7 @@ public final class UserDTO {
           @NotBlank String name,
           @NotNull Role role,
           @NotNull Status status,
-          @NotBlank String passwordHash
+          @NotBlank String password
   ) {}
 
   public record UpdateUserRequest(
@@ -29,6 +29,22 @@ public final class UserDTO {
           String name,
           Role role,
           Status status
+  ) {}
+
+  public record LoginRequest(
+          @Email @NotBlank String email,
+          @NotBlank String password
+  ) {}
+
+  public record LoginResponse(
+          String id,
+          String organizationCode,
+          String email,
+          String name,
+          Role role,
+          Status status,
+          String accessToken,
+          String tokenType
   ) {}
 
 }

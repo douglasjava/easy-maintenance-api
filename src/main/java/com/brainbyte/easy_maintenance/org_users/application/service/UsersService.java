@@ -12,7 +12,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.ErrorResponseException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import com.brainbyte.easy_maintenance.shared.security.JwtService;
 
 import java.time.Instant;
 
@@ -26,16 +30,21 @@ public class UsersService {
 
   private final OrganizationsService organizationsService;
   private final UserRepository repository;
+  private final PasswordEncoder passwordEncoder;
+  private final JwtService jwtService;
 
   public UserDTO.UserResponse createUser(UserDTO.CreateUserRequest request, String orgCode) {
     log.info("Creating user {} - orgId: {}", request.email(), orgCode);
 
-    if (repository.existsByOrganizationCode(orgCode)) {
-      throw new ConflictException(String.format("Organization with code %s already exists for user %s", orgCode,
-              request.email()));
+    if (repository.existsByEmail(request.email())) {
+      throw new ConflictException(String.format("E-mail %s já está em uso", request.email()));
     }
 
     var user = IUserMapper.INSTANCE.toUser(request, orgCode);
+    user.setPasswordHash(passwordEncoder.encode(request.password()));
+    user.setCreatedAt(Instant.now());
+    user.setUpdatedAt(Instant.now());
+
     user = repository.save(user);
 
     return IUserMapper.INSTANCE.toUserResponse(user);
@@ -90,6 +99,34 @@ public class UsersService {
     return PageResponse.of(page);
 
 
+  }
+
+  public UserDTO.LoginResponse authenticate(UserDTO.LoginRequest request) {
+    log.info("Authenticating user {}", request.email());
+
+    var user = repository.findByEmail(request.email())
+            .orElseThrow(() -> new ErrorResponseException(HttpStatus.UNAUTHORIZED));
+
+    if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+      throw new ErrorResponseException(HttpStatus.UNAUTHORIZED);
+    }
+
+    var claims = new java.util.HashMap<String, Object>();
+    claims.put("uid", user.getId());
+    claims.put("org", user.getOrganizationCode());
+    claims.put("role", user.getRole().name());
+    String token = jwtService.generate(user.getEmail(), claims);
+
+    return new UserDTO.LoginResponse(
+            String.valueOf(user.getId()),
+            user.getOrganizationCode(),
+            user.getEmail(),
+            user.getName(),
+            user.getRole(),
+            user.getStatus(),
+            token,
+            "Bearer"
+    );
   }
 
 }

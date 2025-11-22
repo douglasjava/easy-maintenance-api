@@ -20,7 +20,11 @@ import java.util.UUID;
 public class TenantFilter extends OncePerRequestFilter {
 
   private static final String HDR = "X-Org-Id";
-  private static final Set<String> BYPASS = Set.of("POST /api/v1/organizations", "GET /actuator");
+  private static final Set<String> BYPASS = Set.of(
+          "POST /easy-maintenance/api/v1/organizations",
+          "POST /easy-maintenance/api/v1/auth/login",
+          "GET /actuator"
+  );
 
   private final HandlerExceptionResolver resolver;
 
