@@ -13,4 +13,8 @@ public class TenantException extends RuntimeException {
     this.httpStatus = httpStatus;
   }
 
+  public HttpStatus getStatus() {
+    return httpStatus;
+  }
+
 }

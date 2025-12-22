@@ -19,7 +19,7 @@ import java.util.UUID;
 @Component
 public class TenantFilter extends OncePerRequestFilter {
 
-  private static final String HDR = "X-Org-Id";
+  public static final String HDR = "X-Org-Id";
   private static final Set<String> BYPASS = Set.of(
           "POST /easy-maintenance/api/v1/organizations",
           "POST /easy-maintenance/api/v1/auth/login",
