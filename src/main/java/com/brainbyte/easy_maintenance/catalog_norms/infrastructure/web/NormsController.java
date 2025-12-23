@@ -13,7 +13,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/norms")
+@RequestMapping("/easy-maintenance/api/v1/norms")
 public class NormsController {
 
   private final NormService service;

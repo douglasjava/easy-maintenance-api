@@ -1,4 +1,4 @@
-package com.brainbyte.easy_maintenance.shared.web;
+package com.brainbyte.easy_maintenance.shared.web.filter;
 
 import com.brainbyte.easy_maintenance.commons.exceptions.TenantException;
 import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
@@ -6,6 +6,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -20,10 +21,19 @@ import java.util.UUID;
 public class TenantFilter extends OncePerRequestFilter {
 
   public static final String HDR = "X-Org-Id";
-  private static final Set<String> BYPASS = Set.of(
-          "POST /easy-maintenance/api/v1/organizations",
-          "POST /easy-maintenance/api/v1/auth/login",
-          "GET /actuator"
+
+  private static final Set<String> BYPASS_PREFIXES = Set.of(
+          "/swagger-ui",
+          "/v3/api-docs",
+          "/webjars",
+          "/actuator",
+          "/auth/login"
+  );
+
+  // endpoints fixos (ex.: auth, org register)
+  private static final Set<String> BYPASS_EXACT = Set.of(
+          "POST /api/v1/organizations",
+          "POST /api/v1/auth/login"
   );
 
   private final HandlerExceptionResolver resolver;
@@ -40,8 +50,7 @@ public class TenantFilter extends OncePerRequestFilter {
     String path = getPath(req);
 
     try {
-
-      if (isBypass(method, path) || "OPTIONS".equalsIgnoreCase(method)) {
+      if (shouldBypass(method, path) || "OPTIONS".equalsIgnoreCase(method)) {
         chain.doFilter(req, res);
         return;
       }
@@ -50,25 +59,37 @@ public class TenantFilter extends OncePerRequestFilter {
       if (tenant == null || tenant.isBlank()) {
         throw new TenantException(HttpStatus.BAD_REQUEST, "Missing X-Org-Id header");
       }
+
       try {
         UUID.fromString(tenant);
-      }
-      catch (IllegalArgumentException e) {
+      } catch (IllegalArgumentException e) {
         throw new TenantException(HttpStatus.BAD_REQUEST, "X-Org-Id must be a valid UUID");
       }
 
       TenantContext.set(tenant);
+      MDC.put("orgId", tenant);
+
       chain.doFilter(req, res);
 
     } catch (TenantException ex) {
       resolver.resolveException(req, res, null, ex);
     } finally {
       TenantContext.clear();
+      MDC.remove("orgId");
     }
   }
 
-  private boolean isBypass(String method, String path) {
-    return BYPASS.contains(method.toUpperCase() + " " + path);
+  private boolean shouldBypass(String method, String path) {
+
+    if (BYPASS_EXACT.contains(method.toUpperCase() + " " + path)) {
+      return true;
+    }
+
+    for (String prefix : BYPASS_PREFIXES) {
+      if (path.contains(prefix)) return true;
+    }
+
+    return path.contains("/swagger-ui.html");
   }
 
   private String getPath(HttpServletRequest req) {
@@ -76,5 +97,4 @@ public class TenantFilter extends OncePerRequestFilter {
     String ctx = req.getContextPath();
     return (ctx != null && !ctx.isEmpty()) ? uri.substring(ctx.length()) : uri;
   }
-
 }

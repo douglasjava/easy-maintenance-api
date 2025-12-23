@@ -5,6 +5,8 @@ import com.brainbyte.easy_maintenance.assets.application.dto.RegisterMaintenance
 import com.brainbyte.easy_maintenance.assets.application.service.MaintenanceService;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
 import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
+import com.brainbyte.easy_maintenance.shared.web.openapi.PageableAsQueryParam;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -14,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/items/{itemId}/maintenances")
+@RequestMapping("/easy-maintenance/api/v1/items/{itemId}/maintenances")
 public class MaintenancesController {
 
   private final MaintenanceService service;
@@ -30,7 +32,8 @@ public class MaintenancesController {
 
   @GetMapping
   @RequireTenant
-  public Page<MaintenanceResponse> list(@PathVariable Long itemId, Pageable pageable) {
+  @PageableAsQueryParam
+  public Page<MaintenanceResponse> list(@PathVariable Long itemId, @Parameter(hidden = true) Pageable pageable) {
     String orgId = TenantContext.get().orElseThrow();
     return service.listByItem(orgId, itemId, pageable);
   }

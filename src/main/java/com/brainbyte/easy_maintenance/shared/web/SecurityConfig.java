@@ -28,6 +28,17 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Order(1)
+    public SecurityFilterChain swaggerFilterChain(HttpSecurity http) throws Exception {
+        // Permit Swagger/OpenAPI endpoints without authentication
+        http.securityMatcher("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html");
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+        return http.build();
+    }
+
+    @Bean
     @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         // Scope this chain only to application/resource endpoints

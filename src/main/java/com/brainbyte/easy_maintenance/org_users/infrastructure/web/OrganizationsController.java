@@ -6,6 +6,8 @@ import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.OrganizationResponse;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.UpdateOrganizationRequest;
 import com.brainbyte.easy_maintenance.org_users.application.service.OrganizationsService;
+import com.brainbyte.easy_maintenance.shared.web.openapi.PageableAsQueryParam;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -13,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/organizations")
+@RequestMapping("/easy-maintenance/api/v1/organizations")
 public class OrganizationsController {
 
   private final OrganizationsService service;
@@ -30,7 +32,8 @@ public class OrganizationsController {
 
   @GetMapping
   @RequireTenant
-  public PageResponse<OrganizationResponse> listAll(Pageable pageable) {
+  @PageableAsQueryParam
+  public PageResponse<OrganizationResponse> listAll(@Parameter(hidden = true) Pageable pageable) {
     return service.listAll(pageable);
   }
 

@@ -8,6 +8,8 @@ import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO.CreateUs
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO.UpdateUserRequest;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO.UserResponse;
 import com.brainbyte.easy_maintenance.org_users.application.service.UsersService;
+import com.brainbyte.easy_maintenance.shared.web.openapi.PageableAsQueryParam;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -16,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/organizations/{orgId}/users")
+@RequestMapping("/easy-maintenance/api/v1/organizations/{orgId}/users")
 public class UsersController {
 
   private final UsersService service;
@@ -33,7 +35,8 @@ public class UsersController {
 
   @GetMapping
   @RequireTenant
-  public PageResponse<UserResponse> list(@PathVariable String orgId, Pageable pageable) {
+  @PageableAsQueryParam
+  public PageResponse<UserResponse> list(@PathVariable String orgId, @Parameter(hidden = true) Pageable pageable) {
     assertTenantMatchesPath(orgId);
 
     return service.listAll(orgId, pageable);
