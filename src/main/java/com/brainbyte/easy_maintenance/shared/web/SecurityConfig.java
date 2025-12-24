@@ -41,15 +41,15 @@ public class SecurityConfig {
     @Bean
     @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        // Scope this chain only to application/resource endpoints
-        http.securityMatcher("/api/**", "/actuator/**");
+        // Scope this chain only to application/resource endpoints (correct base path) and actuator
+        http.securityMatcher("/easy-maintenance/**", "/actuator/**");
 
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/login", "/actuator/**").permitAll()
+                        .requestMatchers("/easy-maintenance/api/v1/auth/login", "/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
