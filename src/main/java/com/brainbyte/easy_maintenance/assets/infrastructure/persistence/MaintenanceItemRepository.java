@@ -23,6 +23,9 @@ public interface MaintenanceItemRepository extends JpaRepository<MaintenanceItem
 
   Page<MaintenanceItem> findByOrganizationCodeAndStatusAndItemType(String orgId, ItemStatus status, String itemType, Pageable pageable);
 
+  long countByOrganizationCode(String orgId);
+
+  long countByOrganizationCodeAndStatus(String orgId, ItemStatus status);
 }
 
 
