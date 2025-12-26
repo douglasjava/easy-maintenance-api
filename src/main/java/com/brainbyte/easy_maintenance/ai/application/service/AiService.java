@@ -1,5 +1,6 @@
-package com.brainbyte.easy_maintenance.ai.application;
+package com.brainbyte.easy_maintenance.ai.application.service;
 
+import com.brainbyte.easy_maintenance.ai.application.prompt.PromptBuilder;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiAssistantRequest;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiAssistantResponse;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiSuggestItemRequest;
@@ -68,7 +69,7 @@ public class AiService {
         String orgId = TenantContext.get().orElseThrow();
         // Build minimal context: counts + next due items + norms for optional itemType
         String context = buildContext(orgId, req.getItemType());
-        String prompt = PromptBuilder.assistantPrompt(orgId, req.getQuestion(), context);
+        String prompt = PromptBuilder.assistantPrompt(req.getQuestion(), context);
         String answer = chatClient.prompt().user(prompt).call().content();
         return AiAssistantResponse.builder()
                 .answer(answer)

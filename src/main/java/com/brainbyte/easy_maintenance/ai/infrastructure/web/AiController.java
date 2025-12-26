@@ -1,6 +1,6 @@
 package com.brainbyte.easy_maintenance.ai.infrastructure.web;
 
-import com.brainbyte.easy_maintenance.ai.application.AiService;
+import com.brainbyte.easy_maintenance.ai.application.service.AiService;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiAssistantRequest;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiAssistantResponse;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiSuggestItemRequest;
