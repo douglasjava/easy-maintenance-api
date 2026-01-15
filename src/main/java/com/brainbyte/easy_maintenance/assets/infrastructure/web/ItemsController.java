@@ -7,7 +7,9 @@ import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
 import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.shared.web.openapi.PageableAsQueryParam;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,12 +20,14 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/easy-maintenance/api/v1/items")
+@Tag(name = "Ativos", description = "Gerenciamento de itens e manutenções")
 public class ItemsController {
 
   private final MaintenanceItemService service;
 
   @PostMapping
   @RequireTenant
+  @Operation(summary = "Cria um novo item de manutenção")
   public ResponseEntity<ItemResponse> create(@Valid @RequestBody CreateItemRequest req) {
     String orgId = TenantContext.get().orElseThrow();
     return ResponseEntity.ok(service.create(orgId, req));
@@ -32,6 +36,7 @@ public class ItemsController {
   @GetMapping
   @RequireTenant
   @PageableAsQueryParam
+  @Operation(summary = "Lista itens de manutenção da organização")
   public Page<ItemResponse> list(@RequestParam(required = false) ItemStatus status,
                                  @RequestParam(required = false) String itemType,
                                  @Parameter(hidden = true) Pageable pageable) {
@@ -41,6 +46,7 @@ public class ItemsController {
 
   @GetMapping("/{id}")
   @RequireTenant
+  @Operation(summary = "Busca um item de manutenção pelo ID")
   public ResponseEntity<ItemResponse> get(@PathVariable("id") Long id) {
     String orgId = TenantContext.get().orElseThrow();
     return ResponseEntity.ok(service.findById(orgId, id));
