@@ -1,9 +1,6 @@
 package com.brainbyte.easy_maintenance.shared.web;
 
-import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
-import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
-import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
-import com.brainbyte.easy_maintenance.commons.exceptions.TenantException;
+import com.brainbyte.easy_maintenance.commons.exceptions.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.ValidationException;
@@ -133,6 +130,19 @@ public class GlobalExceptionHandler {
     return body;
   }
 
+    @ExceptionHandler(AccessAdminException.class)
+    public ProblemDetail handleAccessAdminException(AccessAdminException ex, HttpServletRequest request) {
+        log.error("Permissions invalid", ex);
+
+        return ProblemDetails.of(
+                HttpStatus.UNAUTHORIZED,
+                ProblemType.WITHOUT_PERMISSIONS,
+                ex.getMessage(),
+                request
+        );
+
+    }
+
   @ExceptionHandler(Exception.class)
   public ProblemDetail handleGeneric(Exception ex, HttpServletRequest request) {
     log.error("Unexpected error", ex);
@@ -146,6 +156,7 @@ public class GlobalExceptionHandler {
 
   }
 
-  public record FieldViolation(String field, String message) {}
+
+    public record FieldViolation(String field, String message) {}
 
 }

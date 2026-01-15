@@ -27,7 +27,9 @@ public class TenantFilter extends OncePerRequestFilter {
           "/v3/api-docs",
           "/webjars",
           "/actuator",
-          "/auth/login"
+          "/auth/login",
+          "/private/admin",
+          "change-password"
   );
 
   // endpoints fixos (ex.: auth, org register)

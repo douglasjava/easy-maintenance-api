@@ -22,8 +22,6 @@ public interface IUserMapper {
             .name(request.name())
             .role(request.role())
             .status(request.status())
-            // passwordHash será definido no service após criptografia
-            // timestamps serão definidos no service
             .build();
   }
 

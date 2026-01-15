@@ -10,6 +10,7 @@ public enum ProblemType {
   RULES_INVALID("rules-invalid", "Rules invalid"),
   TENANT_MISSING("tenant-missing", "Invalid request"),
   TENANT_INVALID("tenant-invalid", "Invalid request"),
+  WITHOUT_PERMISSIONS("permissions-invalid", "Permissions invalid"),
   UNEXPECTED("unexpected", "Unexpected error");
 
   private static final String BASE = "https://easy-maintenance/api/problems/";

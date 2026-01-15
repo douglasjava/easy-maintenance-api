@@ -32,6 +32,7 @@ public class UsersService {
   private final UserRepository repository;
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
+  private final FirstAccessTokenService firstAccessTokenService;
 
   public UserDTO.UserResponse createUser(UserDTO.CreateUserRequest request, String orgCode) {
     log.info("Creating user {} - orgId: {}", request.email(), orgCode);
@@ -117,16 +118,45 @@ public class UsersService {
     claims.put("role", user.getRole().name());
     String token = jwtService.generate(user.getEmail(), claims);
 
+    boolean firstAccess = firstAccessTokenService.existsByUserIdAndUsedAtIsNull(user.getId());
+
     return new UserDTO.LoginResponse(
-            String.valueOf(user.getId()),
+            user.getId(),
             user.getOrganizationCode(),
             user.getEmail(),
             user.getName(),
             user.getRole(),
             user.getStatus(),
             token,
-            "Bearer"
+            "Bearer",
+            firstAccess
+
     );
+  }
+
+  public void changePassword(UserDTO.ChangePasswordRequest request) {
+    log.info("Mudando senha de primeiro acesso");
+
+    var firstAccessToken = firstAccessTokenService.findByUserId(request.idUser())
+            .orElseThrow(() -> new NotFoundException("Token de primeiro acesso não encontrado"));
+
+    if (firstAccessToken.getUsedAt() != null) {
+      throw new ConflictException("Token de primeiro acesso já foi utilizado");
+    }
+
+    if (firstAccessToken.getExpiresAt().isBefore(Instant.now())) {
+      throw new ConflictException("Token de primeiro acesso expirado");
+    }
+
+    var user = repository.findById(firstAccessToken.getUserId())
+            .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
+
+    user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+    user.setUpdatedAt(Instant.now());
+    repository.save(user);
+
+    firstAccessTokenService.markUsed(firstAccessToken);
+
   }
 
 }

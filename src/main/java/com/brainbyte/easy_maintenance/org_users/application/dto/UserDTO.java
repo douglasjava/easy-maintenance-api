@@ -23,7 +23,7 @@ public final class UserDTO {
   ) {}
 
   public record UserResponse(
-          String id,
+          Long id,
           String organizationCode,
           String email,
           String name,
@@ -37,14 +37,20 @@ public final class UserDTO {
   ) {}
 
   public record LoginResponse(
-          String id,
+          Long id,
           String organizationCode,
           String email,
           String name,
           Role role,
           Status status,
           String accessToken,
-          String tokenType
+          String tokenType,
+          boolean firstAccess
+  ) {}
+
+  public record ChangePasswordRequest(
+          @NotNull Long idUser,
+          @NotBlank String newPassword
   ) {}
 
 }
