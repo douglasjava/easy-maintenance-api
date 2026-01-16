@@ -51,7 +51,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
               ? List.of(new SimpleGrantedAuthority("ROLE_" + role))
               : Collections.emptyList();
 
-      log.info("JWT filter - subject: {}, role: {}, authorities: {}",
+      log.debug("JWT filter - subject: {}, role: {}, authorities: {}",
                 subject, role, authorities);
 
       UsernamePasswordAuthenticationToken authentication =
