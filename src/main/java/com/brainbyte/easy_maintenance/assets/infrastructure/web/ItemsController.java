@@ -3,6 +3,7 @@ package com.brainbyte.easy_maintenance.assets.infrastructure.web;
 import com.brainbyte.easy_maintenance.assets.application.dto.CreateItemRequest;
 import com.brainbyte.easy_maintenance.assets.application.dto.ItemResponse;
 import com.brainbyte.easy_maintenance.assets.application.service.MaintenanceItemService;
+import com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
 import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
@@ -39,9 +40,10 @@ public class ItemsController {
   @Operation(summary = "Lista itens de manutenção da organização")
   public Page<ItemResponse> list(@RequestParam(required = false) ItemStatus status,
                                  @RequestParam(required = false) String itemType,
+                                 @RequestParam(required = false) ItemCategory categoria,
                                  @Parameter(hidden = true) Pageable pageable) {
     String orgId = TenantContext.get().orElseThrow();
-    return service.findAll(orgId, status, itemType, pageable);
+    return service.findAll(orgId, status, itemType, categoria, pageable);
   }
 
   @GetMapping("/{id}")

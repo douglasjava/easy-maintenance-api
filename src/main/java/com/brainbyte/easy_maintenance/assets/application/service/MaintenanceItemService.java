@@ -4,9 +4,11 @@ import com.brainbyte.easy_maintenance.assets.application.dto.CreateItemRequest;
 import com.brainbyte.easy_maintenance.assets.application.dto.ItemResponse;
 import com.brainbyte.easy_maintenance.assets.component.ServiceBase;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
+import com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
 import com.brainbyte.easy_maintenance.assets.domain.rules.StatusCalculator;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceItemRepository;
+import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.specification.MaintenanceItemSpecs;
 import com.brainbyte.easy_maintenance.assets.mapper.IMaintenanceItemMapper;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
@@ -18,13 +20,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.isNull;
@@ -88,25 +90,13 @@ public class MaintenanceItemService {
 
   }
 
-  public Page<ItemResponse> findAll(String orgId, ItemStatus status, String itemType, Pageable pageable) {
+  public Page<ItemResponse> findAll(String orgId, ItemStatus status, String itemType, ItemCategory categoria, Pageable pageable) {
 
-    Page<MaintenanceItem> page;
+      Specification<MaintenanceItem> spec = MaintenanceItemSpecs.filter(orgId, status, itemType, categoria);
 
-    if (Objects.nonNull(status) && itemType != null && !itemType.isBlank()) {
-      page = maintenanceItemRepository.findByOrganizationCodeAndStatusAndItemType(orgId, status, itemType, pageable);
-
-    } else if (Objects.nonNull(status)) {
-      page = maintenanceItemRepository.findByOrganizationCodeAndStatus(orgId, status, pageable);
-
-    } else if (itemType != null && !itemType.isBlank()) {
-      page = maintenanceItemRepository.findByOrganizationCodeAndItemType(orgId, itemType, pageable);
-
-    } else {
-      page = maintenanceItemRepository.findByOrganizationCode(orgId, pageable);
-
-    }
-
-    return page.map(IMaintenanceItemMapper.INSTANCE::toItemResponse);
+      return maintenanceItemRepository
+              .findAll(spec, pageable)
+              .map(IMaintenanceItemMapper.INSTANCE::toItemResponse);
 
   }
 
