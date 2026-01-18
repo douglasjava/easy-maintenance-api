@@ -1,4 +1,4 @@
-INSERT INTO easy_maintenance.norms
+INSERT INTO norms
 (item_type, period_unit, period_qty, tolerance_days, authority, doc_url, notes, created_at, updated_at)
 VALUES
 -- =========================
