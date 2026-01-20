@@ -27,7 +27,9 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.isNull;
 
@@ -77,6 +79,13 @@ public class MaintenanceItemService {
 
     return IMaintenanceItemMapper.INSTANCE.toItemResponse(maintenanceItem);
 
+  }
+
+  @Transactional
+  public List<ItemResponse> createBatch(String orgId, List<CreateItemRequest> requests) {
+    return requests.stream()
+            .map(req -> create(orgId, req))
+            .collect(Collectors.toList());
   }
 
 
