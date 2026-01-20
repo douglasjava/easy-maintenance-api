@@ -18,6 +18,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/easy-maintenance/api/v1/items")
@@ -32,6 +34,14 @@ public class ItemsController {
   public ResponseEntity<ItemResponse> create(@Valid @RequestBody CreateItemRequest req) {
     String orgId = TenantContext.get().orElseThrow();
     return ResponseEntity.ok(service.create(orgId, req));
+  }
+  
+  @PostMapping("/batch")
+  @RequireTenant
+  @Operation(summary = "Cria novos itens de manutenção em lote")
+  public ResponseEntity<List<ItemResponse>> createBatch(@Valid @RequestBody List<CreateItemRequest> req) {
+    String orgId = TenantContext.get().orElseThrow();
+    return ResponseEntity.ok(service.createBatch(orgId, req));
   }
 
   @GetMapping
