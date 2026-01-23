@@ -16,5 +16,6 @@ public record ItemResponse(
         Integer customPeriodQty,
         LocalDate lastPerformedAt,
         LocalDate nextDueAt,
-        ItemStatus status
+        ItemStatus status,
+        String normName
 ) {}

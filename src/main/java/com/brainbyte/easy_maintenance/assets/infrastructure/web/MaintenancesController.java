@@ -16,31 +16,36 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/easy-maintenance/api/v1/items/{itemId}/maintenances")
+@RequestMapping("/easy-maintenance/api/v1/items")
 @Tag(name = "Ativos")
 public class MaintenancesController {
 
   private final MaintenanceService service;
 
-  @PostMapping
+  @PostMapping("/{itemId}/maintenances")
   @RequireTenant
   @ResponseStatus(HttpStatus.CREATED)
   @Operation(summary = "Registra uma nova manutenção para um item")
   public MaintenanceResponse register(@PathVariable Long itemId,
-                                                      @Valid @RequestBody RegisterMaintenanceRequest req) {
+                                      @Valid @RequestBody RegisterMaintenanceRequest req) {
     String orgId = TenantContext.get().orElseThrow();
     return service.register(orgId, itemId, req);
   }
 
-  @GetMapping
+  @GetMapping("/maintenances")
   @RequireTenant
   @PageableAsQueryParam
-  @Operation(summary = "Lista o histórico de manutenções de um item")
-  public Page<MaintenanceResponse> list(@PathVariable Long itemId, @Parameter(hidden = true) Pageable pageable) {
+  @Operation(summary = "Lista o histórico de manutenções de uma organização")
+  public Page<MaintenanceResponse> list(@RequestParam(required = false) Long itemId,
+                                        @RequestParam(required = false) LocalDate performedAt,
+                                        @RequestParam(required = false) String issuedBy,
+                                        @Parameter(hidden = true) Pageable pageable) {
     String orgId = TenantContext.get().orElseThrow();
-    return service.listByItem(orgId, itemId, pageable);
+    return service.listByItem(orgId, itemId, performedAt, issuedBy, pageable);
   }
 
 }

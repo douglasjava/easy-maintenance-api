@@ -25,7 +25,7 @@ public interface IMaintenanceItemMapper {
 
   }
 
-  default ItemResponse toItemResponse(MaintenanceItem maintenanceItem) {
+  default ItemResponse toItemResponse(MaintenanceItem maintenanceItem, String normName) {
     return new ItemResponse(
             maintenanceItem.getId(),
             maintenanceItem.getOrganizationCode(),
@@ -36,7 +36,8 @@ public interface IMaintenanceItemMapper {
             maintenanceItem.getCustomPeriodQty(),
             maintenanceItem.getLastPerformedAt(),
             maintenanceItem.getNextDueAt(),
-            maintenanceItem.getStatus()
+            maintenanceItem.getStatus(),
+            normName
     );
   }
 
