@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
+
 public final class UserDTO {
 
   public record CreateUserRequest(
@@ -29,7 +31,7 @@ public final class UserDTO {
 
   public record UserResponse(
           Long id,
-          String organizationCode,
+          List<String> organizationCodes,
           String email,
           String name,
           Role role,
@@ -45,7 +47,7 @@ public final class UserDTO {
 
   public record LoginResponse(
           Long id,
-          String organizationCode,
+          java.util.List<String> organizationCodes,
           String email,
           String name,
           Role role,
@@ -59,6 +61,21 @@ public final class UserDTO {
           @NotNull Long idUser,
           @Schema(example = "novaSenha123")
           @NotBlank String newPassword
+  ) {}
+
+  public record ForgotPasswordRequest(
+          @Schema(example = "usuario@empresa.com")
+          @Email @NotBlank String email
+  ) {}
+
+  public record ResetPasswordRequest(
+          @NotBlank String token,
+          @Schema(example = "novaSenha123")
+          @NotBlank String newPassword
+  ) {}
+
+  public record AuthMessageResponse(
+          String message
   ) {}
 
 }

@@ -1,5 +1,7 @@
 package com.brainbyte.easy_maintenance.ai.infrastructure.web;
 
+import com.brainbyte.easy_maintenance.ai.application.dto.AiBootstrapApplyRequest;
+import com.brainbyte.easy_maintenance.ai.application.dto.AiBootstrapApplyResponse;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiBootstrapPreviewRequest;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiBootstrapPreviewResponse;
 import com.brainbyte.easy_maintenance.ai.application.service.AiBootstrapService;
@@ -29,6 +31,13 @@ public class AiBootstrapController {
     public ResponseEntity<AiBootstrapPreviewResponse> preview(@Validated @RequestBody AiBootstrapPreviewRequest request) {
         //return ResponseEntity.ok(bootstrapService.preview(request));
         return ResponseEntity.ok(mock());
+    }
+
+    @PostMapping("/apply")
+    @RequireTenant
+    @Operation(summary = "Aplica os cadastros gerados pela IA no banco de dados")
+    public ResponseEntity<AiBootstrapApplyResponse> apply(@Validated @RequestBody AiBootstrapApplyRequest request) {
+        return ResponseEntity.ok(bootstrapService.apply(request));
     }
 
     private AiBootstrapPreviewResponse mock() {

@@ -6,17 +6,21 @@ import com.brainbyte.easy_maintenance.supplier.application.dto.NearbySuppliersRe
 import com.brainbyte.easy_maintenance.supplier.application.dto.NearbySuppliersResponse;
 import com.brainbyte.easy_maintenance.supplier.application.dto.SupplierDTO;
 import com.brainbyte.easy_maintenance.supplier.application.properties.GooglePlacesProperties;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Service
-@RequiredArgsConstructor
 public class SupplierSearchService {
 
   private final WebClient places;
   private final GooglePlacesProperties props;
+
+  public SupplierSearchService(@Qualifier("googlePlacesWebClient") WebClient places, GooglePlacesProperties props) {
+    this.places = places;
+    this.props = props;
+  }
 
   @Cacheable(value = "suppliersNearby", key = "#root.target.computeNearbyCacheKey(#req)")
   public NearbySuppliersResponse searchNearby(NearbySuppliersRequest req) {

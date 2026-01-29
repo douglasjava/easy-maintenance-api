@@ -53,4 +53,12 @@ public class AdminService {
         return organizationsService.listAll(pageable);
     }
 
+    public void addOrganizationToUser(Long userId, String orgCode) {
+        usersService.addOrganization(userId, orgCode);
+    }
+
+    public void removeOrganizationFromUser(Long userId, String orgCode) {
+        usersService.removeOrganization(userId, orgCode);
+    }
+
 }

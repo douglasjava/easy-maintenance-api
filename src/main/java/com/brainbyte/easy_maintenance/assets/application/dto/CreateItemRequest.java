@@ -12,7 +12,6 @@ import java.util.Map;
 public record CreateItemRequest(
         @NotBlank String itemType,
         @NotNull ItemCategory itemCategory,
-        Map<String, Object> location,
         @PastOrPresent(message = "A data da última manutenção não pode ser futura") LocalDate lastPerformedAt,
         CustomPeriodUnit customPeriodUnit,
         Integer customPeriodQty,

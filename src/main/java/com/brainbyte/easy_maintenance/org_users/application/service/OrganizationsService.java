@@ -2,12 +2,15 @@ package com.brainbyte.easy_maintenance.org_users.application.service;
 
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
+import com.brainbyte.easy_maintenance.commons.exceptions.InternalErrorException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.mapper.IOrganizationMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.coyote.BadRequestException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -78,9 +81,16 @@ public class OrganizationsService {
       throw e;
     } catch (Exception e) {
       log.error("Error creating organization", e);
-      throw new RuntimeException("Error creating organization");
+      throw new RuleException("Error creating organization");
     }
 
+  }
+
+  public java.util.List<OrganizationDTO.OrganizationResponse> listAllByCodes(java.util.List<String> codes) {
+    log.info("Listing all organizations by codes: {}", codes);
+    return repository.findAllByCodeIn(codes).stream()
+            .map(IOrganizationMapper.INSTANCE::toOrganizationResponse)
+            .toList();
   }
 
 }

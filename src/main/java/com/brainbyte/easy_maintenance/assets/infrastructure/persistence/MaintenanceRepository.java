@@ -21,4 +21,6 @@ public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>,
 
   boolean existsByItemIdAndPerformedAt(Long itemId, LocalDate performedAt);
 
+  boolean existsByItemId(Long itemId);
+
 }

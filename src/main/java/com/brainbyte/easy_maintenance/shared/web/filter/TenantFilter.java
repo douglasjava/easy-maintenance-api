@@ -29,7 +29,11 @@ public class TenantFilter extends OncePerRequestFilter {
           "/actuator",
           "/auth/login",
           "/private/admin",
-          "change-password"
+          "change-password",
+          "forgot-password",
+          "reset-password",
+          "/me/organizations/",
+          "/organizations/"
   );
 
   // endpoints fixos (ex.: auth, org register)

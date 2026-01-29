@@ -51,7 +51,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/easy-maintenance/api/v1/auth/login", "/easy-maintenance/api/v1/auth/change-password", "/actuator/**").permitAll()
                         .requestMatchers("/easy-maintenance/api/v1/private/admin/**").permitAll()
-                        .requestMatchers("/easy-maintenance/api/v1/private/admin/**").permitAll()
+                        .requestMatchers("/easy-maintenance/api/v1/auth/forgot-password").permitAll()
+                        .requestMatchers("/easy-maintenance/api/v1/auth/reset-password").permitAll()
+                        .requestMatchers("/easy-maintenance/api/v1/auth/me/organizations/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

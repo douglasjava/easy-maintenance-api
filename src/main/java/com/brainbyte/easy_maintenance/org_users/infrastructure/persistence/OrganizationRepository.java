@@ -9,4 +9,6 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
 
   boolean existsByCode(String code);
 
+  java.util.List<com.brainbyte.easy_maintenance.org_users.domain.Organization> findAllByCodeIn(java.util.Collection<String> codes);
+
 }

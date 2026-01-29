@@ -20,46 +20,46 @@ import java.time.LocalDate;
 @Table(name = "maintenance_items")
 public class MaintenanceItem {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-  @Column(name = "organization_code")
-  private String organizationCode;
+    @Column(name = "organization_code")
+    private String organizationCode;
 
-  @Column(name = "item_type")
-  private String itemType;
+    @Column(name = "item_type")
+    private String itemType;
 
-  @Enumerated(EnumType.STRING)
-  @Column(name = "item_category")
-  private ItemCategory itemCategory;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "item_category")
+    private ItemCategory itemCategory;
 
-  @Enumerated(EnumType.STRING)
-  @Column(name = "custom_period_unit")
-  private CustomPeriodUnit customPeriodUnit;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "custom_period_unit")
+    private CustomPeriodUnit customPeriodUnit;
 
-  @Column(name = "custom_period_qty")
-  private Integer customPeriodQty;
+    @Column(name = "custom_period_qty")
+    private Integer customPeriodQty;
 
-  @Column(name = "norm_id")
-  private Long normId;
+    @Column(name = "criticality")
+    private String criticality;
 
-  @Column(name = "location_json", columnDefinition = "json")
-  private String locationJson;
+    @Column(name = "norm_id")
+    private Long normId;
 
-  @Column(name = "last_performed_at")
-  private LocalDate lastPerformedAt;
+    @Column(name = "last_performed_at")
+    private LocalDate lastPerformedAt;
 
-  @Column(name = "next_due_at")
-  private LocalDate nextDueAt;
+    @Column(name = "next_due_at")
+    private LocalDate nextDueAt;
 
-  @Enumerated(EnumType.STRING)
-  private ItemStatus status;
+    @Enumerated(EnumType.STRING)
+    private ItemStatus status;
 
-  @Column(name = "created_at")
-  private Instant createdAt;
+    @Column(name = "created_at")
+    private Instant createdAt;
 
-  @Column(name = "updated_at")
-  private Instant updatedAt;
+    @Column(name = "updated_at")
+    private Instant updatedAt;
 
 }

@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.assets.application.service;
 
 import com.brainbyte.easy_maintenance.assets.application.dto.CreateItemRequest;
+import com.brainbyte.easy_maintenance.assets.application.dto.ItemPermissionResponse;
 import com.brainbyte.easy_maintenance.assets.application.dto.ItemResponse;
 import com.brainbyte.easy_maintenance.assets.component.ServiceBase;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
@@ -8,9 +9,11 @@ import com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
 import com.brainbyte.easy_maintenance.assets.domain.rules.StatusCalculator;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceItemRepository;
+import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceRepository;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.specification.MaintenanceItemSpecs;
 import com.brainbyte.easy_maintenance.assets.mapper.IMaintenanceItemMapper;
 import com.brainbyte.easy_maintenance.catalog_norms.application.service.NormService;
+import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.commons.exceptions.TenantException;
@@ -39,20 +42,21 @@ import static java.util.Objects.isNull;
 @RequiredArgsConstructor
 public class MaintenanceItemService {
 
-    private final MaintenanceItemRepository maintenanceItemRepository;
+    private final MaintenanceRepository maintenanceRepository;
+    private final MaintenanceItemRepository repository;
     private final ServiceBase serviceBase;
     private final ObjectMapper objectMapper;
     private final NormService normService;
 
     public MaintenanceItem findById(Long itemId) {
         log.info("findById: {}", itemId);
-        return maintenanceItemRepository.findById(itemId).orElseThrow(
+        return repository.findById(itemId).orElseThrow(
                 () -> new NotFoundException(String.format("Item not found: %s", itemId)));
     }
 
     public MaintenanceItem save(MaintenanceItem item) {
         log.info("save: {}", item);
-        return maintenanceItemRepository.save(item);
+        return repository.save(item);
     }
 
     @Transactional
@@ -61,12 +65,6 @@ public class MaintenanceItemService {
         validateCreate(request);
 
         MaintenanceItem maintenanceItem = IMaintenanceItemMapper.INSTANCE.toMaintenanceItem(orgId, request);
-
-        try {
-            maintenanceItem.setLocationJson(isNull(request.location()) ? null : objectMapper.writeValueAsString(request.location()));
-        } catch (JsonProcessingException ex) {
-            throw new RuleException(String.format("Invalid location JSON %s", ex));
-        }
 
         maintenanceItem.setLastPerformedAt(request.lastPerformedAt());
         Period period = serviceBase.resolvePeriod(maintenanceItem);
@@ -77,7 +75,7 @@ public class MaintenanceItemService {
         maintenanceItem.setCreatedAt(now);
         maintenanceItem.setUpdatedAt(now);
 
-        maintenanceItemRepository.save(maintenanceItem);
+        repository.save(maintenanceItem);
 
         String normName = resolveNormName(maintenanceItem.getNormId());
 
@@ -113,7 +111,7 @@ public class MaintenanceItemService {
 
         Specification<MaintenanceItem> spec = MaintenanceItemSpecs.filter(orgId, status, itemType, categoria);
 
-        return maintenanceItemRepository.findAll(spec, pageable)
+        return repository.findAll(spec, pageable)
                 .map(item -> IMaintenanceItemMapper.INSTANCE.toItemResponse(item, resolveNormName(item.getNormId())));
     }
 
@@ -124,7 +122,42 @@ public class MaintenanceItemService {
 
         validateTenant(orgId, maintenanceItem);
 
-        maintenanceItemRepository.deleteById(itemId);
+        repository.deleteById(itemId);
+    }
+
+    public ItemResponse update(String orgId, Long itemId, CreateItemRequest request) {
+        log.info("update item: {} - {}", itemId, request);
+
+        MaintenanceItem maintenanceItem = findById(itemId);
+
+        validateTenant(orgId, maintenanceItem);
+
+        var existeMaintenance = maintenanceRepository.existsByItemId(itemId);
+        if(existeMaintenance) {
+            throw new ConflictException("Não é possível editar um item que possui manutenções registradas. Crie um novo item para manter o histórico.");
+        }
+
+        maintenanceItem.setItemType(request.itemType());
+        maintenanceItem.setItemCategory(request.itemCategory());
+
+        Period period = serviceBase.resolvePeriod(maintenanceItem);
+        LocalDate base = Optional.ofNullable(maintenanceItem.getLastPerformedAt()).orElse(LocalDate.now());
+        maintenanceItem.setNextDueAt(base.plus(period));
+
+        maintenanceItem.setLastPerformedAt(request.lastPerformedAt());
+        maintenanceItem.setCustomPeriodQty(request.customPeriodQty());
+        maintenanceItem.setNormId(request.normId());
+        maintenanceItem.setUpdatedAt(Instant.now());
+
+        MaintenanceItem updatedItem = repository.save(maintenanceItem);
+
+        return  IMaintenanceItemMapper.INSTANCE.toItemResponse(updatedItem, resolveNormName(updatedItem.getNormId()));
+
+    }
+
+    public ItemPermissionResponse isEditable(Long itemId) {
+        var existsItemToMaintenance = maintenanceRepository.existsByItemId(itemId);
+        return new ItemPermissionResponse(!existsItemToMaintenance, "ITEM_ALREADY_USED_IN_MAINTENANCE");
     }
 
     private void validateCreate(CreateItemRequest request) {

@@ -52,4 +52,16 @@ public class AdminController {
         return adminService.listAllOrganizations(pageable);
     }
 
+    @PostMapping("/users/{userId}/organizations/{orgCode}")
+    @Operation(summary = "Adiciona uma organização a um usuário existente")
+    public void addOrganizationToUser(@PathVariable Long userId, @PathVariable String orgCode) {
+        adminService.addOrganizationToUser(userId, orgCode);
+    }
+
+    @DeleteMapping("/users/{userId}/organizations/{orgCode}")
+    @Operation(summary = "Remove uma organização de um usuário")
+    public void removeOrganizationFromUser(@PathVariable Long userId, @PathVariable String orgCode) {
+        adminService.removeOrganizationFromUser(userId, orgCode);
+    }
+
 }

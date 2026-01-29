@@ -9,6 +9,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Entity
@@ -22,9 +24,6 @@ public class User {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(name = "organization_code")
-  private String organizationCode;
-
   private String email;
   private String name;
 
@@ -36,6 +35,10 @@ public class User {
 
   @Column(name = "password_hash")
   private String passwordHash;
+
+  @Builder.Default
+  @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<UserOrganization> organizations = new ArrayList<>();
 
   @Column(name = "created_at")
   private Instant createdAt;

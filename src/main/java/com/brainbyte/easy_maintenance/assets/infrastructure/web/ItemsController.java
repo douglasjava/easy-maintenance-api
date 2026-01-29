@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.assets.infrastructure.web;
 
 import com.brainbyte.easy_maintenance.assets.application.dto.CreateItemRequest;
+import com.brainbyte.easy_maintenance.assets.application.dto.ItemPermissionResponse;
 import com.brainbyte.easy_maintenance.assets.application.dto.ItemResponse;
 import com.brainbyte.easy_maintenance.assets.application.service.MaintenanceItemService;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory;
@@ -72,6 +73,24 @@ public class ItemsController {
     public void delete(@PathVariable("id") Long id) {
         String orgId = TenantContext.get().orElseThrow();
         service.remove(orgId, id);
+    }
+
+    @PutMapping("/{id}")
+    @RequireTenant
+    @Operation(summary = "Editar item de manutenção")
+    public ResponseEntity<ItemResponse> update(@PathVariable("id") Long id, @RequestBody CreateItemRequest request) {
+        String orgId = TenantContext.get().orElseThrow();
+        return ResponseEntity.ok(service.update(orgId, id, request));
+    }
+
+
+    @GetMapping("/{id}/can-update")
+    @RequireTenant
+    @Operation(summary = "Validar edição item de manutenção")
+    public ResponseEntity<ItemPermissionResponse> validateUpdate(@PathVariable("id") Long id) {
+
+        return ResponseEntity.ok(service.isEditable(id));
+
     }
 
 }
