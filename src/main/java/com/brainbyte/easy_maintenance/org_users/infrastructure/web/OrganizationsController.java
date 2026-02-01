@@ -6,6 +6,7 @@ import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.OrganizationResponse;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.UpdateOrganizationRequest;
 import com.brainbyte.easy_maintenance.org_users.application.service.OrganizationsService;
+import com.brainbyte.easy_maintenance.org_users.domain.enums.Plan;
 import com.brainbyte.easy_maintenance.shared.web.openapi.PageableAsQueryParam;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -32,15 +33,19 @@ public class OrganizationsController {
   @GetMapping("/{id}")
   @Operation(summary = "Busca uma organização pelo ID")
   public OrganizationResponse getById(@PathVariable Long id) {
-    return service.getById(id);
+    return service.findById(id);
   }
 
   @GetMapping
   @RequireTenant
   @PageableAsQueryParam
   @Operation(summary = "Lista todas as organizações (Requer Tenant)")
-  public PageResponse<OrganizationResponse> listAll(@Parameter(hidden = true) Pageable pageable) {
-    return service.listAll(pageable);
+  public PageResponse<OrganizationResponse> listAll(@RequestParam(required = false) String name,
+                                                    @RequestParam(required = false) Plan plan,
+                                                    @RequestParam(required = false) String city,
+                                                    @RequestParam(required = false) String doc,
+                                                    @Parameter(hidden = true) Pageable pageable) {
+    return service.listAll(name, plan, city, doc, pageable);
   }
 
   @PatchMapping("/{id}")

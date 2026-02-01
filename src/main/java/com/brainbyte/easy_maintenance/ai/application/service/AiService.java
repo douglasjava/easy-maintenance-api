@@ -6,6 +6,7 @@ import com.brainbyte.easy_maintenance.ai.application.dto.AiAssistantResponse;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiSuggestItemRequest;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiSuggestItemResponse;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiSummaryResponse;
+import com.brainbyte.easy_maintenance.ai.infrastructure.provider.AiProvider;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceItemRepository;
@@ -15,7 +16,6 @@ import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -33,7 +33,7 @@ public class AiService {
 
     private final MaintenanceItemRepository itemRepository;
     private final NormService normService;
-    private final ChatClient chatClient;
+    private final AiProvider aiProvider;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AiSummaryResponse getSummary(boolean pretty) {
@@ -53,7 +53,7 @@ public class AiService {
         if (pretty) {
             try {
                 String prompt = PromptBuilder.beautifySummaryPrompt(total, ok, near, over);
-                String content = chatClient.prompt().user(prompt).call().content();
+                String content = aiProvider.chat(null, prompt);
                 builder.prettyText(Optional.ofNullable(content).orElse(""));
                 builder.usedAi(true);
             } catch (Exception e) {
@@ -70,7 +70,7 @@ public class AiService {
         // Build minimal context: counts + next due items + norms for optional itemType
         String context = buildContext(orgId, req.getItemType());
         String prompt = PromptBuilder.assistantPrompt(req.getQuestion(), context);
-        String answer = chatClient.prompt().user(prompt).call().content();
+        String answer = aiProvider.chat(null, prompt);
         return AiAssistantResponse.builder()
                 .answer(answer)
                 .usedAi(true)
@@ -80,7 +80,7 @@ public class AiService {
     public AiSuggestItemResponse suggestItem(AiSuggestItemRequest req) {
         // orgId is not strictly needed for suggestion, but keep for future context if provided
         String prompt = PromptBuilder.suggestItemPrompt(req.getDescription(), req.getContextItemType());
-        String json = chatClient.prompt().user(prompt).call().content();
+        String json = aiProvider.chat(null, prompt);
         try {
             AiSuggestItemResponse parsed = objectMapper.readValue(json, AiSuggestItemResponse.class);
             parsed.setUsedAi(true);

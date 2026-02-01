@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.dashboard.application;
 
+import com.brainbyte.easy_maintenance.ai.infrastructure.provider.AiProvider;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
@@ -9,7 +10,6 @@ import com.brainbyte.easy_maintenance.dashboard.domain.RiskHeuristics;
 import com.brainbyte.easy_maintenance.dashboard.domain.RiskLevel;
 import com.brainbyte.easy_maintenance.dashboard.infrastructure.web.dto.DashboardResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -25,7 +25,7 @@ public class DashboardService {
 
     private final MaintenanceItemRepository itemRepo;
     private final MaintenanceRepository maintenanceRepo;
-    private final Optional<ChatClient> chatClient; // present if AI configured
+    private final Optional<AiProvider> aiProvider; // present if AI configured
     private final DashboardProperties props;
 
     private final com.github.benmanes.caffeine.cache.Cache<String, DashboardResponse.AiBlock> aiCache =
@@ -170,7 +170,7 @@ public class DashboardService {
                                               List<DashboardResponse.AttentionItem> attention,
                                               List<DashboardResponse.CalendarDay> calendar,
                                               DashboardResponse.Breakdowns breakdowns) {
-        if (!enabled || chatClient.isEmpty()) return null;
+        if (!enabled || aiProvider.isEmpty()) return null;
         String key = orgId + ":" + daysAhead + ":" + nearDueDays;
         DashboardResponse.AiBlock cached = aiCache.getIfPresent(key);
         if (cached != null) return cached;
@@ -190,10 +190,7 @@ public class DashboardService {
         String prompt = "Gere 3 bullets curtos com destaques e 1 próxima melhor ação, em português do Brasil, " +
                 "considerando os dados do dashboard a seguir (seja objetivo e prático).";
 
-        var resp = chatClient.get().prompt()
-                .user(u -> u.text(prompt + "\n\n" + ctx))
-                .call()
-                .content();
+        var resp = aiProvider.get().chat(null, prompt + "\n\n" + ctx);
 
         // Simple post-process: split lines; take first 3 for highlights and last one for next action if possible
         List<String> lines = Arrays.stream(resp.split("\n"))

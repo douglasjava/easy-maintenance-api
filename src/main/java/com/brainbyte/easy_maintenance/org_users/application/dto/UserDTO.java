@@ -24,9 +24,11 @@ public final class UserDTO {
 
   public record UpdateUserRequest(
           @Schema(example = "João Silva Atualizado")
-          String name,
-          Role role,
-          Status status
+          @NotBlank String name,
+          @NotNull Role role,
+          @NotNull Status status,
+          @Schema(example = "usuario@empresa.com")
+          @Email @NotBlank String email
   ) {}
 
   public record UserResponse(

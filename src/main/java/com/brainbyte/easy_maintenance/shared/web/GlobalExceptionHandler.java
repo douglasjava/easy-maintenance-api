@@ -79,6 +79,12 @@ public class GlobalExceptionHandler {
         return ProblemDetails.of(HttpStatus.NOT_FOUND, ProblemType.NOT_FOUND, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(NoContentException.class)
+    public ProblemDetail handleNoContentException(NoContentException ex, HttpServletRequest request) {
+        log.warn("No content: {}", ex.getMessage());
+        return ProblemDetails.of(HttpStatus.NO_CONTENT, ProblemType.NO_CONTENT, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(RuleException.class)
     public ProblemDetail handleRuleException(RuleException ex, HttpServletRequest request) {
         log.warn("Rules invalid: {}", ex.getMessage());

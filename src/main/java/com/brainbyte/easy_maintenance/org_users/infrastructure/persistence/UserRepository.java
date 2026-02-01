@@ -3,8 +3,10 @@ package com.brainbyte.easy_maintenance.org_users.infrastructure.persistence;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -12,7 +14,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
 
     @EntityGraph(attributePaths = "organizations")
     @Query("""
@@ -23,6 +25,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
               AND u.id = :id
             """)
     Optional<User> findByOrganizationCodeAndId(String organizationCode, Long id);
+
+    @EntityGraph(attributePaths = "organizations")
+    @Query("""
+              SELECT u
+              FROM User u
+              LEFT JOIN u.organizations o
+              WHERE u.id = :id
+            """)
+    Optional<User> findByIdFetchOrganization(Long id);
 
     @Query("SELECT COUNT(u) > 0 FROM User u JOIN u.organizations o WHERE o.organizationCode = :organizationCode")
     boolean existsByOrganizationCode(String organizationCode);
@@ -36,6 +47,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
             """)
     Page<User> findAllByOrganizationCode(@Param("organizationCode") String organizationCode, Pageable pageable);
 
+    @EntityGraph(attributePaths = "organizations")
+    @Query("""
+              SELECT u
+              FROM User u
+              LEFT JOIN u.organizations o
+            """)
+    Page<User> findAllFetchOrganization(Specification<User> spec, Pageable pageable);
 
     @EntityGraph(attributePaths = "organizations")
     Optional<User> findByEmail(String email);
@@ -46,7 +64,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("""
               SELECT u
               FROM User u
-              JOIN u.organizations o
+              LEFT JOIN u.organizations o
               WHERE u.id = :id
             """)
     Optional<User> findByIdWithOrganization(Long id);

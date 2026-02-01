@@ -6,6 +6,7 @@ import com.brainbyte.easy_maintenance.ai.application.dto.AiBootstrapPreviewReque
 import com.brainbyte.easy_maintenance.ai.application.dto.AiBootstrapPreviewResponse;
 import com.brainbyte.easy_maintenance.ai.domain.AiPromptTemplate;
 import com.brainbyte.easy_maintenance.ai.infrastructure.persistence.AiPromptTemplateRepository;
+import com.brainbyte.easy_maintenance.ai.infrastructure.provider.AiProvider;
 import com.brainbyte.easy_maintenance.ai.mapper.IAiBootstrapMapper;
 import com.brainbyte.easy_maintenance.assets.domain.ItemTypes;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
@@ -13,6 +14,8 @@ import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.ItemType
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceItemRepository;
 import com.brainbyte.easy_maintenance.catalog_norms.domain.Norm;
 import com.brainbyte.easy_maintenance.catalog_norms.infrastructure.persistence.NormRepository;
+import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.commons.exceptions.TenantException;
 import com.brainbyte.easy_maintenance.commons.helper.NormalizerUtil;
 import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Status;
@@ -20,7 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +38,7 @@ import java.util.Optional;
 public class AiBootstrapService {
 
     private final AiPromptTemplateRepository templateRepository;
-    private final ChatClient chatClient;
+    private final AiProvider aiProvider;
     private final ItemTypesRepository itemTypesRepository;
     private final NormRepository normRepository;
     private final MaintenanceItemRepository maintenanceItemRepository;
@@ -49,7 +52,7 @@ public class AiBootstrapService {
         String dbCompanyType = request.getCompanyType().getDbValue();
 
         AiPromptTemplate template = templateRepository.findLatestActive(TEMPLATE_KEY, dbCompanyType)
-                .orElseThrow(() -> new RuntimeException("Template não encontrado para " + dbCompanyType));
+                .orElseThrow(() -> new NotFoundException(String.format("Template não encontrado para %s", dbCompanyType)));
 
         String userPrompt = template.getUserPrompt();
         if (StringUtils.isNotBlank(request.getDescription())) {
@@ -60,11 +63,8 @@ public class AiBootstrapService {
         userPrompt = appendOutputContract(userPrompt);
 
         try {
-            String jsonResponse = chatClient.prompt()
-                    .system(template.getSystemPrompt())
-                    .user(userPrompt)
-                    .call()
-                    .content();
+
+            String jsonResponse = aiProvider.chat(template.getSystemPrompt(), userPrompt);
 
             // 2) Higieniza/extrai só o JSON
             String jsonOnly = extractJsonObject(jsonResponse);
@@ -90,7 +90,7 @@ public class AiBootstrapService {
     @Transactional
     public AiBootstrapApplyResponse apply(AiBootstrapApplyRequest request) {
         log.info("Applying AI Bootstrap for {} items", request.getItems().size());
-        String organizationCode = TenantContext.get().orElseThrow(() -> new RuntimeException("Tenant not found"));
+        String organizationCode = TenantContext.get().orElseThrow(() -> new TenantException(HttpStatus.FORBIDDEN, "Item does not belong to tenant"));
 
         List<AiBootstrapApplyResponse.CreatedItem> created = new ArrayList<>();
         List<AiBootstrapApplyResponse.FailedItem> failed = new ArrayList<>();
@@ -170,7 +170,6 @@ public class AiBootstrapService {
         return newNorm.getId();
     }
 
-
     private String appendOutputContract(String basePrompt) {
         AiBootstrapPreviewResponse example = AiBootstrapPreviewResponse.builder()
                 .items(List.of(
@@ -198,15 +197,23 @@ public class AiBootstrapService {
 
         return basePrompt + "\n\n" +
                 "IMPORTANTE (formato de saída):\n" +
-                "1) Retorne APENAS um JSON válido, sem markdown, sem texto antes/depois.\n" +
-                "2) O JSON deve conter APENAS os campos do exemplo (não adicione campos extras).\n" +
-                "3) Campos obrigatórios: items[].itemType, items[].category, items[].criticality, items[].maintenance.\n" +
-                "4) periodUnit deve ser um destes valores: DIAS, MESES, ANUAL.\n" +
-                "5) Se não souber algum campo, use null.\n" +
-                "6) items deve ser uma lista (mesmo que tenha 1 item).\n\n" +
+                "1) Retorne APENAS um JSON válido (NÃO use markdown, NÃO use ```).\n" +
+                "2) Não inclua texto antes/depois do JSON.\n" +
+                "3) O JSON deve conter APENAS os campos do exemplo (não adicione campos extras).\n" +
+                "4) Campos obrigatórios: items[].itemType, items[].category, items[].criticality, items[].maintenance.\n" +
+                "5) periodUnit deve ser um destes valores: DIAS, MESES, ANUAL.\n" +
+                "6) Se não souber algum campo, use null.\n" +
+                "\n" +
+                "LIMITAÇÕES (para evitar respostas longas):\n" +
+                "7) Retorne no máximo 8 itens em items (selecione os mais relevantes).\n" +
+                "8) notes deve ter no máximo 200 caracteres (resumo curto e técnico).\n" +
+                "9) norm deve ter no máximo 120 caracteres.\n" +
+                "10) Não invente itens fora do contexto do tipo de empresa; selecione apenas os itens aplicáveis.\n" +
+                "\n" +
                 "EXEMPLO DO JSON (siga exatamente esta estrutura):\n" +
                 exampleJson;
     }
+
 
     /**
      * Remove casos comuns: markdown ```json ... ```, texto antes/depois, etc.

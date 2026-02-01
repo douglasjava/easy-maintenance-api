@@ -1,9 +1,7 @@
 package com.brainbyte.easy_maintenance.org_users.infrastructure.web;
 
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
-import com.brainbyte.easy_maintenance.commons.exceptions.TenantException;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
-import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO.CreateUserRequest;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO.UpdateUserRequest;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO.UserResponse;
@@ -15,7 +13,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -31,7 +28,7 @@ public class UsersController {
     @Operation(summary = "Cria um novo usuário na organização")
     public UserResponse create(@PathVariable String orgCode, @Valid @RequestBody CreateUserRequest req) {
 
-        return service.createUser(req, orgCode);
+        return service.createUserWithOrganization(req, orgCode);
 
     }
 
@@ -61,7 +58,7 @@ public class UsersController {
                                @PathVariable Long id,
                                @Valid @RequestBody UpdateUserRequest req) {
 
-        return service.updateUser(id, req, orgCode);
+        return service.updateUserWithOrgId(id, req, orgCode);
 
     }
 

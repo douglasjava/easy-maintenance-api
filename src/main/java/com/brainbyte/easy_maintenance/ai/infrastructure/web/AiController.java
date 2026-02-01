@@ -42,4 +42,5 @@ public class AiController {
     public ResponseEntity<AiSuggestItemResponse> suggestItem(@Validated @RequestBody AiSuggestItemRequest req) {
         return ResponseEntity.ok(aiService.suggestItem(req));
     }
+    
 }

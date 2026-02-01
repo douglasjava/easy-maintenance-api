@@ -1,6 +1,8 @@
 package com.brainbyte.easy_maintenance.org_users.application.dto;
 
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Plan;
+import com.brainbyte.easy_maintenance.org_users.domain.enums.Role;
+import com.brainbyte.easy_maintenance.org_users.domain.enums.Status;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -49,8 +51,17 @@ public final class OrganizationDTO {
             String state,
             String zipCode,
             String country,
-            String doc
+            String doc,
+            ResponsibleUser responsibleUser
     ) {
     }
+
+    public record ResponsibleUser(
+            Long id,
+            String email,
+            String name,
+            Role role,
+            Status status
+    ) {}
 
 }

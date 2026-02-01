@@ -7,6 +7,7 @@ public enum ProblemType {
   VALIDATION("validation-error", "Validation error"),
   CONFLICT("conflict", "Conflict"),
   NOT_FOUND("not-found", "Not found"),
+  NO_CONTENT("not-content", "No Content"),
   RULES_INVALID("rules-invalid", "Rules invalid"),
   TENANT_MISSING("tenant-missing", "Invalid request"),
   TENANT_INVALID("tenant-invalid", "Invalid request"),

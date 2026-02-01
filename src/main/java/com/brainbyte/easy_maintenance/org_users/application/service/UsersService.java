@@ -7,13 +7,14 @@ import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
-import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.specifications.UserSpecifications;
 import com.brainbyte.easy_maintenance.org_users.mapper.IUserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,20 +38,40 @@ public class UsersService {
 
     private final OrganizationsService organizationsService;
     private final UserRepository repository;
-    private final UserOrganizationRepository userOrganizationRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final FirstAccessTokenService firstAccessTokenService;
 
-    @Transactional
-    public UserDTO.UserResponse createUser(UserDTO.CreateUserRequest request, String orgCode) {
-        log.info("Creating user {} - orgId: {}", request.email(), orgCode);
 
+    public UserDTO.UserResponse createUser(UserDTO.CreateUserRequest request) {
+        log.info("Creating user {} ", request.email());
+
+        validateUserRegistered(request);
+
+        var user = IUserMapper.INSTANCE.toUser(request);
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setCreatedAt(Instant.now());
+        user.setUpdatedAt(Instant.now());
+
+        user = repository.save(user);
+
+        return IUserMapper.INSTANCE.toUserResponse(user);
+
+    }
+
+    private void validateUserRegistered(UserDTO.CreateUserRequest request) {
         if (repository.existsByEmail(request.email())) {
             throw new ConflictException(String.format("E-mail %s já está em uso", request.email()));
         }
+    }
 
-        var user = IUserMapper.INSTANCE.toUser(request, orgCode);
+    @Transactional
+    public UserDTO.UserResponse createUserWithOrganization(UserDTO.CreateUserRequest request, String orgCode) {
+        log.info("Creating user {} - orgId: {}", request.email(), orgCode);
+
+        validateUserRegistered(request);
+
+        var user = IUserMapper.INSTANCE.toUser(request);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setCreatedAt(Instant.now());
         user.setUpdatedAt(Instant.now());
@@ -67,35 +88,58 @@ public class UsersService {
 
     }
 
-    public UserDTO.UserResponse findById(Long id, String orgId) {
+    public UserDTO.UserResponse findById(Long id) {
 
         log.info("Getting user with id {}", id);
+        return repository.findByIdFetchOrganization(id).map(IUserMapper.INSTANCE::toUserResponse)
+                .orElseThrow(() -> new NotFoundException(String.format(USER_NOT_FOUND_MESSAGE, id)));
+
+    }
+
+    public UserDTO.UserResponse findById(Long id, String orgId) {
+
+        log.info("Getting user with id {} and code {}", id, orgId);
         return repository.findByOrganizationCodeAndId(orgId, id).map(IUserMapper.INSTANCE::toUserResponse)
                 .orElseThrow(() -> new NotFoundException(String.format(USER_NOT_FOUND_MESSAGE, id)));
 
     }
 
-    public UserDTO.UserResponse updateUser(Long id, UserDTO.UpdateUserRequest request, String orgId) {
+    public UserDTO.UserResponse updateUser(Long id, UserDTO.UpdateUserRequest request) {
         log.info("Updating user with id {}", id);
+
+        var user = repository.findById(id).orElseThrow(() -> new NotFoundException(
+                String.format(USER_NOT_FOUND_MESSAGE, id)));
+
+        return updateUserDetails(request, user);
+
+    }
+
+    public UserDTO.UserResponse updateUserWithOrgId(Long id, UserDTO.UpdateUserRequest request, String orgId) {
+        log.info("Updating user with id {} e org {}", id, orgId);
 
         var user = repository.findByOrganizationCodeAndId(orgId, id).orElseThrow(() -> new NotFoundException(
                 String.format(USER_NOT_FOUND_MESSAGE, id)));
 
-        if (hasLength(request.name())) {
-            user.setName(request.name());
+        if (hasLength(request.email())) {
+            user.setEmail(request.email());
         }
-        if (nonNull(request.role())) {
-            user.setRole(request.role());
-        }
-        if (nonNull(request.status())) {
-            user.setStatus(request.status());
-        }
-        user.setUpdatedAt(Instant.now());
 
-        var updatedUser = repository.save(user);
+        return updateUserDetails(request, user);
 
-        return IUserMapper.INSTANCE.toUserResponse(updatedUser);
+    }
 
+    public PageResponse<UserDTO.UserResponse> listAll(String name, String email, Pageable pageable) {
+        log.info("Listing all users with filters");
+
+        var spec = Specification.allOf(
+                UserSpecifications.withNameLike(name),
+                UserSpecifications.withEmailLike(email)
+        );
+
+        Page<UserDTO.UserResponse> page =
+                repository.findAllFetchOrganization(spec, pageable).map(IUserMapper.INSTANCE::toUserResponse);
+
+        return PageResponse.of(page);
     }
 
     public PageResponse<UserDTO.UserResponse> listAll(String orgId, Pageable pageable) {
@@ -128,7 +172,7 @@ public class UsersService {
         claims.put("uid", user.getId());
         claims.put("orgs", orgCodes); // Passando lista de organizações
         if (!orgCodes.isEmpty()) {
-            claims.put("org", orgCodes.get(0)); // Mantendo compatibilidade com o que espera um único org
+            claims.put("org", orgCodes.getFirst()); // Mantendo compatibilidade com o que espera um único org
         }
         claims.put("role", user.getRole().name());
         String token = jwtService.generate(user.getEmail(), claims);
@@ -219,6 +263,24 @@ public class UsersService {
                 .toList();
 
         return organizationsService.listAllByCodes(codes);
+    }
+
+    private UserDTO.UserResponse updateUserDetails(UserDTO.UpdateUserRequest request, User user) {
+
+        if (hasLength(request.name())) {
+            user.setName(request.name());
+        }
+        if (nonNull(request.role())) {
+            user.setRole(request.role());
+        }
+        if (nonNull(request.status())) {
+            user.setStatus(request.status());
+        }
+        user.setUpdatedAt(Instant.now());
+
+        var updatedUser = repository.save(user);
+
+        return IUserMapper.INSTANCE.toUserResponse(updatedUser);
     }
 
 }

@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.admin.application.service;
 
+import com.brainbyte.easy_maintenance.admin.application.dto.AdminMetricsResponse;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.AccessAdminException;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
@@ -7,11 +8,19 @@ import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO;
 import com.brainbyte.easy_maintenance.org_users.application.service.FirstAccessTokenService;
 import com.brainbyte.easy_maintenance.org_users.application.service.OrganizationsService;
 import com.brainbyte.easy_maintenance.org_users.application.service.UsersService;
+import com.brainbyte.easy_maintenance.org_users.domain.enums.Plan;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -24,6 +33,8 @@ public class AdminService {
     public final UsersService usersService;
     public final OrganizationsService organizationsService;
     private final FirstAccessTokenService firstAccessService;
+    private final OrganizationRepository organizationRepository;
+    private final UserRepository userRepository;
 
     public OrganizationDTO.OrganizationResponse createOrganization(OrganizationDTO.CreateOrganizationRequest request) {
 
@@ -31,15 +42,19 @@ public class AdminService {
 
     }
 
-    public UserDTO.UserResponse createUser(UserDTO.CreateUserRequest request, String orgCode) {
+    public UserDTO.UserResponse createUser(UserDTO.CreateUserRequest request) {
 
-        var userResponse = usersService.createUser(request, orgCode);
+        var userResponse = usersService.createUser(request);
 
-        var firstAccess = firstAccessService.createForUser(userResponse.id());
+        return initializeUserAccess(userResponse);
 
-        log.info("Usuário criado com sucesso - Token criado para primeiro acesso {}", firstAccess.getToken());
+    }
 
-        return userResponse;
+    public UserDTO.UserResponse createUserWithOrganization(UserDTO.CreateUserRequest request, String orgCode) {
+
+        var userResponse = usersService.createUserWithOrganization(request, orgCode);
+
+        return initializeUserAccess(userResponse);
 
     }
 
@@ -49,8 +64,43 @@ public class AdminService {
         }
     }
 
-    public PageResponse<OrganizationDTO.OrganizationResponse> listAllOrganizations(Pageable pageable) {
-        return organizationsService.listAll(pageable);
+    public PageResponse<OrganizationDTO.OrganizationResponse> listAllOrganizations(String name, Plan plan, String city, String doc, Pageable pageable) {
+        return organizationsService.listAll(name, plan, city, doc, pageable);
+    }
+
+    public OrganizationDTO.OrganizationResponse findByOrganizationId(Long id) {
+        return organizationsService.findById(id);
+    }
+
+    public List<OrganizationDTO.OrganizationResponse> listAllOrganizationByIdUser(Long idUser) {
+        return usersService.listUserOrganizations(idUser);
+    }
+
+    public PageResponse<UserDTO.UserResponse> listAllUsers(String name, String email, Pageable pageable) {
+        return usersService.listAll(name, email, pageable);
+    }
+
+    public UserDTO.UserResponse findByUserId(Long id) {
+        return usersService.findById(id);
+    }
+
+    public UserDTO.UserResponse updateById(Long id, UserDTO.UpdateUserRequest request) {
+        return usersService.updateUser(id, request);
+    }
+
+    public AdminMetricsResponse getMetrics() {
+        log.info("Collecting admin metrics");
+        
+        long totalOrganizations = organizationRepository.count();
+        long totalUsers = userRepository.count();
+        
+        Map<Plan, Long> organizationsByPlan = Arrays.stream(Plan.values())
+                .collect(Collectors.toMap(
+                        plan -> plan,
+                        organizationRepository::countByPlan
+                ));
+
+        return new AdminMetricsResponse(totalOrganizations, totalUsers, organizationsByPlan);
     }
 
     public void addOrganizationToUser(Long userId, String orgCode) {
@@ -59,6 +109,14 @@ public class AdminService {
 
     public void removeOrganizationFromUser(Long userId, String orgCode) {
         usersService.removeOrganization(userId, orgCode);
+    }
+
+    private UserDTO.UserResponse initializeUserAccess(UserDTO.UserResponse userResponse) {
+        var firstAccess = firstAccessService.createForUser(userResponse.id());
+
+        log.info("Usuário criado com sucesso - Token criado para primeiro acesso {}", firstAccess.getToken());
+
+        return userResponse;
     }
 
 }

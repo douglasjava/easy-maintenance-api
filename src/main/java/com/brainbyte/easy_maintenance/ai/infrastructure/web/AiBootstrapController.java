@@ -29,8 +29,8 @@ public class AiBootstrapController {
     @RequireTenant
     @Operation(summary = "Gera um preview de itens de manutenção para onboarding baseado no tipo de empresa")
     public ResponseEntity<AiBootstrapPreviewResponse> preview(@Validated @RequestBody AiBootstrapPreviewRequest request) {
-        //return ResponseEntity.ok(bootstrapService.preview(request));
-        return ResponseEntity.ok(mock());
+        return ResponseEntity.ok(bootstrapService.preview(request));
+        //return ResponseEntity.ok(mock());
     }
 
     @PostMapping("/apply")

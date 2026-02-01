@@ -28,14 +28,6 @@ public interface IUserMapper {
             .collect(Collectors.toList());
   }
 
-  default User toUser(UserDTO.CreateUserRequest request, String orgCode) {
-
-    return User.builder()
-            .email(request.email())
-            .name(request.name())
-            .role(request.role())
-            .status(request.status())
-            .build();
-  }
+  User toUser(UserDTO.CreateUserRequest request);
 
 }
