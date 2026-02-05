@@ -18,6 +18,8 @@ public interface IUserMapper {
   @Mapping(target = "organizationCodes", source = "organizations")
   UserDTO.UserResponse toUserResponse(User user);
 
+  UserDTO.UserSummaryResponse toUserSummaryResponse(User user);
+
   @Mapping(target = "organizationCodes", source = "organizations")
   UserDTO.LoginResponse toLoginResponse(User user);
 

@@ -62,10 +62,15 @@ public class AdminController {
     }
 
     @GetMapping("/organizations/{id}")
-    @PageableAsQueryParam
     @Operation(summary = "Buscar organização cadastrado por id")
     public OrganizationDTO.OrganizationResponse findByOrganizationId(@PathVariable Long id) {
         return adminService.findByOrganizationId(id);
+    }
+
+    @PutMapping("/organizations/{id}")
+    @Operation(summary = "Editar organização cadastrado por id")
+    public OrganizationDTO.OrganizationResponse updateByOrganizationId(@PathVariable Long id, @RequestBody OrganizationDTO.UpdateOrganizationRequest request) {
+        return adminService.updateByOrganizationId(id, request);
     }
 
     @PostMapping("/users-with-organization/{orgCode}")
@@ -89,12 +94,12 @@ public class AdminController {
 
     @GetMapping("/users")
     @PageableAsQueryParam
-    @Operation(summary = "Lista todos os usuários cadastrados")
-    public PageResponse<UserDTO.UserResponse> listAllUsers(
+    @Operation(summary = "Lista usuários com filtros de nome e email")
+    public PageResponse<UserDTO.UserSummaryResponse> listAllUsers(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String email,
             @Parameter(hidden = true) Pageable pageable) {
-        return adminService.listAllUsers(name, email, pageable);
+        return adminService.listAllSummary(name, email, pageable);
     }
 
     @GetMapping("/users/{id}")

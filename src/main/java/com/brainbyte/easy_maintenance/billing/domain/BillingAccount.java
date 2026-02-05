@@ -1,10 +1,9 @@
-package com.brainbyte.easy_maintenance.org_users.domain;
+package com.brainbyte.easy_maintenance.billing.domain;
 
+import com.brainbyte.easy_maintenance.billing.domain.enums.BillingStatus;
+import com.brainbyte.easy_maintenance.org_users.domain.User;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -13,20 +12,24 @@ import java.time.Instant;
 @Data
 @Entity
 @Builder
-@Table(name = "organizations")
 @NoArgsConstructor
 @AllArgsConstructor
-public class Organization {
+@Table(name = "billing_accounts")
+public class BillingAccount {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String code;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    private User user;
 
-    @Column(nullable = false)
-    private String name;
+    @Column(name = "billing_email", length = 160)
+    private String billingEmail;
+
+    @Column(length = 40)
+    private String doc;
 
     @Column(length = 160)
     private String street;
@@ -50,10 +53,13 @@ public class Organization {
     private String zipCode;
 
     @Column(length = 60)
-    private String country;
+    @Builder.Default
+    private String country = "BR";
 
-    @Column(length = 40)
-    private String doc;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private BillingStatus status = BillingStatus.ACTIVE;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -62,5 +68,4 @@ public class Organization {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
-
 }

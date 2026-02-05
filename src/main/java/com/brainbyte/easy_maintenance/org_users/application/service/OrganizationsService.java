@@ -65,7 +65,6 @@ public class OrganizationsService {
               organizationResponse.id(),
               organizationResponse.code(),
               organizationResponse.name(),
-              organizationResponse.plan(),
               organizationResponse.city(),
               organizationResponse.street(),
               organizationResponse.number(),
@@ -89,9 +88,16 @@ public class OrganizationsService {
             .orElseThrow(() -> new NotFoundException(String.format("Organization with id %s not found", id)));
 
     organization.setName(request.name());
-    organization.setPlan(request.plan());
     organization.setCity(request.city());
+    organization.setStreet(request.street());
+    organization.setNumber(request.number());
+    organization.setComplement(request.complement());
+    organization.setNeighborhood(request.neighborhood());
+    organization.setState(request.state());
+    organization.setZipCode(request.zipCode());
+    organization.setCountry(request.country());
     organization.setDoc(request.doc());
+
     organization.setUpdatedAt(Instant.now());
 
     var organizationSaved = repository.save(organization);

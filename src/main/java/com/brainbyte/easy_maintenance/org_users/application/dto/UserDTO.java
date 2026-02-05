@@ -33,7 +33,15 @@ public final class UserDTO {
 
   public record UserResponse(
           Long id,
-          List<String> organizationCodes,
+          String email,
+          String name,
+          Role role,
+          Status status,
+          List<String> organizationCodes
+  ) {}
+
+  public record UserSummaryResponse(
+          Long id,
           String email,
           String name,
           Role role,
@@ -49,7 +57,7 @@ public final class UserDTO {
 
   public record LoginResponse(
           Long id,
-          java.util.List<String> organizationCodes,
+          List<String> organizationCodes,
           String email,
           String name,
           Role role,

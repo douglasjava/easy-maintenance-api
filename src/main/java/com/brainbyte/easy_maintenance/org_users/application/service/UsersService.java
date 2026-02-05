@@ -142,6 +142,20 @@ public class UsersService {
         return PageResponse.of(page);
     }
 
+    public PageResponse<UserDTO.UserSummaryResponse> listAllSummary(String name, String email, Pageable pageable) {
+        log.info("Listing all users summary with filters");
+
+        var spec = Specification.allOf(
+                UserSpecifications.withNameLike(name),
+                UserSpecifications.withEmailLike(email)
+        );
+
+        Page<UserDTO.UserSummaryResponse> page =
+                repository.findAll(spec, pageable).map(IUserMapper.INSTANCE::toUserSummaryResponse);
+
+        return PageResponse.of(page);
+    }
+
     public PageResponse<UserDTO.UserResponse> listAll(String orgId, Pageable pageable) {
 
         log.info("Listing all users by organization id: {}", orgId);

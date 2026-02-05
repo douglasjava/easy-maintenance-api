@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.admin.application.service;
 
 import com.brainbyte.easy_maintenance.admin.application.dto.AdminMetricsResponse;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.OrganizationSubscriptionRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.AccessAdminException;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
@@ -17,9 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -30,11 +29,12 @@ public class AdminService {
     @Value("${bootstrap.admin.token}")
     private String adminToken;
 
-    public final UsersService usersService;
-    public final OrganizationsService organizationsService;
+    private final UsersService usersService;
+    private final OrganizationsService organizationsService;
     private final FirstAccessTokenService firstAccessService;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
+    private final OrganizationSubscriptionRepository subscriptionRepository;
 
     public OrganizationDTO.OrganizationResponse createOrganization(OrganizationDTO.CreateOrganizationRequest request) {
 
@@ -72,12 +72,16 @@ public class AdminService {
         return organizationsService.findById(id);
     }
 
+    public OrganizationDTO.OrganizationResponse updateByOrganizationId(Long id, OrganizationDTO.UpdateOrganizationRequest request) {
+        return organizationsService.update(id, request);
+    }
+
     public List<OrganizationDTO.OrganizationResponse> listAllOrganizationByIdUser(Long idUser) {
         return usersService.listUserOrganizations(idUser);
     }
 
-    public PageResponse<UserDTO.UserResponse> listAllUsers(String name, String email, Pageable pageable) {
-        return usersService.listAll(name, email, pageable);
+    public PageResponse<UserDTO.UserSummaryResponse> listAllSummary(String name, String email, Pageable pageable) {
+        return usersService.listAllSummary(name, email, pageable);
     }
 
     public UserDTO.UserResponse findByUserId(Long id) {
@@ -93,11 +97,13 @@ public class AdminService {
         
         long totalOrganizations = organizationRepository.count();
         long totalUsers = userRepository.count();
-        
-        Map<Plan, Long> organizationsByPlan = Arrays.stream(Plan.values())
+
+        var activeSubscriptions = subscriptionRepository.countByPlanName();
+
+        var organizationsByPlan = activeSubscriptions.stream()
                 .collect(Collectors.toMap(
-                        plan -> plan,
-                        organizationRepository::countByPlan
+                        row -> Plan.from( (String) row[0] ),
+                        row -> (Long) row[1]
                 ));
 
         return new AdminMetricsResponse(totalOrganizations, totalUsers, organizationsByPlan);
