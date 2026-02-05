@@ -26,7 +26,7 @@ public class TenantFilter extends OncePerRequestFilter {
           "/swagger-ui",
           "/v3/api-docs",
           "/webjars",
-          "/actuator",
+          "/actuator/",
           "/auth/login",
           "/private/admin",
           "change-password",
@@ -39,7 +39,11 @@ public class TenantFilter extends OncePerRequestFilter {
   // endpoints fixos (ex.: auth, org register)
   private static final Set<String> BYPASS_EXACT = Set.of(
           "POST /api/v1/organizations",
-          "POST /api/v1/auth/login"
+          "POST /api/v1/auth/login",
+          "GET /actuator",
+          "GET /actuator/prometheus",
+          "GET /actuator/health",
+          "GET /actuator/info"
   );
 
   private final HandlerExceptionResolver resolver;

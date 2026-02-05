@@ -41,7 +41,7 @@ public class SecurityConfig {
     @Bean
     @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        // Scope this chain only to application/resource endpoints (correct base path) and actuator
+        // Scope this chain only to application/resource endpoints and actuator
         http.securityMatcher("/easy-maintenance/**", "/actuator/**");
 
         http
@@ -49,7 +49,8 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/easy-maintenance/api/v1/auth/login", "/easy-maintenance/api/v1/auth/change-password", "/actuator/**").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/easy-maintenance/api/v1/auth/login", "/easy-maintenance/api/v1/auth/change-password").permitAll()
                         .requestMatchers("/easy-maintenance/api/v1/private/admin/**").permitAll()
                         .requestMatchers("/easy-maintenance/api/v1/auth/forgot-password").permitAll()
                         .requestMatchers("/easy-maintenance/api/v1/auth/reset-password").permitAll()

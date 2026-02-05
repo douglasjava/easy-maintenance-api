@@ -118,19 +118,20 @@ public class GlobalExceptionHandler {
 
         Map<String, Object> props = body.getProperties();
 
-        assert props != null;
-        if (!props.containsKey("timestamp")) {
-            body.setProperty("timestamp", OffsetDateTime.now().toString());
-        }
+        if(props != null) {
+            if (!props.containsKey("timestamp")) {
+                body.setProperty("timestamp", OffsetDateTime.now().toString());
+            }
 
-        if (request != null && !props.containsKey("method")) {
-            body.setProperty("method", request.getMethod());
-        }
+            if (request != null && !props.containsKey("method")) {
+                body.setProperty("method", request.getMethod());
+            }
 
-        if (request != null && !props.containsKey("requestId")) {
-            String rid = request.getHeader("X-Request-Id");
-            if (rid != null && !rid.isBlank()) {
-                body.setProperty("requestId", rid);
+            if (request != null && !props.containsKey("requestId")) {
+                String rid = request.getHeader("X-Request-Id");
+                if (rid != null && !rid.isBlank()) {
+                    body.setProperty("requestId", rid);
+                }
             }
         }
 

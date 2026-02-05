@@ -19,6 +19,9 @@ import com.brainbyte.easy_maintenance.commons.exceptions.TenantException;
 import com.brainbyte.easy_maintenance.commons.helper.NormalizerUtil;
 import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Status;
+import com.brainbyte.easy_maintenance.infrastructure.observability.annotation.CountedBusiness;
+import com.brainbyte.easy_maintenance.infrastructure.observability.annotation.TimedBusiness;
+import com.brainbyte.easy_maintenance.infrastructure.observability.service.BusinessMetricsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,11 +45,14 @@ public class AiBootstrapService {
     private final ItemTypesRepository itemTypesRepository;
     private final NormRepository normRepository;
     private final MaintenanceItemRepository maintenanceItemRepository;
+    private final BusinessMetricsService businessMetricsService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final String TEMPLATE_KEY = "ONBOARDING_BOOTSTRAP";
 
+    @TimedBusiness("ai.request.duration")
     public AiBootstrapPreviewResponse preview(AiBootstrapPreviewRequest request) {
+        businessMetricsService.counter("ai.requests");
         log.info("Iniciando AiBootstrapPreviewRequest {}", request);
 
         String dbCompanyType = request.getCompanyType().getDbValue();
@@ -88,6 +94,7 @@ public class AiBootstrapService {
     }
 
     @Transactional
+    @CountedBusiness("items.created")
     public AiBootstrapApplyResponse apply(AiBootstrapApplyRequest request) {
         log.info("Applying AI Bootstrap for {} items", request.getItems().size());
         String organizationCode = TenantContext.get().orElseThrow(() -> new TenantException(HttpStatus.FORBIDDEN, "Item does not belong to tenant"));

@@ -10,6 +10,7 @@ import com.brainbyte.easy_maintenance.billing.mapper.IBillingMapper;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
+import com.brainbyte.easy_maintenance.infrastructure.observability.service.BusinessMetricsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class SubscriptionService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final BillingPlanRepository planRepository;
+    private final BusinessMetricsService businessMetricsService;
 
     public OrganizationSubscriptionDTO.SubscriptionResponse findByOrganizationCode(String orgCode) {
         return repository.findByOrganizationCode(orgCode)
@@ -56,6 +58,11 @@ public class SubscriptionService {
         subscription.setCurrentPeriodEnd(request.currentPeriodEnd());
 
         var saved = repository.save(subscription);
+
+        businessMetricsService.counter("billing.subscription.created", "plan", request.planCode());
+        if (request.status() == SubscriptionStatus.CANCELED) {
+            businessMetricsService.counter("billing.subscription.canceled", "plan", request.planCode());
+        }
 
         return IBillingMapper.INSTANCE.toSubscriptionResponse(saved);
     }

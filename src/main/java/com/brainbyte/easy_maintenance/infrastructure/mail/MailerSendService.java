@@ -3,6 +3,7 @@ package com.brainbyte.easy_maintenance.infrastructure.mail;
 import com.brainbyte.easy_maintenance.commons.exceptions.InternalErrorException;
 import com.brainbyte.easy_maintenance.commons.properties.MailerSendProperties;
 import com.brainbyte.easy_maintenance.infrastructure.mail.dto.MailerSendEmailRequest;
+import com.brainbyte.easy_maintenance.infrastructure.observability.service.BusinessMetricsService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatusCode;
@@ -18,10 +19,14 @@ public class MailerSendService {
 
     private final WebClient mailerSendWebClient;
     private final MailerSendProperties mailerSendProperties;
+    private final BusinessMetricsService businessMetricsService;
 
-    public MailerSendService(@Qualifier("mailerSendWebClient") WebClient mailerSendWebClient, MailerSendProperties mailerSendProperties) {
+    public MailerSendService(@Qualifier("mailerSendWebClient") WebClient mailerSendWebClient, 
+                            MailerSendProperties mailerSendProperties,
+                            BusinessMetricsService businessMetricsService) {
         this.mailerSendWebClient = mailerSendWebClient;
         this.mailerSendProperties = mailerSendProperties;
+        this.businessMetricsService = businessMetricsService;
     }
 
     public void sendEmail(String toEmail, String toName, String subject, String text, String html) {
@@ -52,7 +57,9 @@ public class MailerSendService {
                                     return Mono.error(new InternalErrorException(String.format("MailerSend email send failed: HTTP %s - error %s", resp.statusCode(), body)));
                                 })
                 )
-                .toBodilessEntity().subscribe();
+                .toBodilessEntity()
+                .doOnSuccess(entity -> businessMetricsService.counter("email.sent"))
+                .subscribe();
 
     }
 }
