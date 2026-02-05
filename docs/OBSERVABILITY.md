@@ -20,7 +20,7 @@ As métricas estão configuradas com o prefixo `easy_` e a tag global `applicati
 
 Configurações principais em `application.properties`:
 ```properties
-management.endpoints.web.exposure.include=health,metrics,prometheus,info
+management.endpoints.web.exposure.include=health,info,prometheus,metrics
 management.metrics.tags.application=easy-maintenance
 ```
 
