@@ -1,4 +1,4 @@
-INSERT INTO easy_maintenance.billing_plans
+INSERT INTO billing_plans
 (code, name, currency, billing_cycle, price_cents, features_json, status)
 VALUES ('FREE',
         'Free',
