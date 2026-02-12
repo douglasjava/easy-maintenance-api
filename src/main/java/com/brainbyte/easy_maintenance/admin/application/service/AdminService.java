@@ -76,7 +76,7 @@ public class AdminService {
         return organizationsService.update(id, request);
     }
 
-    public List<OrganizationDTO.OrganizationResponse> listAllOrganizationByIdUser(Long idUser) {
+    public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listAllOrganizationByIdUser(Long idUser) {
         return usersService.listUserOrganizations(idUser);
     }
 

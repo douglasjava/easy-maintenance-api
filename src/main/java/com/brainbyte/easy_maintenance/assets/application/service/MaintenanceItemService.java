@@ -17,6 +17,8 @@ import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.commons.exceptions.TenantException;
+import com.brainbyte.easy_maintenance.infrastructure.audit.AuditAction;
+import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
@@ -45,8 +47,8 @@ public class MaintenanceItemService {
     private final MaintenanceRepository maintenanceRepository;
     private final MaintenanceItemRepository repository;
     private final ServiceBase serviceBase;
-    private final ObjectMapper objectMapper;
     private final NormService normService;
+    private final AuditService auditService;
 
     public MaintenanceItem findById(Long itemId) {
         log.info("findById: {}", itemId);
@@ -76,6 +78,8 @@ public class MaintenanceItemService {
         maintenanceItem.setUpdatedAt(now);
 
         repository.save(maintenanceItem);
+
+        auditService.logCreate("MAINTENANCE_ITEM", maintenanceItem.getId().toString(), request);
 
         String normName = resolveNormName(maintenanceItem.getNormId());
 
@@ -123,6 +127,8 @@ public class MaintenanceItemService {
         validateTenant(orgId, maintenanceItem);
 
         repository.deleteById(itemId);
+
+        auditService.logDelete("MAINTENANCE_ITEM", itemId.toString(), maintenanceItem);
     }
 
     public ItemResponse update(String orgId, Long itemId, CreateItemRequest request) {
@@ -150,6 +156,8 @@ public class MaintenanceItemService {
         maintenanceItem.setUpdatedAt(Instant.now());
 
         MaintenanceItem updatedItem = repository.save(maintenanceItem);
+
+        auditService.logUpdate("MAINTENANCE_ITEM", updatedItem.getId().toString(), request);
 
         return  IMaintenanceItemMapper.INSTANCE.toItemResponse(updatedItem, resolveNormName(updatedItem.getNormId()));
 

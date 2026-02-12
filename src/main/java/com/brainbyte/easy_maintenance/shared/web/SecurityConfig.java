@@ -55,6 +55,8 @@ public class SecurityConfig {
                         .requestMatchers("/easy-maintenance/api/v1/auth/forgot-password").permitAll()
                         .requestMatchers("/easy-maintenance/api/v1/auth/reset-password").permitAll()
                         .requestMatchers("/easy-maintenance/api/v1/auth/me/organizations/**").permitAll()
+                        .requestMatchers("/easy-maintenance/api/v1/push/tokens", "/easy-maintenance/api/v1/push/tokens/disable").permitAll()
+                        .requestMatchers("/easy-maintenance/api/v1/landing/leads").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

@@ -33,13 +33,17 @@ public class TenantFilter extends OncePerRequestFilter {
           "forgot-password",
           "reset-password",
           "/me/organizations/",
-          "/organizations/"
+          "/organizations/",
+          "/user/"
   );
 
   // endpoints fixos (ex.: auth, org register)
   private static final Set<String> BYPASS_EXACT = Set.of(
-          "POST /api/v1/organizations",
           "POST /api/v1/auth/login",
+          "POST /easy-maintenance/api/v1/organizations",
+          "POST /easy-maintenance/api/v1/push/tokens",
+          "PATH /easy-maintenance/api/v1/push/tokens/disable",
+          "POST /easy-maintenance/api/v1/landing/leads",
           "GET /actuator",
           "GET /actuator/prometheus",
           "GET /actuator/health",

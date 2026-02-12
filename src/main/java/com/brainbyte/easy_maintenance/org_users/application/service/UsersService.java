@@ -1,5 +1,7 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
+import com.brainbyte.easy_maintenance.billing.application.dto.OrganizationSubscriptionDTO;
+import com.brainbyte.easy_maintenance.billing.application.service.SubscriptionService;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
@@ -37,6 +39,7 @@ public class UsersService {
     public static final String USER_NOT_FOUND_MESSAGE = "Usuário com id %s não encontrado";
 
     private final OrganizationsService organizationsService;
+    private final SubscriptionService subscriptionService;
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -267,7 +270,7 @@ public class UsersService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrganizationDTO.OrganizationResponse> listUserOrganizations(Long userId) {
+    public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listUserOrganizations(Long userId) {
         log.info("Listing all organizations for user id: {}", userId);
         var user = repository.findByIdWithOrganization(userId)
                 .orElseThrow(() -> new NotFoundException(String.format(USER_NOT_FOUND_MESSAGE, userId)));
@@ -276,7 +279,17 @@ public class UsersService {
                 .map(UserOrganization::getOrganizationCode)
                 .toList();
 
-        return organizationsService.listAllByCodes(codes);
+        return organizationsService.listAllByCodes(codes).stream()
+                .map(org -> {
+                    OrganizationSubscriptionDTO.SubscriptionResponse subscription = null;
+                    try {
+                        subscription = subscriptionService.findByOrganizationCode(org.code());
+                    } catch (NotFoundException e) {
+                        log.warn("Subscription not found for organization {}", org.code());
+                    }
+                    return new OrganizationDTO.OrganizationWithSubscriptionResponse(org, subscription);
+                })
+                .toList();
     }
 
     private UserDTO.UserResponse updateUserDetails(UserDTO.UpdateUserRequest request, User user) {

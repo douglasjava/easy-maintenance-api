@@ -58,10 +58,8 @@ public class AuthController {
 
     @GetMapping("/me/organizations/{userId}")
     @Operation(summary = "Lista todas as organizações associadas ao usuário")
-    public List<OrganizationDTO.OrganizationResponse> listAllOrganizationsByMe(@PathVariable Long userId) {
+    public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listAllOrganizationsByMe(@PathVariable Long userId) {
         return usersService.listUserOrganizations(userId);
     }
-
-
 
 }

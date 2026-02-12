@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.assets.domain;
 
+import com.brainbyte.easy_maintenance.assets.domain.enums.MaintenanceType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,17 +28,18 @@ public class Maintenance {
   @Column(name = "performed_at")
   private LocalDate performedAt;
 
-  @Column(name = "issued_by")
-  private String issuedBy;
+  @Enumerated(EnumType.STRING)
+  @Column(name = "type")
+  private MaintenanceType type;
 
-  @Column(name = "certificate_number")
-  private String certificateNumber;
+  @Column(name = "performed_by")
+  private String performedBy;
 
-  @Column(name = "certificate_valid_until")
-  private LocalDate certificateValidUntil;
+  @Column(name = "cost_cents")
+  private Integer costCents;
 
-  @Column(name = "receipt_url")
-  private String receiptUrl;
+  @Column(name = "next_due_at")
+  private LocalDate nextDueAt;
 
   @Column(name = "created_at")
   private Instant createdAt;

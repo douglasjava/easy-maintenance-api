@@ -10,12 +10,15 @@ import com.brainbyte.easy_maintenance.billing.mapper.IBillingMapper;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
+import com.brainbyte.easy_maintenance.infrastructure.audit.AuditAction;
+import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
 import com.brainbyte.easy_maintenance.infrastructure.observability.service.BusinessMetricsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,6 +32,7 @@ public class SubscriptionService {
     private final UserRepository userRepository;
     private final BillingPlanRepository planRepository;
     private final BusinessMetricsService businessMetricsService;
+    private final AuditService auditService;
 
     public OrganizationSubscriptionDTO.SubscriptionResponse findByOrganizationCode(String orgCode) {
         return repository.findByOrganizationCode(orgCode)
@@ -38,9 +42,11 @@ public class SubscriptionService {
 
     @Transactional
     public OrganizationSubscriptionDTO.SubscriptionResponse updateOrCreate(String orgCode, OrganizationSubscriptionDTO.UpdateSubscriptionRequest request) {
+        log.info("Criando ou atualizando um assinatura {}", orgCode);
+
         var subscription = repository.findByOrganizationCode(orgCode)
                 .orElseGet(() -> {
-                    var org = organizationRepository.findAllByCodeIn(java.util.Collections.singletonList(orgCode)).stream().findFirst()
+                    var org = organizationRepository.findAllByCodeIn(Collections.singletonList(orgCode)).stream().findFirst()
                             .orElseThrow(() -> new NotFoundException("Organization not found: " + orgCode));
                     return OrganizationSubscription.builder().organization(org).build();
                 });
@@ -58,6 +64,8 @@ public class SubscriptionService {
         subscription.setCurrentPeriodEnd(request.currentPeriodEnd());
 
         var saved = repository.save(subscription);
+
+        auditService.log("SUBSCRIPTION", saved.getId().toString(), AuditAction.UPDATE, request);
 
         businessMetricsService.counter("billing.subscription.created", "plan", request.planCode());
         if (request.status() == SubscriptionStatus.CANCELED) {

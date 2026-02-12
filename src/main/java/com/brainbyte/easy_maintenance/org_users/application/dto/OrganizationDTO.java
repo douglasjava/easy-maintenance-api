@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.org_users.application.dto;
 
+import com.brainbyte.easy_maintenance.billing.application.dto.OrganizationSubscriptionDTO;
 import com.brainbyte.easy_maintenance.commons.validation.Doc;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Role;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Status;
@@ -53,8 +54,12 @@ public final class OrganizationDTO {
             String country,
             String doc,
             ResponsibleUser responsibleUser
-    ) {
-    }
+    ) {}
+
+    public record OrganizationWithSubscriptionResponse(
+            OrganizationResponse organization,
+            OrganizationSubscriptionDTO.SubscriptionResponse subscription
+    ) {}
 
     public record ResponsibleUser(
             Long id,

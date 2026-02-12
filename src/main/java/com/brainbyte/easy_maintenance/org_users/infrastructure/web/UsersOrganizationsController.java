@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RequestMapping("/easy-maintenance/api/v1/organizations")
 @Tag(name = "Organizações - Usuários", description = "Usuários vinculados a uma organização")
-public class UsersController {
+public class UsersOrganizationsController {
 
     private final UsersService service;
 

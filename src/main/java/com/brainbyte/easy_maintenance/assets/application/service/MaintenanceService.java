@@ -1,15 +1,20 @@
 package com.brainbyte.easy_maintenance.assets.application.service;
 
+import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceAttachmentSimpleResponse;
 import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceResponse;
 import com.brainbyte.easy_maintenance.assets.application.dto.RegisterMaintenanceRequest;
 import com.brainbyte.easy_maintenance.assets.component.ServiceBase;
 import com.brainbyte.easy_maintenance.assets.domain.Maintenance;
+import com.brainbyte.easy_maintenance.assets.domain.MaintenanceAttachment;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
+import com.brainbyte.easy_maintenance.assets.domain.enums.MaintenanceType;
 import com.brainbyte.easy_maintenance.assets.domain.rules.StatusCalculator;
+import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceAttachmentRepository;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceRepository;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.specification.MaintenanceSpecs;
 import com.brainbyte.easy_maintenance.assets.mapper.IMaintenanceMapper;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
+import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.commons.exceptions.TenantException;
 import jakarta.transaction.Transactional;
@@ -24,6 +29,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -32,6 +38,7 @@ public class MaintenanceService {
 
     private final MaintenanceRepository maintenanceRepository;
     private final MaintenanceItemService maintenanceItemService;
+    private final MaintenanceAttachmentRepository attachmentRepository;
     private final ServiceBase serviceBase;
 
     @Transactional
@@ -62,7 +69,7 @@ public class MaintenanceService {
     }
 
 
-    public Page<MaintenanceResponse> listByItem(String orgId, Long itemId, LocalDate performedAt, String issuedBy, Pageable pageable) {
+    public Page<MaintenanceResponse> listByItem(String orgId, Long itemId, LocalDate performedAt, MaintenanceType type, String performedBy, Pageable pageable) {
 
         if(itemId != null) {
 
@@ -71,11 +78,26 @@ public class MaintenanceService {
             validateOrganization(orgId, item);
         }
 
-        Specification<Maintenance> spec = MaintenanceSpecs.filter(orgId, itemId, performedAt, issuedBy);
+        Specification<Maintenance> spec = MaintenanceSpecs.filter(orgId, itemId, performedAt, type, performedBy);
 
         return maintenanceRepository.findAll(spec, pageable)
                 .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse);
 
+    }
+
+    public MaintenanceResponse findById(String orgId, Long maintenanceId) {
+        log.info("Finding maintenance {} for organization {}", maintenanceId, orgId);
+
+        Maintenance maintenance = maintenanceRepository.findById(maintenanceId)
+                .orElseThrow(() -> new NotFoundException(String.format("Manutenção não encontrada: %s", maintenanceId)));
+
+        MaintenanceItem item = maintenanceItemService.findById(maintenance.getItemId());
+        validateOrganization(orgId, item);
+
+        List<MaintenanceAttachment> attachments = attachmentRepository.findByMaintenanceId(maintenanceId);
+        List<MaintenanceAttachmentSimpleResponse> attachmentResponses = IMaintenanceMapper.INSTANCE.toAttachmentSimpleResponseList(attachments);
+
+        return IMaintenanceMapper.INSTANCE.toMaintenanceResponse(maintenance, attachmentResponses);
     }
 
 

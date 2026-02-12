@@ -177,6 +177,21 @@ public class GlobalExceptionHandler {
 
     }
 
+    @ExceptionHandler(S3Exception.class)
+    public ProblemDetail handleS3Exception(S3Exception ex, HttpServletRequest request) {
+        log.error("Failed upload or download S3: {}", ex.getMessage());
+
+        return ProblemDetails.of(
+                HttpStatus.BAD_GATEWAY,
+                ProblemType.UNEXPECTED,
+                ex.getMessage(),
+                request
+        );
+
+    }
+
+
+
 
     public record FieldViolation(String field, String message) {
     }

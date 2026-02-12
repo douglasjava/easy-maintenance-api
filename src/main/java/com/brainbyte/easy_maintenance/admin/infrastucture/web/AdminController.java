@@ -88,7 +88,7 @@ public class AdminController {
     @GetMapping("/users/{idUser}/organizations")
     @PageableAsQueryParam
     @Operation(summary = "Buscar organização cadastrado por id")
-    public List<OrganizationDTO.OrganizationResponse> listAllOrganizationByIdUser(@PathVariable Long idUser) {
+    public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listAllOrganizationByIdUser(@PathVariable Long idUser) {
         return adminService.listAllOrganizationByIdUser(idUser);
     }
 

@@ -14,23 +14,23 @@ import java.time.ZoneId;
 @Configuration
 public class JacksonConfig {
 
-  @Bean
-  public ObjectMapper objectMapper() {
+    @Bean
+    public ObjectMapper objectMapper() {
 
-    ObjectMapper objectMapper = new ObjectMapper();
-    objectMapper.registerModule(new JavaTimeModule());
-    objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-    objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-    objectMapper.findAndRegisterModules();
-    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-    objectMapper.setDateFormat(new StdDateFormat().withColonInTimeZone(true));
-    return objectMapper;
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        objectMapper.findAndRegisterModules();
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        objectMapper.setDateFormat(new StdDateFormat().withColonInTimeZone(true));
+        return objectMapper;
 
-  }
+    }
 
-  @Bean
-  public ZoneId appZoneId() {
-    return ZoneId.of("UTC");
-  }
+    @Bean
+    public ZoneId appZoneId() {
+        return ZoneId.of("UTC");
+    }
 
 }
