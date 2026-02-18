@@ -52,6 +52,7 @@ public class BillingAccountService {
                 });
 
         if (request.billingEmail() != null) account.setBillingEmail(request.billingEmail());
+        if (request.paymentMethod() != null) account.setPaymentMethod(request.paymentMethod());
         if (request.doc() != null) account.setDoc(request.doc());
         if (request.street() != null) account.setStreet(request.street());
         if (request.number() != null) account.setNumber(request.number());

@@ -57,10 +57,10 @@ public class PaymentService {
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
         Invoice invoice = invoiceRepository.findById(request.invoiceId())
-                .orElseThrow(() -> new NotFoundException("Invoice not found: " + request.invoiceId()));
+                .orElseThrow(() -> new NotFoundException("Invoice não encontrado: " + request.invoiceId()));
 
         User payer = userRepository.findById(request.payerUserId())
-                .orElseThrow(() -> new NotFoundException("User not found: " + request.payerUserId()));
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado: " + request.payerUserId()));
 
         PaymentProviderStrategy strategy = findStrategy(request.provider());
 

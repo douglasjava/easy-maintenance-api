@@ -86,7 +86,8 @@ public class AdminBillingController {
 
     @PutMapping("/users/{userId}/account")
     @Operation(summary = "Atualiza ou cria a conta de faturamento de um usuário")
-    public BillingAccountDTO.BillingAccountResponse updateAccount(@PathVariable Long userId, @Valid @RequestBody BillingAccountDTO.UpdateBillingAccountRequest request) {
+    public BillingAccountDTO.BillingAccountResponse updateAccount(@PathVariable Long userId,
+                                                                  @Valid @RequestBody BillingAccountDTO.UpdateBillingAccountRequest request) {
         
         return accountService.updateOrCreate(userId, request);
     }

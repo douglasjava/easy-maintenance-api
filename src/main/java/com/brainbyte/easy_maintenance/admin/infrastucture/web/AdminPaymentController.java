@@ -1,6 +1,5 @@
 package com.brainbyte.easy_maintenance.admin.infrastucture.web;
 
-import com.brainbyte.easy_maintenance.billing.application.dto.CreatePaymentRequest;
 import com.brainbyte.easy_maintenance.billing.application.dto.PaymentResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.PaymentService;
 import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentProvider;
@@ -10,7 +9,6 @@ import com.brainbyte.easy_maintenance.shared.web.openapi.PageableAsQueryParam;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -40,9 +38,4 @@ public class AdminPaymentController {
         return paymentService.listPayments(userId, startDate, endDate, status, provider, pageable);
     }
 
-    @PostMapping
-    @Operation(summary = "Cria um novo pagamento")
-    public PaymentResponse createPayment(@Valid @RequestBody CreatePaymentRequest request) {
-        return paymentService.createPayment(request);
-    }
 }

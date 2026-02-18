@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.billing.domain;
 
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingStatus;
+import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentMethodType;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -27,6 +28,10 @@ public class BillingAccount {
 
     @Column(name = "billing_email", length = 160)
     private String billingEmail;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method")
+    private PaymentMethodType paymentMethod;
 
     @Column(length = 40)
     private String doc;
