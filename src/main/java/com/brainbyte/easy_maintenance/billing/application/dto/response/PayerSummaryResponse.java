@@ -5,5 +5,6 @@ public record PayerSummaryResponse(
         String name,
         String email,
         Long orgCount,
-        Long totalCents
+        Long organizationSubscriptionPriceCents,
+        Long userSubscriptionPriceCents
 ) {}

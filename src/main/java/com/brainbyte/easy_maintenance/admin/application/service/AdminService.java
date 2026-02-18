@@ -80,8 +80,8 @@ public class AdminService {
         return usersService.listUserOrganizations(idUser);
     }
 
-    public PageResponse<UserDTO.UserSummaryResponse> listAllSummary(String name, String email, Pageable pageable) {
-        return usersService.listAllSummary(name, email, pageable);
+    public PageResponse<UserDTO.UserResponse> listAllSummary(String name, String email, Pageable pageable) {
+        return usersService.listAll(name, email, pageable);
     }
 
     public UserDTO.UserResponse findByUserId(Long id) {

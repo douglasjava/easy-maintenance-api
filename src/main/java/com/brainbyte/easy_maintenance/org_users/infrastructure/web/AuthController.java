@@ -56,10 +56,4 @@ public class AuthController {
         passwordResetService.resetPassword(request);
     }
 
-    @GetMapping("/me/organizations/{userId}")
-    @Operation(summary = "Lista todas as organizações associadas ao usuário")
-    public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listAllOrganizationsByMe(@PathVariable Long userId) {
-        return usersService.listUserOrganizations(userId);
-    }
-
 }

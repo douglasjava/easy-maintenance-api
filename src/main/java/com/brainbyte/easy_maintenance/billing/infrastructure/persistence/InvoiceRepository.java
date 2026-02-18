@@ -18,6 +18,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     Optional<Invoice> findByPayerIdAndPeriodStartAndPeriodEnd(Long payerUserId, LocalDate periodStart, LocalDate periodEnd);
 
+    @EntityGraph(attributePaths = {"items", "payer"})
     Optional<Invoice> findFirstByPayerIdAndStatusOrderByCreatedAtDesc(Long payerUserId, InvoiceStatus status);
 
     Page<Invoice> findAllByPayerId(Long payerUserId, Pageable pageable);

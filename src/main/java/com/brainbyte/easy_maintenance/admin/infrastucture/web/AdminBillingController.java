@@ -1,10 +1,7 @@
-package com.brainbyte.easy_maintenance.billing.infrastructure.web;
+package com.brainbyte.easy_maintenance.admin.infrastucture.web;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.*;
-import com.brainbyte.easy_maintenance.billing.application.service.BillingAccountService;
-import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanService;
-import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
-import com.brainbyte.easy_maintenance.billing.application.service.SubscriptionService;
+import com.brainbyte.easy_maintenance.billing.application.service.*;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
@@ -26,7 +23,8 @@ import java.util.List;
 public class AdminBillingController {
 
     private final BillingPlanService planService;
-    private final SubscriptionService subscriptionService;
+    private final OrganizationSubscriptionService organizationSubscriptionService;
+    private final UserSubscriptionService userSubscriptionService;
     private final BillingAccountService accountService;
     private final InvoiceService invoiceService;
 
@@ -53,16 +51,30 @@ public class AdminBillingController {
 
     @GetMapping("/organizations/{orgCode}/subscription")
     @Operation(summary = "Busca a assinatura de uma organização")
-    public OrganizationSubscriptionDTO.SubscriptionResponse getSubscription(@PathVariable String orgCode) {
+    public OrganizationSubscriptionDTO.SubscriptionResponse getOrgSubscription(@PathVariable String orgCode) {
         
-        return subscriptionService.findByOrganizationCode(orgCode);
+        return organizationSubscriptionService.findByOrganizationCode(orgCode);
     }
 
     @PutMapping("/organizations/{orgCode}/subscription")
     @Operation(summary = "Atualiza ou cria a assinatura de uma organização")
-    public OrganizationSubscriptionDTO.SubscriptionResponse updateSubscription(@PathVariable String orgCode, @Valid @RequestBody OrganizationSubscriptionDTO.UpdateSubscriptionRequest request) {
+    public OrganizationSubscriptionDTO.SubscriptionResponse updateOrgSubscription(@PathVariable String orgCode, @Valid @RequestBody OrganizationSubscriptionDTO.UpdateSubscriptionRequest request) {
         
-        return subscriptionService.updateOrCreate(orgCode, request);
+        return organizationSubscriptionService.updateOrCreate(orgCode, request);
+    }
+
+    @PutMapping("/user/{userId}/subscription")
+    @Operation(summary = "Atualiza ou cria a assinatura de um usuário")
+    public UserSubscriptionDTO.SubscriptionResponse updateUserSubscription(@PathVariable Long userId, @Valid @RequestBody UserSubscriptionDTO.UpdateSubscriptionRequest request) {
+
+        return userSubscriptionService.updateOrCreate(userId, request);
+    }
+
+    @GetMapping("/user/{userId}/subscription")
+    @Operation(summary = "Busca a assinatura de um usuário")
+    public UserSubscriptionDTO.SubscriptionResponse getUserSubscription(@PathVariable Long userId) {
+
+        return userSubscriptionService.findBySubscriptionUser(userId);
     }
 
     @GetMapping("/users/{userId}/account")
@@ -90,12 +102,11 @@ public class AdminBillingController {
 
     @GetMapping("/overview")
     @Operation(summary = "Visão geral do faturamento para administradores")
-    public BillingAdminDTO.BillingOverviewResponse getOverview() {
-        var counters = subscriptionService.getCounters();
-        var topPayers = accountService.getTopPayers();
-        var recentSubscriptions = subscriptionService.listSubscriptions(null, null, null, null);
-        
-        return new BillingAdminDTO.BillingOverviewResponse(counters, topPayers, recentSubscriptions);
+    public BillingAdminDTO.BillingOverviewResponse getOverview(Pageable pageable) {
+        var counters = organizationSubscriptionService.getCounters();
+        var payers = accountService.getPayersOverview(pageable);
+
+        return new BillingAdminDTO.BillingOverviewResponse(counters, payers);
     }
 
     @GetMapping("/subscriptions")
@@ -105,7 +116,7 @@ public class AdminBillingController {
             @RequestParam(required = false) String planCode,
             @RequestParam(required = false) Long payerUserId,
             @RequestParam(required = false) String queryNameOrCodeOrganization) {
-        return subscriptionService.listSubscriptions(status, planCode, payerUserId, queryNameOrCodeOrganization);
+        return organizationSubscriptionService.listSubscriptions(status, planCode, payerUserId, queryNameOrCodeOrganization);
     }
 
     @GetMapping("/invoices")

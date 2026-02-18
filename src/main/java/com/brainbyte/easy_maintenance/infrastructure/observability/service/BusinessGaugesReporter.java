@@ -20,8 +20,6 @@ public class BusinessGaugesReporter {
 
     @PostConstruct
     public void registerGauges() {
-        meterRegistry.gauge("easy_revenue.total", subscriptionRepository, 
-            repo -> repo.sumEstimatedMonthlyRevenue() != null ? repo.sumEstimatedMonthlyRevenue() / 100.0 : 0.0);
 
         meterRegistry.gauge("easy_active.subscriptions", subscriptionRepository,
                 OrganizationSubscriptionRepository::countTotalOrganizations);
@@ -31,5 +29,7 @@ public class BusinessGaugesReporter {
 
         meterRegistry.gauge("easy_users.active", userRepository,
                 CrudRepository::count);
+
     }
+
 }

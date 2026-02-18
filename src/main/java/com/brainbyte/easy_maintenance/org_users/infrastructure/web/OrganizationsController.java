@@ -1,9 +1,10 @@
 package com.brainbyte.easy_maintenance.org_users.infrastructure.web;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.OrganizationSubscriptionDTO;
-import com.brainbyte.easy_maintenance.billing.application.service.SubscriptionService;
+import com.brainbyte.easy_maintenance.billing.application.service.OrganizationSubscriptionService;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
+import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.CreateOrganizationRequest;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.OrganizationResponse;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.UpdateOrganizationRequest;
@@ -17,8 +18,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -27,7 +29,7 @@ import org.springframework.web.bind.annotation.*;
 public class OrganizationsController {
 
     private final OrganizationsService service;
-    private final SubscriptionService subscriptionService;
+    private final OrganizationSubscriptionService organizationSubscriptionService;
     private final UsersService usersService;
 
     @PostMapping
@@ -66,7 +68,7 @@ public class OrganizationsController {
     public OrganizationSubscriptionDTO.SubscriptionResponse updateSubscription(@PathVariable String orgCode,
                                    @Valid @RequestBody OrganizationSubscriptionDTO.UpdateSubscriptionRequest request) {
 
-        return subscriptionService.updateOrCreate(orgCode, request);
+        return organizationSubscriptionService.updateOrCreate(orgCode, request);
     }
 
     @PostMapping("/{orgCode}/users/{userId}")
@@ -79,6 +81,12 @@ public class OrganizationsController {
     @Operation(summary = "Remove uma organização de um usuário")
     public void removeOrganizationToUser(@PathVariable Long userId, @PathVariable String orgCode) {
         usersService.removeOrganization(userId, orgCode);
+    }
+
+    @GetMapping("/me/{userId}")
+    @Operation(summary = "Lista todas as organizações associadas ao usuário")
+    public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listAllOrganizationsByMe(@PathVariable Long userId) {
+        return usersService.listUserOrganizations(userId);
     }
 
 }

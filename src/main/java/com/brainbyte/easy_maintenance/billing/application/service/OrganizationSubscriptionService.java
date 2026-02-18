@@ -6,6 +6,7 @@ import com.brainbyte.easy_maintenance.billing.domain.OrganizationSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingPlanRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.OrganizationSubscriptionRepository;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.UserSubscriptionRepository;
 import com.brainbyte.easy_maintenance.billing.mapper.IBillingMapper;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
@@ -25,9 +26,10 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SubscriptionService {
+public class OrganizationSubscriptionService {
 
     private final OrganizationSubscriptionRepository repository;
+    private final UserSubscriptionRepository userSubscriptionRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final BillingPlanRepository planRepository;
@@ -84,10 +86,13 @@ public class SubscriptionService {
     }
 
     public BillingAdminDTO.BillingCounters getCounters() {
+        var totalPriceOrganization = repository.totalPriceOrganizationsActive();
+        var totalPriceUser = userSubscriptionRepository.totalPriceUsersActive();
+        var total = totalPriceOrganization + totalPriceUser;
         return new BillingAdminDTO.BillingCounters(
                 repository.countTotalOrganizations(),
                 repository.countTotalPayers(),
-                repository.sumEstimatedMonthlyRevenue()
+                total
         );
     }
 }

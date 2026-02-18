@@ -1,7 +1,7 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.OrganizationSubscriptionDTO;
-import com.brainbyte.easy_maintenance.billing.application.service.SubscriptionService;
+import com.brainbyte.easy_maintenance.billing.application.service.OrganizationSubscriptionService;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
@@ -39,7 +39,7 @@ public class UsersService {
     public static final String USER_NOT_FOUND_MESSAGE = "Usuário com id %s não encontrado";
 
     private final OrganizationsService organizationsService;
-    private final SubscriptionService subscriptionService;
+    private final OrganizationSubscriptionService organizationSubscriptionService;
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -255,6 +255,10 @@ public class UsersService {
         var user = repository.findById(firstAccessToken.getUserId())
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
 
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new NotFoundException("A nova senha não pode ser igual à senha atual");
+        }
+
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         user.setUpdatedAt(Instant.now());
         repository.save(user);
@@ -264,6 +268,10 @@ public class UsersService {
     }
 
     public void resetPassword(User user, String newPassword) {
+        if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
+            throw new NotFoundException("A nova senha não pode ser igual à senha atual");
+        }
+
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setUpdatedAt(Instant.now());
         repository.save(user);
@@ -283,7 +291,7 @@ public class UsersService {
                 .map(org -> {
                     OrganizationSubscriptionDTO.SubscriptionResponse subscription = null;
                     try {
-                        subscription = subscriptionService.findByOrganizationCode(org.code());
+                        subscription = organizationSubscriptionService.findByOrganizationCode(org.code());
                     } catch (NotFoundException e) {
                         log.warn("Subscription not found for organization {}", org.code());
                     }

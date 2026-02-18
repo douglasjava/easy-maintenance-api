@@ -2,14 +2,14 @@ package com.brainbyte.easy_maintenance.billing.application.dto;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.response.PayerSummaryResponse;
 
+import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import java.util.List;
 
 public class BillingAdminDTO {
 
     public record BillingOverviewResponse(
             BillingCounters counters,
-            List<PayerSummaryResponse> topPayers,
-            List<OrganizationSubscriptionDTO.SubscriptionResponse> subscriptions
+            PageResponse<PayerResponse> payers
     ) {}
 
     public record BillingCounters(
@@ -17,4 +17,43 @@ public class BillingAdminDTO {
             Long totalPayers,
             Long estimatedMonthlyRevenueCents
     ) {}
+
+    public record PayerResponse(
+            Long userId,
+            String name,
+            String email,
+            Long totalPrice,
+            Integer orgCount,
+            SubscriptionDetail userSubscription,
+            List<OrganizationDetail> organizations,
+            RevenueDetail revenue
+    ) {}
+
+    public record SubscriptionDetail(
+            String planCode,
+            String planName,
+            Long priceCents,
+            com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus status,
+            @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
+            java.time.Instant currentPeriodEnd
+    ) {}
+
+    public record OrganizationDetail(
+            Long organizationId,
+            String organizationCode,
+            String organizationName,
+            String planCode,
+            String planName,
+            Long priceCents,
+            com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus status,
+            @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
+            java.time.Instant currentPeriodEnd
+    ) {}
+
+    public record RevenueDetail(
+            Long userCents,
+            Long orgsCents,
+            Long totalCents
+    ) {}
+
 }

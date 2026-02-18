@@ -95,7 +95,7 @@ public class AdminController {
     @GetMapping("/users")
     @PageableAsQueryParam
     @Operation(summary = "Lista usuários com filtros de nome e email")
-    public PageResponse<UserDTO.UserSummaryResponse> listAllUsers(
+    public PageResponse<UserDTO.UserResponse> listAllUsers(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String email,
             @Parameter(hidden = true) Pageable pageable) {

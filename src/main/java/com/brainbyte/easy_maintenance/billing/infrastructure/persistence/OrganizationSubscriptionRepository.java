@@ -41,8 +41,8 @@ public interface OrganizationSubscriptionRepository extends JpaRepository<Organi
     @Query("SELECT COUNT(DISTINCT s.payer.id) FROM OrganizationSubscription s")
     Long countTotalPayers();
 
-    @Query("SELECT SUM(p.priceCents) FROM OrganizationSubscription s JOIN s.plan p WHERE s.status = com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus.ACTIVE")
-    Long sumEstimatedMonthlyRevenue();
+    @EntityGraph(attributePaths = {"organization", "plan"})
+    List<OrganizationSubscription> findAllByPayerIdIn(List<Long> payerIds);
 
     @Query("""
         SELECT p.name, COUNT(s)
@@ -51,5 +51,12 @@ public interface OrganizationSubscriptionRepository extends JpaRepository<Organi
         GROUP BY p.name
     """)
     List<Object[]> countByPlanName();
+
+    @Query(value = """
+        select sum(bp.price_cents) from organization_subscriptions os
+        inner join billing_plans bp on os.plan_code = bp.code
+        where os.status = "ACTIVE"
+    """, nativeQuery = true)
+    Long totalPriceOrganizationsActive();
 
 }

@@ -3,21 +3,18 @@ package com.brainbyte.easy_maintenance.billing.application.dto;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+
 import java.time.Instant;
 
-public class OrganizationSubscriptionDTO {
+public class UserSubscriptionDTO {
 
     public record SubscriptionResponse(
             Long id,
-            Long organizationId,
-            String organizationCode,
-            String organizationName,
-            Long payerUserId,
+            Long userId,
             String payerEmail,
-            String payerName,
             String planCode,
             String planName,
-            Integer priceCents,
+            Long priceCents,
             SubscriptionStatus status,
             Instant currentPeriodStart,
             Instant currentPeriodEnd,
@@ -29,7 +26,7 @@ public class OrganizationSubscriptionDTO {
     ) {}
 
     public record UpdateSubscriptionRequest(
-            @NotNull Long payerUserId,
+            @NotNull Long userId,
             @NotBlank String planCode,
             @NotNull SubscriptionStatus status,
             @NotNull Instant currentPeriodStart,

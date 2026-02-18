@@ -1,0 +1,38 @@
+package com.brainbyte.easy_maintenance.billing.infrastructure.persistence;
+
+import com.brainbyte.easy_maintenance.billing.domain.Payment;
+import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentProvider;
+import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.stereotype.Repository;
+
+import java.time.Instant;
+
+@Repository
+public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpecificationExecutor<Payment> {
+
+    static Specification<Payment> hasPayerUserId(Long payerUserId) {
+        return (root, query, cb) -> payerUserId == null ? null : cb.equal(root.get("payer").get("id"), payerUserId);
+    }
+
+    static Specification<Payment> hasStatus(PaymentStatus status) {
+        return (root, query, cb) -> status == null ? null : cb.equal(root.get("status"), status);
+    }
+
+    static Specification<Payment> hasProvider(PaymentProvider provider) {
+        return (root, query, cb) -> provider == null ? null : cb.equal(root.get("provider"), provider);
+    }
+
+    static Specification<Payment> createdBetween(Instant start, Instant end) {
+        return (root, query, cb) -> {
+            if (start == null && end == null) return null;
+            if (start != null && end != null) return cb.between(root.get("createdAt"), start, end);
+            if (start != null) return cb.greaterThanOrEqualTo(root.get("createdAt"), start);
+            return cb.lessThanOrEqualTo(root.get("createdAt"), end);
+        };
+    }
+}
