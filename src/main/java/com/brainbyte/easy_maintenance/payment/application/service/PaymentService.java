@@ -1,14 +1,14 @@
-package com.brainbyte.easy_maintenance.billing.application.service;
+package com.brainbyte.easy_maintenance.payment.application.service;
 
-import com.brainbyte.easy_maintenance.billing.application.dto.CreatePaymentRequest;
-import com.brainbyte.easy_maintenance.billing.application.dto.PaymentResponse;
+import com.brainbyte.easy_maintenance.payment.application.dto.CreatePaymentRequest;
+import com.brainbyte.easy_maintenance.payment.application.dto.PaymentResponse;
 import com.brainbyte.easy_maintenance.billing.domain.Invoice;
-import com.brainbyte.easy_maintenance.billing.domain.Payment;
-import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentProvider;
-import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentStatus;
+import com.brainbyte.easy_maintenance.payment.domain.Payment;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.InvoiceRepository;
-import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.PaymentRepository;
-import com.brainbyte.easy_maintenance.billing.mapper.PaymentMapper;
+import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
+import com.brainbyte.easy_maintenance.payment.mapper.PaymentMapper;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
@@ -21,10 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
-import static com.brainbyte.easy_maintenance.billing.infrastructure.persistence.PaymentRepository.*;
+import static com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository.*;
 
 @Service
 @RequiredArgsConstructor
@@ -86,4 +84,5 @@ public class PaymentService {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("No strategy found for provider: " + provider));
     }
+
 }

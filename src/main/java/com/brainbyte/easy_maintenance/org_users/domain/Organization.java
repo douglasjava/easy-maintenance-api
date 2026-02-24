@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.org_users.domain;
 
+import com.brainbyte.easy_maintenance.ai.application.dto.CompanyType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -54,6 +55,10 @@ public class Organization {
 
     @Column(length = 40)
     private String doc;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "company_type", nullable = false)
+    private CompanyType companyType;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

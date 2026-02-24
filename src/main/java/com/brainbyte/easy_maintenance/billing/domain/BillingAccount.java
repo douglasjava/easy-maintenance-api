@@ -1,7 +1,7 @@
 package com.brainbyte.easy_maintenance.billing.domain;
 
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingStatus;
-import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentMethodType;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -28,6 +28,9 @@ public class BillingAccount {
 
     @Column(name = "billing_email", length = 160)
     private String billingEmail;
+
+    @Column(name = "name", length = 200)
+    private String name;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method")
@@ -60,6 +63,12 @@ public class BillingAccount {
     @Column(length = 60)
     @Builder.Default
     private String country = "BR";
+
+    @Column(length = 20)
+    private String phone;
+
+    @Column(name = "external_customer_id", length = 250)
+    private String externalCustomerId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

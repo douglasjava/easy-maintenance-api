@@ -1,11 +1,13 @@
 package com.brainbyte.easy_maintenance.org_users.application.dto;
 
+import com.brainbyte.easy_maintenance.ai.application.dto.CompanyType;
 import com.brainbyte.easy_maintenance.billing.application.dto.OrganizationSubscriptionDTO;
 import com.brainbyte.easy_maintenance.commons.validation.Doc;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Role;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Status;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public final class OrganizationDTO {
 
@@ -22,7 +24,8 @@ public final class OrganizationDTO {
             @Schema(example = "Esquina com Rua x") String complement,
             @Schema(example = "Mangabeiras") String neighborhood,
             @Schema(example = "Brasil") String country,
-            @Schema(example = "12.345.678/0001-90") @NotBlank @Doc String doc
+            @Schema(example = "12.345.678/0001-90") @NotBlank @Doc String doc,
+            @NotNull CompanyType companyType
     ) {
     }
 
@@ -41,7 +44,7 @@ public final class OrganizationDTO {
     }
 
     public record OrganizationResponse(
-            String id,
+            Long id,
             String code,
             String name,
             String city,
@@ -53,6 +56,7 @@ public final class OrganizationDTO {
             String zipCode,
             String country,
             String doc,
+            CompanyType companyType,
             ResponsibleUser responsibleUser
     ) {}
 

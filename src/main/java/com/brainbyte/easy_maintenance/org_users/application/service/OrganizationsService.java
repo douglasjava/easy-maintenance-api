@@ -74,6 +74,7 @@ public class OrganizationsService {
                     organizationResponse.zipCode(),
                     organizationResponse.country(),
                     organizationResponse.doc(),
+                    organizationResponse.companyType(),
                     responsibleUser
             );
         }
@@ -112,7 +113,7 @@ public class OrganizationsService {
         try {
 
             if (existsByCode(request.code())) {
-                throw new ConflictException(String.format("Organization with id %s already exists", request.code()));
+                throw new ConflictException(String.format("Empresa com esse código %s já existe", request.code()));
             }
 
             var organization = IOrganizationMapper.INSTANCE.toOrganization(request);

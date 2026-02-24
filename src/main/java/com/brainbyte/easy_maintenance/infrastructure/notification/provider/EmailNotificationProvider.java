@@ -1,6 +1,6 @@
 package com.brainbyte.easy_maintenance.infrastructure.notification.provider;
 
-import com.brainbyte.easy_maintenance.infrastructure.mail.MailerSendService;
+import com.brainbyte.easy_maintenance.infrastructure.mail.MailService;
 import com.brainbyte.easy_maintenance.infrastructure.notification.dto.NotificationPayload;
 import com.brainbyte.easy_maintenance.infrastructure.notification.enums.NotificationType;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class EmailNotificationProvider implements NotificationProvider {
 
-    private final MailerSendService mailerSendService;
+    private final MailService mailerSendService;
 
     @Override
     public void send(NotificationPayload payload) {

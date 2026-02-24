@@ -64,6 +64,7 @@ public class OrganizationSubscriptionService {
         subscription.setStatus(request.status());
         subscription.setCurrentPeriodStart(request.currentPeriodStart());
         subscription.setCurrentPeriodEnd(request.currentPeriodEnd());
+        subscription.setTrialEndsAt(request.trialEndsAt());
 
         var saved = repository.save(subscription);
 

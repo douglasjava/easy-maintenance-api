@@ -30,6 +30,7 @@ public class UserSubscriptionDTO {
             @NotBlank String planCode,
             @NotNull SubscriptionStatus status,
             @NotNull Instant currentPeriodStart,
-            Instant currentPeriodEnd
+            Instant currentPeriodEnd,
+            Instant trialEndsAt
     ) {}
 }

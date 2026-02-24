@@ -1,9 +1,9 @@
 package com.brainbyte.easy_maintenance.admin.infrastucture.web;
 
-import com.brainbyte.easy_maintenance.billing.application.dto.PaymentResponse;
-import com.brainbyte.easy_maintenance.billing.application.service.PaymentService;
-import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentProvider;
-import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentStatus;
+import com.brainbyte.easy_maintenance.payment.application.dto.PaymentResponse;
+import com.brainbyte.easy_maintenance.payment.application.service.PaymentService;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.shared.web.openapi.PageableAsQueryParam;
 import io.swagger.v3.oas.annotations.Operation;

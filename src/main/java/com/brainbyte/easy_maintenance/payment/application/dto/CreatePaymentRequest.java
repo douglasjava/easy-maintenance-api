@@ -1,7 +1,7 @@
-package com.brainbyte.easy_maintenance.billing.application.dto;
+package com.brainbyte.easy_maintenance.payment.application.dto;
 
-import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentMethodType;
-import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentProvider;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 

@@ -1,14 +1,20 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.OrganizationSubscriptionDTO;
+import com.brainbyte.easy_maintenance.billing.application.dto.UserSubscriptionDTO;
 import com.brainbyte.easy_maintenance.billing.application.service.OrganizationSubscriptionService;
+import com.brainbyte.easy_maintenance.billing.application.service.UserSubscriptionService;
+import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.OrganizationSubscriptionRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
+import com.brainbyte.easy_maintenance.org_users.domain.enums.Status;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.specifications.UserSpecifications;
 import com.brainbyte.easy_maintenance.org_users.mapper.IUserMapper;
@@ -40,11 +46,12 @@ public class UsersService {
 
     private final OrganizationsService organizationsService;
     private final OrganizationSubscriptionService organizationSubscriptionService;
+    private final OrganizationSubscriptionRepository organizationSubscriptionRepository;
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final FirstAccessTokenService firstAccessTokenService;
-
+    private final UserSubscriptionService userSubscriptionService;
 
     public UserDTO.UserResponse createUser(UserDTO.CreateUserRequest request) {
         log.info("Creating user {} ", request.email());
@@ -317,5 +324,31 @@ public class UsersService {
 
         return IUserMapper.INSTANCE.toUserResponse(updatedUser);
     }
+
+    public void validateSubscriptions(User user) {
+        log.info("Validating subscriptions for user {}", user.getEmail());
+
+        var subscriptionUser = userSubscriptionService.findBySubscriptionUser(user.getId());
+
+        if (isTrialInvalid(subscriptionUser.status(), subscriptionUser.trialEndsAt())) {
+            log.warn("User {} is inactive", user.getEmail());
+            throw new RuleException("O período de teste (TRIAL) expirou para o usuário " + user.getEmail());
+        }
+
+        for (UserOrganization uo : user.getOrganizations()) {
+            organizationSubscriptionRepository.findByOrganizationCode(uo.getOrganizationCode())
+                    .ifPresent(subscription -> {
+                        if (isTrialInvalid(subscription.getStatus(), subscription.getTrialEndsAt())) {
+                            log.warn("Trial period expired for organization {} and user {}", uo.getOrganizationCode(), user.getEmail());
+                            throw new RuleException("O período de teste (TRIAL) expirou para a organização " + uo.getOrganizationCode());
+                        }
+                    });
+        }
+    }
+
+    private boolean isTrialInvalid(SubscriptionStatus status, Instant trialEndsAt) {
+        return SubscriptionStatus.TRIAL == status && ( trialEndsAt != null && trialEndsAt.isBefore(Instant.now()));
+    }
+
 
 }

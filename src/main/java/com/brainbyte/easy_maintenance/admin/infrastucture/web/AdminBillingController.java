@@ -92,15 +92,6 @@ public class AdminBillingController {
         return accountService.updateOrCreate(userId, request);
     }
 
-    @PostMapping("/invoices/generate")
-    @Operation(summary = "Gera faturas para um determinado período")
-    public void generateInvoices(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodStart,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodEnd) {
-        
-        invoiceService.generateInvoices(periodStart, periodEnd);
-    }
-
     @GetMapping("/overview")
     @Operation(summary = "Visão geral do faturamento para administradores")
     public BillingAdminDTO.BillingOverviewResponse getOverview(Pageable pageable) {

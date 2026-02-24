@@ -1,8 +1,9 @@
-package com.brainbyte.easy_maintenance.billing.domain;
+package com.brainbyte.easy_maintenance.payment.domain;
 
-import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentMethodType;
-import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentProvider;
-import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentStatus;
+import com.brainbyte.easy_maintenance.billing.domain.Invoice;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import jakarta.persistence.*;
 import lombok.*;

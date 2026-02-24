@@ -2,18 +2,25 @@ package com.brainbyte.easy_maintenance.billing.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.BillingAccountDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.BillingAdminDTO;
+import com.brainbyte.easy_maintenance.billing.application.dto.UserSubscriptionDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.PayerSummaryResponse;
 import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
 import com.brainbyte.easy_maintenance.billing.domain.OrganizationSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.UserSubscription;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.OrganizationSubscriptionRepository;
-import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.UserSubscriptionRepository;
 import com.brainbyte.easy_maintenance.billing.mapper.IBillingMapper;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.infrastructure.saas.IAsaasMapper;
+import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
+import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
+import com.brainbyte.easy_maintenance.payment.application.factory.PaymentProviderFactory;
+import com.brainbyte.easy_maintenance.payment.application.service.PaymentProviderStrategy;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,11 +37,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class BillingAccountService {
 
-    private final UserSubscriptionService userSubscriptionService;
     private final BillingAccountRepository repository;
     private final UserRepository userRepository;
     private final OrganizationSubscriptionRepository organizationSubscriptionRepository;
-    private final UserSubscriptionRepository userSubscriptionRepository;
+    private final UserSubscriptionService userSubscriptionService;
+
 
     public BillingAccountDTO.BillingAccountResponse findByUserId(Long userId) {
         return repository.findByUserId(userId)
@@ -44,32 +51,23 @@ public class BillingAccountService {
 
     @Transactional
     public BillingAccountDTO.BillingAccountResponse updateOrCreate(Long userId, BillingAccountDTO.UpdateBillingAccountRequest request) {
-        var account = repository.findByUserId(userId)
-                .orElseGet(() -> {
-                    var user = userRepository.findById(userId)
-                            .orElseThrow(() -> new NotFoundException("User not found: " + userId));
-                    return BillingAccount.builder().user(user).build();
-                });
 
-        if (request.billingEmail() != null) account.setBillingEmail(request.billingEmail());
-        if (request.paymentMethod() != null) account.setPaymentMethod(request.paymentMethod());
-        if (request.doc() != null) account.setDoc(request.doc());
-        if (request.street() != null) account.setStreet(request.street());
-        if (request.number() != null) account.setNumber(request.number());
-        if (request.complement() != null) account.setComplement(request.complement());
-        if (request.neighborhood() != null) account.setNeighborhood(request.neighborhood());
-        if (request.city() != null) account.setCity(request.city());
-        if (request.state() != null) account.setState(request.state());
-        if (request.zipCode() != null) account.setZipCode(request.zipCode());
-        if (request.country() != null) account.setCountry(request.country());
-        if (request.status() != null) account.setStatus(request.status());
+        // Valida usuário
+        var user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException(String.format("Usuário %s não encontrado", userId)));
+
+        // Buscar conta existente
+        var account = repository.findByUserId(userId)
+                .orElseGet(() -> BillingAccount.builder().user(user).build());
+
+        // Merge campos da conta
+        mergeBillingAccountChanges(request, account);
+
 
         return IBillingMapper.INSTANCE.toBillingAccountResponse(repository.save(account));
+
     }
 
-    public List<PayerSummaryResponse> getTopPayers() {
-        return repository.findTopPayers();
-    }
 
     public PageResponse<BillingAdminDTO.PayerResponse> getPayersOverview(Pageable pageable) {
 
@@ -85,7 +83,7 @@ public class BillingAccountService {
         }
 
         List<OrganizationSubscription> orgSubscriptions = organizationSubscriptionRepository.findAllByPayerIdIn(payerIds);
-        List<UserSubscription> userSubscriptions = userSubscriptionRepository.findAllByUserIdIn(payerIds);
+        List<UserSubscription> userSubscriptions = userSubscriptionService.findAllByUserIdIn(payerIds);
 
         Map<Long, List<OrganizationSubscription>> orgSubsByPayer = orgSubscriptions.stream()
                 .collect(Collectors.groupingBy(os -> os.getPayer().getId()));
@@ -138,4 +136,25 @@ public class BillingAccountService {
 
         return PageResponse.of(responsePage);
     }
+
+
+    private static void mergeBillingAccountChanges(BillingAccountDTO.UpdateBillingAccountRequest request, BillingAccount account) {
+
+        if (request.name() != null) account.setName(request.name());
+        if (request.billingEmail() != null) account.setBillingEmail(request.billingEmail());
+        if (request.paymentMethod() != null) account.setPaymentMethod(request.paymentMethod());
+        if (request.doc() != null) account.setDoc(request.doc());
+        if (request.street() != null) account.setStreet(request.street());
+        if (request.number() != null) account.setNumber(request.number());
+        if (request.complement() != null) account.setComplement(request.complement());
+        if (request.neighborhood() != null) account.setNeighborhood(request.neighborhood());
+        if (request.city() != null) account.setCity(request.city());
+        if (request.state() != null) account.setState(request.state());
+        if (request.zipCode() != null) account.setZipCode(request.zipCode());
+        if (request.country() != null) account.setCountry(request.country());
+        if (request.status() != null) account.setStatus(request.status());
+        if (request.phone() != null) account.setPhone(request.phone());
+
+    }
+
 }

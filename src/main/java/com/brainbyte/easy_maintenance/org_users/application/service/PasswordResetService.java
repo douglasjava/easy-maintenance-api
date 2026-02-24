@@ -3,7 +3,7 @@ package com.brainbyte.easy_maintenance.org_users.application.service;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.InternalErrorException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
-import com.brainbyte.easy_maintenance.infrastructure.mail.MailerSendService;
+import com.brainbyte.easy_maintenance.infrastructure.mail.MailService;
 import com.brainbyte.easy_maintenance.infrastructure.mail.utils.EmailTemplateHelper;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO;
 import com.brainbyte.easy_maintenance.org_users.domain.PasswordResetToken;
@@ -31,7 +31,7 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository tokenRepository;
     private final UserRepository userRepository;
     private final UsersService usersService;
-    private final MailerSendService mailerSendService;
+    private final MailService mailerSendService;
     private final EmailTemplateHelper emailTemplateHelper;
 
     @Value("${frontend.reset-password-url}")

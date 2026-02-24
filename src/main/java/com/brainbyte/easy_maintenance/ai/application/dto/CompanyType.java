@@ -10,7 +10,8 @@ public enum CompanyType {
     HOSPITAL("HOSPITAL"),
     SCHOOL("ESCOLA"),
     INDUSTRY("INDUSTRIA"),
-    OFFICE("ESCRITORIO");
+    OFFICE("ESCRITORIO"),
+    OTHER("OUTROS");
 
     private final String dbValue;
 

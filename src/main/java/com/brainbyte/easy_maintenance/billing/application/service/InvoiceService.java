@@ -21,8 +21,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -56,12 +58,24 @@ public class InvoiceService {
     }
 
     @Transactional
-    public void generateInvoices(LocalDate periodStart, LocalDate periodEnd) {
-        log.info("Generating invoices for period {} to {}", periodStart, periodEnd);
+    public List<Invoice> generateInvoices(LocalDate periodStart, LocalDate periodEnd, List<SubscriptionStatus> statusList, Instant trialEndsBefore) {
+        log.info("Generating invoices for period {} to {} with statuses {} and trialEndsBefore {}", periodStart, periodEnd, statusList, trialEndsBefore);
 
-        var statusList = List.of(SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL);
-        var activeOrgSubscriptions = subscriptionRepository.findAllByStatusIn(statusList);
-        var activeUserSubscriptions = userSubscriptionRepository.findAllByStatusIn(statusList);
+        var activeOrgSubscriptions = statusList.contains(SubscriptionStatus.TRIAL) && trialEndsBefore != null 
+                ? subscriptionRepository.findAllByStatusAndTrialEndsAtBefore(SubscriptionStatus.TRIAL, trialEndsBefore)
+                : subscriptionRepository.findAllByStatusIn(statusList);
+                
+        var activeUserSubscriptions = statusList.contains(SubscriptionStatus.TRIAL) && trialEndsBefore != null 
+                ? userSubscriptionRepository.findAllByStatusAndTrialEndsAtBefore(SubscriptionStatus.TRIAL, trialEndsBefore)
+                : userSubscriptionRepository.findAllByStatusIn(statusList);
+
+        if (statusList.contains(SubscriptionStatus.ACTIVE)) {
+            // Se ACTIVE estiver na lista, precisamos garantir que pegamos os ACTIVE normais se usamos findAllByStatusAndTrialEndsAtBefore acima
+            if (trialEndsBefore != null) {
+                activeOrgSubscriptions.addAll(subscriptionRepository.findAllByStatusIn(List.of(SubscriptionStatus.ACTIVE)));
+                activeUserSubscriptions.addAll(userSubscriptionRepository.findAllByStatusIn(List.of(SubscriptionStatus.ACTIVE)));
+            }
+        }
 
         var orgSubsByPayer = activeOrgSubscriptions.stream()
                 .collect(Collectors.groupingBy(s -> s.getPayer().getId()));
@@ -69,9 +83,11 @@ public class InvoiceService {
         var userSubsByPayer = activeUserSubscriptions.stream()
                 .collect(Collectors.toMap(s -> s.getUser().getId(), s -> s));
 
-        var allPayerIds = new java.util.HashSet<Long>();
+        var allPayerIds = new HashSet<Long>();
         allPayerIds.addAll(orgSubsByPayer.keySet());
         allPayerIds.addAll(userSubsByPayer.keySet());
+
+        var createdInvoices = new ArrayList<Invoice>();
 
         for (Long payerId : allPayerIds) {
             if (repository.findByPayerIdAndPeriodStartAndPeriodEnd(payerId, periodStart, periodEnd).isPresent()) {
@@ -130,8 +146,9 @@ public class InvoiceService {
             invoice.setDiscountCents(0);
             invoice.setTotalCents(subtotal);
 
-            repository.save(invoice);
+            createdInvoices.add(repository.save(invoice));
         }
+        return createdInvoices;
     }
 
     public PageResponse<InvoiceDTO.InvoiceResponse> listAllInvoices(

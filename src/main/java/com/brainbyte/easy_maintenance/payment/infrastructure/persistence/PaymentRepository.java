@@ -1,10 +1,8 @@
-package com.brainbyte.easy_maintenance.billing.infrastructure.persistence;
+package com.brainbyte.easy_maintenance.payment.infrastructure.persistence;
 
-import com.brainbyte.easy_maintenance.billing.domain.Payment;
-import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentProvider;
-import com.brainbyte.easy_maintenance.billing.domain.enums.PaymentStatus;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import com.brainbyte.easy_maintenance.payment.domain.Payment;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;

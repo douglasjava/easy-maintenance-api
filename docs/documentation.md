@@ -74,7 +74,7 @@ As seguintes variáveis devem ser configuradas (ou passadas via profile):
 ### Execução via Docker
 O projeto inclui um `docker-compose.yml` para facilitar o setup local:
 ```bash
-docker-compose up -d
+docker-compose.yml up -d
 ```
 
 ### Documentação Online (Swagger)

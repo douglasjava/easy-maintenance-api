@@ -1,0 +1,8 @@
+version: "3.9"
+
+services:
+  fake-smtp:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"    #porta do SMTP
+      - "8025:8025"    #porta da interface grafica

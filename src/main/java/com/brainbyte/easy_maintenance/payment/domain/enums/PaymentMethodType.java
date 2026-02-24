@@ -1,4 +1,4 @@
-package com.brainbyte.easy_maintenance.billing.domain.enums;
+package com.brainbyte.easy_maintenance.payment.domain.enums;
 
 public enum PaymentMethodType {
     CARD,

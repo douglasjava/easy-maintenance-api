@@ -1,7 +1,7 @@
-package com.brainbyte.easy_maintenance.billing.mapper;
+package com.brainbyte.easy_maintenance.payment.mapper;
 
-import com.brainbyte.easy_maintenance.billing.application.dto.PaymentResponse;
-import com.brainbyte.easy_maintenance.billing.domain.Payment;
+import com.brainbyte.easy_maintenance.payment.application.dto.PaymentResponse;
+import com.brainbyte.easy_maintenance.payment.domain.Payment;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.factory.Mappers;

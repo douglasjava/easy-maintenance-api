@@ -49,6 +49,7 @@ public class UserSubscriptionService {
         subscription.setStatus(request.status());
         subscription.setCurrentPeriodStart(request.currentPeriodStart());
         subscription.setCurrentPeriodEnd(request.currentPeriodEnd());
+        subscription.setTrialEndsAt(request.trialEndsAt());
 
         var saved = repository.save(subscription);
 
@@ -70,12 +71,10 @@ public class UserSubscriptionService {
     }
 
 
-    public List<UserSubscriptionDTO.SubscriptionResponse> listSubscriptions(
-            SubscriptionStatus status, String planCode, Long payerUserId) {
+    public List<UserSubscription> findAllByUserIdIn(List<Long> payerIds) {
 
-        return repository.findAllFiltered(status, planCode, payerUserId).stream()
-                .map(IBillingMapper.INSTANCE::toUserSubscriptionResponse)
-                .collect(Collectors.toList());
+        return repository.findAllByUserIdIn(payerIds);
+
     }
 
 }

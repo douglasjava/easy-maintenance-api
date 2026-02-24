@@ -6,6 +6,7 @@ import com.brainbyte.easy_maintenance.infrastructure.mail.dto.MailerSendEmailReq
 import com.brainbyte.easy_maintenance.infrastructure.observability.service.BusinessMetricsService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -15,15 +16,16 @@ import java.util.List;
 
 @Slf4j
 @Service
-public class MailerSendService {
+@Profile("!local")
+public class MailerSendServiceImpl implements MailService {
 
     private final WebClient mailerSendWebClient;
     private final MailerSendProperties mailerSendProperties;
     private final BusinessMetricsService businessMetricsService;
 
-    public MailerSendService(@Qualifier("mailerSendWebClient") WebClient mailerSendWebClient, 
-                            MailerSendProperties mailerSendProperties,
-                            BusinessMetricsService businessMetricsService) {
+    public MailerSendServiceImpl(@Qualifier("mailerSendWebClient") WebClient mailerSendWebClient,
+                                 MailerSendProperties mailerSendProperties,
+                                 BusinessMetricsService businessMetricsService) {
         this.mailerSendWebClient = mailerSendWebClient;
         this.mailerSendProperties = mailerSendProperties;
         this.businessMetricsService = businessMetricsService;

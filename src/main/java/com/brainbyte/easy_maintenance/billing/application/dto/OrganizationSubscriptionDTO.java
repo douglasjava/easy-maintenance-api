@@ -33,6 +33,7 @@ public class OrganizationSubscriptionDTO {
             @NotBlank String planCode,
             @NotNull SubscriptionStatus status,
             @NotNull Instant currentPeriodStart,
-            Instant currentPeriodEnd
+            @NotNull Instant currentPeriodEnd,
+            Instant trialEndsAt
     ) {}
 }

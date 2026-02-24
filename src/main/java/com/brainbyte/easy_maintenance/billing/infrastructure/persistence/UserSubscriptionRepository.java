@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,6 +22,9 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
     List<UserSubscription> findAllByUserIdIn(List<Long> userIds);
 
     List<UserSubscription> findAllByStatusIn(List<SubscriptionStatus> statuses);
+
+    @EntityGraph(attributePaths = {"user", "plan"})
+    List<UserSubscription> findAllByStatusAndTrialEndsAtBefore(SubscriptionStatus status, Instant trialEndsAt);
 
     @Query("SELECT s FROM UserSubscription s " +
             "JOIN FETCH s.user " +
