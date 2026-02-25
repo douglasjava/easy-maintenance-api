@@ -137,4 +137,48 @@ public class AsaasDTO {
             @JsonProperty("externalReference") String externalReference
     ) {}
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record WebhookCheckoutEvent(
+            String id,
+            String event,
+            @JsonProperty("dateCreated") String dateCreated,
+            WebhookAccount account,
+            WebhookCheckout checkout
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record WebhookAccount(
+            String id,
+            String ownerId
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record WebhookCheckout(
+            String id,
+            String link,
+            String status,
+            Integer minutesToExpire,
+            List<String> billingTypes,
+            List<String> chargeTypes,
+            CheckoutCallback callback,
+            List<WebhookCheckoutItem> items,
+            WebhookCheckoutSubscription subscription,
+            String customer
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record WebhookCheckoutItem(
+            String name,
+            String description,
+            Integer quantity,
+            BigDecimal value
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record WebhookCheckoutSubscription(
+            String cycle,
+            String nextDueDate,
+            String endDate
+    ) {}
+
 }
