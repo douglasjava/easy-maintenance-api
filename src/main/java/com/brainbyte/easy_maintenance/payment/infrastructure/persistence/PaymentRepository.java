@@ -9,9 +9,12 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.Optional;
 
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpecificationExecutor<Payment> {
+
+    Optional<Payment> findByExternalPaymentId(String externalPaymentId);
 
     static Specification<Payment> hasPayerUserId(Long payerUserId) {
         return (root, query, cb) -> payerUserId == null ? null : cb.equal(root.get("payer").get("id"), payerUserId);

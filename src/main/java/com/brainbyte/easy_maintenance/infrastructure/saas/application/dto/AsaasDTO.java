@@ -134,7 +134,10 @@ public class AsaasDTO {
             String status,
             BigDecimal value,
             @JsonProperty("billingType") String billingType,
-            @JsonProperty("externalReference") String externalReference
+            @JsonProperty("externalReference") String externalReference,
+            @JsonProperty("invoiceUrl") String invoiceUrl,
+            @JsonProperty("transactionReceiptUrl") String transactionReceiptUrl,
+            String installment
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -143,7 +146,8 @@ public class AsaasDTO {
             String event,
             @JsonProperty("dateCreated") String dateCreated,
             WebhookAccount account,
-            WebhookCheckout checkout
+            WebhookCheckout checkout,
+            PaymentObject payment
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)

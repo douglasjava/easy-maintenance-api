@@ -17,6 +17,6 @@ public class DailyTrialWatcher {
     @Scheduled(cron = "0 15 1 * * *")
     public void run() {
         log.info("Running DailyTrialWatcher job");
-        jobService.processTrialsExpiringWithinDays(2);
+        jobService.processTrialsExpiringWithinDays(1);
     }
 }

@@ -59,23 +59,14 @@ public class InvoiceService {
 
     @Transactional
     public List<Invoice> generateInvoices(LocalDate periodStart, LocalDate periodEnd, List<SubscriptionStatus> statusList, Instant trialEndsBefore) {
-        log.info("Generating invoices for period {} to {} with statuses {} and trialEndsBefore {}", periodStart, periodEnd, statusList, trialEndsBefore);
+        log.info("Starting invoice generation for period {} to {} (statuses: {}, trialEndsBefore: {})", 
+                periodStart, periodEnd, statusList, trialEndsBefore);
 
-        var activeOrgSubscriptions = statusList.contains(SubscriptionStatus.TRIAL) && trialEndsBefore != null 
-                ? subscriptionRepository.findAllByStatusAndTrialEndsAtBefore(SubscriptionStatus.TRIAL, trialEndsBefore)
-                : subscriptionRepository.findAllByStatusIn(statusList);
-                
-        var activeUserSubscriptions = statusList.contains(SubscriptionStatus.TRIAL) && trialEndsBefore != null 
-                ? userSubscriptionRepository.findAllByStatusAndTrialEndsAtBefore(SubscriptionStatus.TRIAL, trialEndsBefore)
-                : userSubscriptionRepository.findAllByStatusIn(statusList);
+        var activeOrgSubscriptions = fetchOrgSubscriptions(statusList, trialEndsBefore);
+        var activeUserSubscriptions = fetchUserSubscriptions(statusList, trialEndsBefore);
 
-        if (statusList.contains(SubscriptionStatus.ACTIVE)) {
-            // Se ACTIVE estiver na lista, precisamos garantir que pegamos os ACTIVE normais se usamos findAllByStatusAndTrialEndsAtBefore acima
-            if (trialEndsBefore != null) {
-                activeOrgSubscriptions.addAll(subscriptionRepository.findAllByStatusIn(List.of(SubscriptionStatus.ACTIVE)));
-                activeUserSubscriptions.addAll(userSubscriptionRepository.findAllByStatusIn(List.of(SubscriptionStatus.ACTIVE)));
-            }
-        }
+        log.info("Found {} organization subscriptions and {} user subscriptions to process", 
+                activeOrgSubscriptions.size(), activeUserSubscriptions.size());
 
         var orgSubsByPayer = activeOrgSubscriptions.stream()
                 .collect(Collectors.groupingBy(s -> s.getPayer().getId()));
@@ -90,65 +81,143 @@ public class InvoiceService {
         var createdInvoices = new ArrayList<Invoice>();
 
         for (Long payerId : allPayerIds) {
-            if (repository.findByPayerIdAndPeriodStartAndPeriodEnd(payerId, periodStart, periodEnd).isPresent()) {
-                log.info("Invoice already exists for payer {} and period {} to {}. Skipping.", payerId, periodStart, periodEnd);
-                continue;
-            }
+            processPayerInvoice(payerId, periodStart, periodEnd, orgSubsByPayer, userSubsByPayer)
+                    .ifPresent(createdInvoices::add);
+        }
 
-            var userSub = userSubsByPayer.get(payerId);
-            var orgSubs = orgSubsByPayer.getOrDefault(payerId, List.of());
+        log.info("Finished invoice generation. Total invoices created: {}", createdInvoices.size());
 
-            var payer = userSub != null ? userSub.getUser() : orgSubs.getFirst().getPayer();
+        return createdInvoices;
 
-            Invoice invoice = Invoice.builder()
-                    .payer(payer)
-                    .periodStart(periodStart)
-                    .periodEnd(periodEnd)
-                    .dueDate(periodEnd.plusDays(5))
-                    .status(InvoiceStatus.OPEN)
-                    .currency("BRL")
-                    .items(new ArrayList<>())
+    }
+
+    @Transactional
+    public java.util.Optional<Invoice> generateInvoiceForPayer(Long payerId, LocalDate start, LocalDate end) {
+        log.info("Generating invoice for payer {} and period {} to {}", payerId, start, end);
+        
+        var statusList = List.of(SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL);
+        
+        var orgSubs = subscriptionRepository.findAllByStatusIn(statusList).stream()
+                .filter(s -> s.getPayer().getId().equals(payerId))
+                .collect(Collectors.toList());
+        
+        var userSub = userSubscriptionRepository.findAllByStatusIn(statusList).stream()
+                .filter(s -> s.getUser().getId().equals(payerId))
+                .findFirst()
+                .orElse(null);
+
+        if (orgSubs.isEmpty() && userSub == null) {
+            log.warn("No active/trial subscriptions found for payer {}. Cannot generate invoice.", payerId);
+            return java.util.Optional.empty();
+        }
+
+        var orgSubsByPayer = Map.of(payerId, orgSubs);
+        var userSubsByPayer = userSub != null ? Map.of(payerId, userSub) : Map.<Long, UserSubscription>of();
+
+        return processPayerInvoice(payerId, start, end, orgSubsByPayer, userSubsByPayer);
+    }
+
+    private List<OrganizationSubscription> fetchOrgSubscriptions(List<SubscriptionStatus> statusList, Instant trialEndsBefore) {
+        var subscriptions = statusList.contains(SubscriptionStatus.TRIAL) && trialEndsBefore != null
+                ? subscriptionRepository.findAllByStatusAndTrialEndsAtBefore(SubscriptionStatus.TRIAL, trialEndsBefore)
+                : subscriptionRepository.findAllByStatusIn(statusList);
+
+        if (statusList.contains(SubscriptionStatus.ACTIVE) && trialEndsBefore != null) {
+            subscriptions.addAll(subscriptionRepository.findAllByStatusIn(List.of(SubscriptionStatus.ACTIVE)));
+        }
+        return subscriptions;
+    }
+
+    private List<UserSubscription> fetchUserSubscriptions(List<SubscriptionStatus> statusList, Instant trialEndsBefore) {
+        var subscriptions = statusList.contains(SubscriptionStatus.TRIAL) && trialEndsBefore != null
+                ? userSubscriptionRepository.findAllByStatusAndTrialEndsAtBefore(SubscriptionStatus.TRIAL, trialEndsBefore)
+                : userSubscriptionRepository.findAllByStatusIn(statusList);
+
+        if (statusList.contains(SubscriptionStatus.ACTIVE) && trialEndsBefore != null) {
+            subscriptions.addAll(userSubscriptionRepository.findAllByStatusIn(List.of(SubscriptionStatus.ACTIVE)));
+        }
+        return subscriptions;
+    }
+
+    private java.util.Optional<Invoice> processPayerInvoice(
+            Long payerId, 
+            LocalDate periodStart, 
+            LocalDate periodEnd, 
+            Map<Long, List<OrganizationSubscription>> orgSubsByPayer, 
+            Map<Long, UserSubscription> userSubsByPayer) {
+
+        if (repository.findByPayerIdAndPeriodStartAndPeriodEnd(payerId, periodStart, periodEnd).isPresent()) {
+            log.info("Invoice already exists for payer {} and period {} to {}. Skipping.", payerId, periodStart, periodEnd);
+            return java.util.Optional.empty();
+        }
+
+        var userSub = userSubsByPayer.get(payerId);
+        var orgSubs = orgSubsByPayer.getOrDefault(payerId, List.of());
+        var payer = userSub != null ? userSub.getUser() : orgSubs.get(0).getPayer();
+
+        log.debug("Creating invoice for payer {} ({} org subs, {} user sub)", 
+                payerId, orgSubs.size(), userSub != null ? 1 : 0);
+
+        Invoice invoice = Invoice.builder()
+                .payer(payer)
+                .periodStart(periodStart)
+                .periodEnd(periodEnd)
+                .dueDate(periodEnd.plusDays(5))
+                .status(InvoiceStatus.OPEN)
+                .currency("BRL")
+                .items(new ArrayList<>())
+                .build();
+
+        int subtotal = 0;
+        subtotal += addUserSubscriptionItem(invoice, userSub);
+        subtotal += addOrganizationSubscriptionItems(invoice, orgSubs);
+
+        invoice.setSubtotalCents(subtotal);
+        invoice.setDiscountCents(0);
+        invoice.setTotalCents(subtotal);
+
+        Invoice savedInvoice = repository.save(invoice);
+        log.info("Saved invoice {} for payer {} with total amount {} cents", 
+                savedInvoice.getId(), payerId, subtotal);
+        
+        return java.util.Optional.of(savedInvoice);
+    }
+
+    private int addUserSubscriptionItem(Invoice invoice, UserSubscription userSub) {
+        if (userSub == null) return 0;
+
+        var plan = userSub.getPlan();
+        var item = InvoiceItem.builder()
+                .invoice(invoice)
+                .plan(plan)
+                .description("Assinatura Usuário - Plano: " + plan.getName())
+                .quantity(1)
+                .unitAmountCents(plan.getPriceCents())
+                .amountCents(plan.getPriceCents())
+                .build();
+        
+        invoice.getItems().add(item);
+        return item.getAmountCents();
+    }
+
+    private int addOrganizationSubscriptionItems(Invoice invoice, List<OrganizationSubscription> orgSubs) {
+        int total = 0;
+        for (var sub : orgSubs) {
+            var plan = sub.getPlan();
+            var item = InvoiceItem.builder()
+                    .invoice(invoice)
+                    .organization(sub.getOrganization())
+                    .plan(plan)
+                    .description("Assinatura Plano " + plan.getName() + " - Org: " + sub.getOrganization().getName())
+                    .quantity(1)
+                    .unitAmountCents(plan.getPriceCents())
+                    .amountCents(plan.getPriceCents())
                     .build();
 
-            int subtotal = 0;
-
-            if (userSub != null) {
-                var plan = userSub.getPlan();
-                var item = InvoiceItem.builder()
-                        .invoice(invoice)
-                        .plan(plan)
-                        .description("Assinatura Usuário - Plano: " + plan.getName())
-                        .quantity(1)
-                        .unitAmountCents(plan.getPriceCents())
-                        .amountCents(plan.getPriceCents())
-                        .build();
-                invoice.getItems().add(item);
-                subtotal += item.getAmountCents();
-            }
-
-            for (var sub : orgSubs) {
-                var plan = sub.getPlan();
-                var item = InvoiceItem.builder()
-                        .invoice(invoice)
-                        .organization(sub.getOrganization())
-                        .plan(sub.getPlan())
-                        .description("Assinatura Plano " + plan.getName() + " - Org: " + sub.getOrganization().getName())
-                        .quantity(1)
-                        .unitAmountCents(plan.getPriceCents())
-                        .amountCents(plan.getPriceCents())
-                        .build();
-
-                invoice.getItems().add(item);
-                subtotal += item.getAmountCents();
-            }
-
-            invoice.setSubtotalCents(subtotal);
-            invoice.setDiscountCents(0);
-            invoice.setTotalCents(subtotal);
-
-            createdInvoices.add(repository.save(invoice));
+            invoice.getItems().add(item);
+            total += item.getAmountCents();
         }
-        return createdInvoices;
+        return total;
     }
 
     public PageResponse<InvoiceDTO.InvoiceResponse> listAllInvoices(

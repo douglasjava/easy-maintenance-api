@@ -97,7 +97,7 @@ public class TrialExpirationJobService {
 
         var asaasResponse = createAsaasCheckout(account, invoice, plan, nextDueDate);
 
-        var paymentLink = asaasResponse.link() != null ? asaasResponse.link() : (asaasResponse.paymentUrl() != null ? asaasResponse.paymentUrl() : asaasResponse.paymentLink());
+        var paymentLink = asaasResponse.link();
         var externalPaymentId = asaasResponse.id();
 
         var payment = createAndSavePayment(payer, invoice, account, externalPaymentId, paymentLink);

@@ -20,7 +20,7 @@ public class AsaasWebhookController {
     private final AsaasProperties asaasProperties;
 
     @PostMapping
-    public ResponseEntity<String> handleEvent(@Header(value = "asaas-access-token", required = false) String token,
+    public ResponseEntity<String> handleEvent(@RequestHeader(value = "asaas-access-token", required = false) String token,
             @RequestBody AsaasDTO.WebhookCheckoutEvent payload) {
 
         String webhookToken = asaasProperties.webhookToken();
