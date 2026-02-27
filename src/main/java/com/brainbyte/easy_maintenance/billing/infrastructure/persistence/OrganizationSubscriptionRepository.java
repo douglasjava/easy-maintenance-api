@@ -49,6 +49,20 @@ public interface OrganizationSubscriptionRepository extends JpaRepository<Organi
     List<OrganizationSubscription> findAllByPayerIdIn(List<Long> payerIds);
 
     @Query("""
+        SELECT s FROM OrganizationSubscription s
+        WHERE s.status != 'ACTIVE'
+        AND s.status != 'BLOCKED'
+        AND s.trialEndsAt < :now
+        AND EXISTS (
+            SELECT 1 FROM Invoice i
+            WHERE i.payer = s.payer
+            AND i.status IN ('OPEN', 'CANCELED', 'OVERDUE')
+            AND i.dueDate <= :limitDate
+        )
+    """)
+    List<OrganizationSubscription> findEligibleForBlocking(@Param("now") java.time.Instant now, @Param("limitDate") java.time.LocalDate limitDate);
+
+    @Query("""
         SELECT p.name, COUNT(s)
         FROM OrganizationSubscription s
         JOIN s.plan p

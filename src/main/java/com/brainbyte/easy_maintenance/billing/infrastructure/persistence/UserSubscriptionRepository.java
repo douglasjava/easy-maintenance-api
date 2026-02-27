@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,6 +21,20 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
 
     @EntityGraph(attributePaths = "plan")
     List<UserSubscription> findAllByUserIdIn(List<Long> userIds);
+
+    @Query("""
+        SELECT s FROM UserSubscription s
+        WHERE s.status != 'ACTIVE'
+        AND s.status != 'BLOCKED'
+        AND s.trialEndsAt < :now
+        AND EXISTS (
+            SELECT 1 FROM Invoice i
+            WHERE i.payer = s.user
+            AND i.status IN ('OPEN', 'CANCELED', 'OVERDUE')
+            AND i.dueDate <= :limitDate
+        )
+    """)
+    List<UserSubscription> findEligibleForBlocking(@Param("now") Instant now, @Param("limitDate") LocalDate limitDate);
 
     List<UserSubscription> findAllByStatusIn(List<SubscriptionStatus> statuses);
 

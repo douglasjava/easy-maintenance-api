@@ -4,7 +4,6 @@ import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService
 import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.Invoice;
-import com.brainbyte.easy_maintenance.billing.domain.InvoiceItem;
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingCycle;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
@@ -20,7 +19,6 @@ import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,12 +29,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class TrialExpirationJobService {
+public class TrialExpirationService {
 
     private final InvoiceService invoiceService;
     private final BillingAccountRepository billingAccountRepository;

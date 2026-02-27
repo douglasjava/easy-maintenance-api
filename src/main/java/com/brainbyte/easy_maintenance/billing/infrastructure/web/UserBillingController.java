@@ -2,7 +2,9 @@ package com.brainbyte.easy_maintenance.billing.infrastructure.web;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.BillingAccountDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.InvoiceDTO;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.MySubscriptionStatusResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingAccountService;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingQueryService;
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
@@ -14,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,6 +30,7 @@ public class UserBillingController {
     private final InvoiceService invoiceService;
     private final UserRepository userRepository;
     private final BillingAccountService accountService;
+    private final BillingQueryService billingQueryService;
 
     @GetMapping("/summary")
     @Operation(summary = "Retorna o resumo de faturamento do usuário logado")
@@ -48,6 +52,12 @@ public class UserBillingController {
     public BillingAccountDTO.BillingAccountResponse updateAccount(@Valid @RequestBody BillingAccountDTO.UpdateBillingAccountRequest request) {
         Long userId = getCurrentUserId();
         return accountService.updateOrCreate(userId, request);
+    }
+
+    @GetMapping("/subscription-status")
+    @Operation(summary = "Detalhe de assinatura do usuário")
+    public ResponseEntity<MySubscriptionStatusResponse> getMySubscriptionStatus() {
+        return ResponseEntity.ok(billingQueryService.getMySubscriptionStatus());
     }
 
     private Long getCurrentUserId() {

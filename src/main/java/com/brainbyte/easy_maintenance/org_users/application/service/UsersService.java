@@ -335,6 +335,10 @@ public class UsersService {
             throw new RuleException("O período de teste (TRIAL) expirou para o usuário " + user.getEmail());
         }
 
+        if(SubscriptionStatus.BLOCKED == subscriptionUser.status() ) {
+            throw new RuleException(String.format("Usuário %s bloqueado, favor validar pagamento", user.getEmail()));
+        }
+
         for (UserOrganization uo : user.getOrganizations()) {
             organizationSubscriptionRepository.findByOrganizationCode(uo.getOrganizationCode())
                     .ifPresent(subscription -> {

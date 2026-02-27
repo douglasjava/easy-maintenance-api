@@ -145,6 +145,7 @@ public class AsaasWebhookService {
                     .amountCents(paymentObj.value().multiply(new java.math.BigDecimal(100)).intValue())
                     .externalPaymentId(paymentObj.id())
                     .externalReference(paymentObj.externalReference())
+                    .paymentLink(paymentObj.invoiceUrl())
                     .build();
 
             paymentRepository.save(payment);
