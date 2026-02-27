@@ -34,6 +34,13 @@ public class OrganizationSubscription {
     @JoinColumn(name = "plan_code", referencedColumnName = "code", nullable = false)
     private BillingPlan plan;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "next_plan_code", referencedColumnName = "code")
+    private BillingPlan nextPlan;
+
+    @Column(name = "plan_change_effective_at")
+    private Instant planChangeEffectiveAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default

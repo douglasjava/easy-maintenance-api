@@ -7,6 +7,7 @@ import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.InvoiceRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.UserSubscriptionRepository;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
 import com.brainbyte.easy_maintenance.payment.domain.Payment;
@@ -30,6 +31,7 @@ public class BillingQueryService {
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
+    private final AuthenticationService authenticationService;
 
     private static final Set<SubscriptionStatus> BLOCKED_STATUSES = Set.of(
             SubscriptionStatus.PAST_DUE,
@@ -40,7 +42,7 @@ public class BillingQueryService {
     @Transactional(readOnly = true)
     public MySubscriptionStatusResponse getMySubscriptionStatus() {
 
-        String email = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String email = authenticationService.getCurrentUser().getEmail();
         log.info("Fetching subscription status for user: {}", email);
 
         User user = userRepository.findByEmail(email)

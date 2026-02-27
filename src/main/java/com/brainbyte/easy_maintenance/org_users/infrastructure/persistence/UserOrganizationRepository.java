@@ -8,6 +8,13 @@ import java.util.Optional;
 
 @Repository
 public interface UserOrganizationRepository extends JpaRepository<UserOrganization, Long> {
+
     Optional<UserOrganization> findByUserIdAndOrganizationCode(Long userId, String organizationCode);
+
     void deleteByUserIdAndOrganizationCode(Long userId, String organizationCode);
+
+    long countByUserId(Long userId);
+
+    long countByOrganizationCode(String organizationCode);
+
 }

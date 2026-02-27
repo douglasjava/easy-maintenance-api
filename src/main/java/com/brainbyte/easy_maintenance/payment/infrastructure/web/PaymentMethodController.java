@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.payment.infrastructure.web;
 
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
 import com.brainbyte.easy_maintenance.payment.application.dto.PaymentMethodDTO;
 import com.brainbyte.easy_maintenance.payment.application.service.PaymentMethodService;
@@ -21,12 +22,12 @@ import java.util.List;
 public class PaymentMethodController {
 
     private final PaymentMethodService paymentMethodService;
-    private final UserRepository userRepository;
+    private final AuthenticationService authenticationService;
 
     @GetMapping
     @Operation(summary = "Lista os métodos de pagamento do usuário logado")
     public List<PaymentMethodDTO.PaymentMethodResponse> listMyPaymentMethods() {
-        Long userId = getCurrentUserId();
+        Long userId = authenticationService.getCurrentUser().getId();
         return paymentMethodService.listUserPaymentMethods(userId);
     }
 
@@ -34,7 +35,7 @@ public class PaymentMethodController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Adiciona um novo método de pagamento para o usuário logado")
     public PaymentMethodDTO.PaymentMethodResponse createMyPaymentMethod(@RequestBody @Valid PaymentMethodDTO.CreatePaymentMethodRequest request) {
-        Long userId = getCurrentUserId();
+        Long userId = authenticationService.getCurrentUser().getId();
         return paymentMethodService.createPaymentMethod(userId, request);
     }
 
@@ -42,7 +43,7 @@ public class PaymentMethodController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Remove um método de pagamento do usuário logado")
     public void deleteMyPaymentMethod(@PathVariable Long id) {
-        Long userId = getCurrentUserId();
+        Long userId = authenticationService.getCurrentUser().getId();
         paymentMethodService.deletePaymentMethod(userId, id);
     }
 
@@ -50,14 +51,8 @@ public class PaymentMethodController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Define um método de pagamento como padrão para o usuário logado")
     public void setMyDefaultPaymentMethod(@PathVariable Long id) {
-        Long userId = getCurrentUserId();
+        Long userId = authenticationService.getCurrentUser().getId();
         paymentMethodService.setDefault(userId, id);
     }
 
-    private Long getCurrentUserId() {
-        String email = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        return userRepository.findByEmail(email)
-                .map(com.brainbyte.easy_maintenance.org_users.domain.User::getId)
-                .orElseThrow(() -> new NotFoundException("Usuário logado não encontrado no banco de dados"));
-    }
 }
