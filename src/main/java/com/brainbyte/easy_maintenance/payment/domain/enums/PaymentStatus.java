@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.payment.domain.enums;
 
 public enum PaymentStatus {
+
     PENDING,
     PAID,
     FAILED,
@@ -8,5 +9,13 @@ public enum PaymentStatus {
     REFUNDED,
     OVERDUE,
     RECEIVED,
-    EXPIRED,
+    EXPIRED;
+
+    public boolean isFinal() {
+        return this == PAID
+                || this == EXPIRED
+                || this == CANCELED
+                || this == FAILED;
+    }
+
 }

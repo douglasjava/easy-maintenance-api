@@ -48,6 +48,13 @@ public class AsaasDTO {
             String description
     ) {}
 
+    public record UpdateSubscriptionRequest(
+            BigDecimal value,
+            Cycle cycle,
+            BillingType billingType,
+            String updateNextBillingPeriod
+    ) {}
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record SubscriptionResponse(
             String id,
@@ -133,11 +140,22 @@ public class AsaasDTO {
             String subscription,
             String status,
             BigDecimal value,
+            LocalDate dueDate,
+            String description,
             @JsonProperty("billingType") String billingType,
             @JsonProperty("externalReference") String externalReference,
             @JsonProperty("invoiceUrl") String invoiceUrl,
             @JsonProperty("transactionReceiptUrl") String transactionReceiptUrl,
-            String installment
+            LocalDate confirmedDate,
+            LocalDate paymentDate,
+            String installment,
+            DiscountObject discount
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record DiscountObject(
+            BigDecimal value,
+            String type
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -147,7 +165,17 @@ public class AsaasDTO {
             @JsonProperty("dateCreated") String dateCreated,
             WebhookAccount account,
             WebhookCheckout checkout,
-            PaymentObject payment
+            PaymentObject payment,
+            WebhookSubscription subscription
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record WebhookSubscription(
+            String id,
+            String externalReference,
+            LocalDate nextDueDate,
+            String dateCreated,
+            String status
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)

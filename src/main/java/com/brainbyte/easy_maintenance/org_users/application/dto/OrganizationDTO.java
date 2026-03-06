@@ -1,8 +1,8 @@
 package com.brainbyte.easy_maintenance.org_users.application.dto;
 
 import com.brainbyte.easy_maintenance.ai.application.dto.CompanyType;
-import com.brainbyte.easy_maintenance.billing.application.dto.OrganizationSubscriptionDTO;
 import com.brainbyte.easy_maintenance.commons.validation.Doc;
+import com.brainbyte.easy_maintenance.billing.application.dto.BillingSubscriptionResponse;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Role;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Status;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -62,7 +62,7 @@ public final class OrganizationDTO {
 
     public record OrganizationWithSubscriptionResponse(
             OrganizationResponse organization,
-            OrganizationSubscriptionDTO.SubscriptionResponse subscription
+            BillingSubscriptionResponse.SubscriptionItemResponse subscription
     ) {}
 
     public record ResponsibleUser(

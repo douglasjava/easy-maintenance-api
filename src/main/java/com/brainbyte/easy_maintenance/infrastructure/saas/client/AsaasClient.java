@@ -56,6 +56,16 @@ public class AsaasClient {
                 .block();
     }
 
+    public AsaasDTO.SubscriptionResponse updateSubscription(String subscriptionId, AsaasDTO.UpdateSubscriptionRequest req) {
+        return webClient.post()
+                .uri("/subscriptions/{id}", subscriptionId)
+                .bodyValue(req)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, this::mapError)
+                .bodyToMono(AsaasDTO.SubscriptionResponse.class)
+                .block();
+    }
+
     public void cancelSubscription(String subscriptionId) {
         webClient.delete()
                 .uri("/subscriptions/{id}", subscriptionId)

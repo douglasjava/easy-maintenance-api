@@ -1,10 +1,19 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
+import com.brainbyte.easy_maintenance.billing.application.dto.BillingSubscriptionResponse;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
+import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
+import com.brainbyte.easy_maintenance.org_users.domain.Organization;
+import com.brainbyte.easy_maintenance.org_users.domain.User;
+import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Plan;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
@@ -16,6 +25,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -27,6 +37,8 @@ public class OrganizationsService {
 
     private final OrganizationRepository repository;
     private final UserRepository userRepository;
+    private final BillingSubscriptionRepository billingSubscriptionRepository;
+    private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
 
     public boolean existsByCode(String code) {
         log.info("Checking if organization with id {} exists", code);
@@ -136,5 +148,62 @@ public class OrganizationsService {
                 .map(IOrganizationMapper.INSTANCE::toOrganizationResponse)
                 .toList();
     }
+
+    @Transactional(readOnly = true)
+    public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listUserOrganizations(Long userId) {
+        log.info("Listing all organizations for user id: {}", userId);
+
+        List<Organization> organizations = repository.findAllByUserId(userId);
+        List<String> codes = organizations.stream().map(Organization::getCode).toList();
+
+        List<BillingSubscriptionItem> subscriptionItems = billingSubscriptionItemRepository.findAllBySourceTypeAndSourceIdIn(
+                BillingSubscriptionItemSourceType.ORGANIZATION, codes);
+
+        return organizations.stream()
+                .map(org -> {
+                    var orgResponse = IOrganizationMapper.INSTANCE.toOrganizationResponse(org);
+                    var item = subscriptionItems.stream()
+                            .filter(i -> i.getSourceId().equals(org.getCode()))
+                            .findFirst()
+                            .orElse(null);
+
+                    BillingSubscriptionResponse.SubscriptionItemResponse subResponse = null;
+                    if (item != null) {
+                        subResponse = new BillingSubscriptionResponse.SubscriptionItemResponse(
+                                item.getId(),
+                                item.getSourceId(),
+                                item.getSourceType().name(),
+                                item.getPlan().getCode(),
+                                item.getPlan().getName(),
+                                item.getValueCents(),
+                                item.getNextPlan() != null ? item.getNextPlan().getCode() : null,
+                                item.getPlanChangeEffectiveAt()
+                        );
+                    }
+
+                    return new OrganizationDTO.OrganizationWithSubscriptionResponse(orgResponse, subResponse);
+                })
+                .toList();
+    }
+
+    public void validateSubscriptions(User user) {
+        log.info("Validating subscriptions for user {}", user.getEmail());
+
+        var subscription = billingSubscriptionRepository.findByBillingAccountUserId(user.getId())
+                .orElseThrow(() -> new RuleException("Assinatura não encontrada para o usuário " + user.getEmail()));
+        
+        // Simplificando validação baseada no novo modelo
+        if (SubscriptionStatus.TRIAL == subscription.getStatus() && 
+            subscription.getCurrentPeriodEnd() != null && 
+            subscription.getCurrentPeriodEnd().isBefore(Instant.now())) {
+            throw new RuleException("O período de teste (TRIAL) expirou para o usuário " + user.getEmail());
+        }
+
+        if (SubscriptionStatus.BLOCKED == subscription.getStatus() || SubscriptionStatus.PAST_DUE == subscription.getStatus()) {
+            throw new RuleException(String.format("Usuário %s com pendência financeira, favor validar pagamento", user.getEmail()));
+        }
+
+    }
+
 
 }

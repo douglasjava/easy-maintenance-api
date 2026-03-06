@@ -54,6 +54,9 @@ public class Payment {
     @Column(name = "external_payment_id", length = 120)
     private String externalPaymentId;
 
+    @Column(name = "external_checkout_id", length = 120)
+    private String externalCheckoutId;
+
     @Column(name = "external_reference", length = 120)
     private String externalReference;
 

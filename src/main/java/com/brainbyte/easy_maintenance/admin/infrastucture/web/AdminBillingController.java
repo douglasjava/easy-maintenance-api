@@ -4,6 +4,7 @@ import com.brainbyte.easy_maintenance.billing.application.dto.*;
 import com.brainbyte.easy_maintenance.billing.application.service.*;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,10 +24,9 @@ import java.util.List;
 public class AdminBillingController {
 
     private final BillingPlanService planService;
-    private final OrganizationSubscriptionService organizationSubscriptionService;
-    private final UserSubscriptionService userSubscriptionService;
     private final BillingAccountService accountService;
     private final InvoiceService invoiceService;
+    private final BillingSubscriptionRepository billingSubscriptionRepository;
 
     @GetMapping("/plans")
     @Operation(summary = "Lista todos os planos de faturamento")
@@ -49,33 +49,6 @@ public class AdminBillingController {
         return planService.update(code, request);
     }
 
-    @GetMapping("/organizations/{orgCode}/subscription")
-    @Operation(summary = "Busca a assinatura de uma organização")
-    public OrganizationSubscriptionDTO.SubscriptionResponse getOrgSubscription(@PathVariable String orgCode) {
-        
-        return organizationSubscriptionService.findByOrganizationCode(orgCode);
-    }
-
-    @PutMapping("/organizations/{orgCode}/subscription")
-    @Operation(summary = "Atualiza ou cria a assinatura de uma organização")
-    public OrganizationSubscriptionDTO.SubscriptionResponse updateOrgSubscription(@PathVariable String orgCode, @Valid @RequestBody OrganizationSubscriptionDTO.UpdateSubscriptionRequest request) {
-        
-        return organizationSubscriptionService.updateOrCreate(orgCode, request);
-    }
-
-    @PutMapping("/user/{userId}/subscription")
-    @Operation(summary = "Atualiza ou cria a assinatura de um usuário")
-    public UserSubscriptionDTO.SubscriptionResponse updateUserSubscription(@PathVariable Long userId, @Valid @RequestBody UserSubscriptionDTO.UpdateSubscriptionRequest request) {
-
-        return userSubscriptionService.updateOrCreate(userId, request);
-    }
-
-    @GetMapping("/user/{userId}/subscription")
-    @Operation(summary = "Busca a assinatura de um usuário")
-    public UserSubscriptionDTO.SubscriptionResponse getUserSubscription(@PathVariable Long userId) {
-
-        return userSubscriptionService.findBySubscriptionUser(userId);
-    }
 
     @GetMapping("/users/{userId}/account")
     @Operation(summary = "Busca a conta de faturamento de um usuário")
@@ -95,20 +68,17 @@ public class AdminBillingController {
     @GetMapping("/overview")
     @Operation(summary = "Visão geral do faturamento para administradores")
     public BillingAdminDTO.BillingOverviewResponse getOverview(Pageable pageable) {
-        var counters = organizationSubscriptionService.getCounters();
         var payers = accountService.getPayersOverview(pageable);
+        var activeRevenue = billingSubscriptionRepository.sumActiveTotalCents();
+        var totalOrganizations = billingSubscriptionRepository.count(); // Aproximação baseada em assinaturas
+
+        var counters = new BillingAdminDTO.BillingCounters(
+                totalOrganizations,
+                payers.totalElements(),
+                activeRevenue != null ? activeRevenue : 0L
+        );
 
         return new BillingAdminDTO.BillingOverviewResponse(counters, payers);
-    }
-
-    @GetMapping("/subscriptions")
-    @Operation(summary = "Lista e filtra assinaturas")
-    public List<OrganizationSubscriptionDTO.SubscriptionResponse> listSubscriptions(
-            @RequestParam(required = false) SubscriptionStatus status,
-            @RequestParam(required = false) String planCode,
-            @RequestParam(required = false) Long payerUserId,
-            @RequestParam(required = false) String queryNameOrCodeOrganization) {
-        return organizationSubscriptionService.listSubscriptions(status, planCode, payerUserId, queryNameOrCodeOrganization);
     }
 
     @GetMapping("/invoices")

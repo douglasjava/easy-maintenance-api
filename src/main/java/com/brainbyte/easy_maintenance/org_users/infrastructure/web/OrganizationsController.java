@@ -1,7 +1,5 @@
 package com.brainbyte.easy_maintenance.org_users.infrastructure.web;
 
-import com.brainbyte.easy_maintenance.billing.application.dto.OrganizationSubscriptionDTO;
-import com.brainbyte.easy_maintenance.billing.application.service.OrganizationSubscriptionService;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
@@ -29,7 +27,6 @@ import java.util.List;
 public class OrganizationsController {
 
     private final OrganizationsService service;
-    private final OrganizationSubscriptionService organizationSubscriptionService;
     private final UsersService usersService;
 
     @PostMapping
@@ -61,14 +58,6 @@ public class OrganizationsController {
     @Operation(summary = "Atualiza dados de uma organização")
     public OrganizationResponse update(@PathVariable Long id, @Valid @RequestBody UpdateOrganizationRequest req) {
         return service.update(id, req);
-    }
-
-    @PutMapping("/{orgCode}/subscription")
-    @Operation(summary = "Atualiza ou cria a assinatura de uma organização")
-    public OrganizationSubscriptionDTO.SubscriptionResponse updateSubscription(@PathVariable String orgCode,
-                                   @Valid @RequestBody OrganizationSubscriptionDTO.UpdateSubscriptionRequest request) {
-
-        return organizationSubscriptionService.updateOrCreate(orgCode, request);
     }
 
     @PostMapping("/{orgCode}/users/{userId}")

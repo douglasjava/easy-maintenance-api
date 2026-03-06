@@ -16,6 +16,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
 
     Optional<Payment> findByExternalPaymentId(String externalPaymentId);
 
+    Optional<Payment> findByExternalCheckoutId(String externalCheckoutId);
+
     Optional<Payment> findFirstByInvoiceIdAndStatusOrderByCreatedAtDesc(Long invoiceId, PaymentStatus status);
 
     static Specification<Payment> hasPayerUserId(Long payerUserId) {

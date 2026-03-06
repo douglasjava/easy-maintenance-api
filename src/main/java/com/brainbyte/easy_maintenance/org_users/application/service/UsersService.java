@@ -1,20 +1,12 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
-import com.brainbyte.easy_maintenance.billing.application.dto.OrganizationSubscriptionDTO;
-import com.brainbyte.easy_maintenance.billing.application.dto.UserSubscriptionDTO;
-import com.brainbyte.easy_maintenance.billing.application.service.OrganizationSubscriptionService;
-import com.brainbyte.easy_maintenance.billing.application.service.UserSubscriptionService;
-import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
-import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.OrganizationSubscriptionRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
-import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
-import com.brainbyte.easy_maintenance.org_users.domain.enums.Status;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.specifications.UserSpecifications;
 import com.brainbyte.easy_maintenance.org_users.mapper.IUserMapper;
@@ -44,14 +36,10 @@ public class UsersService {
 
     public static final String USER_NOT_FOUND_MESSAGE = "Usuário com id %s não encontrado";
 
-    private final OrganizationsService organizationsService;
-    private final OrganizationSubscriptionService organizationSubscriptionService;
-    private final OrganizationSubscriptionRepository organizationSubscriptionRepository;
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final FirstAccessTokenService firstAccessTokenService;
-    private final UserSubscriptionService userSubscriptionService;
 
     public UserDTO.UserResponse createUser(UserDTO.CreateUserRequest request) {
         log.info("Creating user {} ", request.email());
@@ -284,29 +272,6 @@ public class UsersService {
         repository.save(user);
     }
 
-    @Transactional(readOnly = true)
-    public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listUserOrganizations(Long userId) {
-        log.info("Listing all organizations for user id: {}", userId);
-        var user = repository.findByIdWithOrganization(userId)
-                .orElseThrow(() -> new NotFoundException(String.format(USER_NOT_FOUND_MESSAGE, userId)));
-
-        var codes = user.getOrganizations().stream()
-                .map(UserOrganization::getOrganizationCode)
-                .toList();
-
-        return organizationsService.listAllByCodes(codes).stream()
-                .map(org -> {
-                    OrganizationSubscriptionDTO.SubscriptionResponse subscription = null;
-                    try {
-                        subscription = organizationSubscriptionService.findByOrganizationCode(org.code());
-                    } catch (NotFoundException e) {
-                        log.warn("Subscription not found for organization {}", org.code());
-                    }
-                    return new OrganizationDTO.OrganizationWithSubscriptionResponse(org, subscription);
-                })
-                .toList();
-    }
-
     private UserDTO.UserResponse updateUserDetails(UserDTO.UpdateUserRequest request, User user) {
 
         if (hasLength(request.name())) {
@@ -325,34 +290,11 @@ public class UsersService {
         return IUserMapper.INSTANCE.toUserResponse(updatedUser);
     }
 
-    public void validateSubscriptions(User user) {
-        log.info("Validating subscriptions for user {}", user.getEmail());
+    private final OrganizationsService organizationsService;
 
-        var subscriptionUser = userSubscriptionService.findBySubscriptionUser(user.getId());
-
-        if (isTrialInvalid(subscriptionUser.status(), subscriptionUser.trialEndsAt())) {
-            log.warn("User {} is inactive", user.getEmail());
-            throw new RuleException("O período de teste (TRIAL) expirou para o usuário " + user.getEmail());
-        }
-
-        if(SubscriptionStatus.BLOCKED == subscriptionUser.status() ) {
-            throw new RuleException(String.format("Usuário %s bloqueado, favor validar pagamento", user.getEmail()));
-        }
-
-        for (UserOrganization uo : user.getOrganizations()) {
-            organizationSubscriptionRepository.findByOrganizationCode(uo.getOrganizationCode())
-                    .ifPresent(subscription -> {
-                        if (isTrialInvalid(subscription.getStatus(), subscription.getTrialEndsAt())) {
-                            log.warn("Trial period expired for organization {} and user {}", uo.getOrganizationCode(), user.getEmail());
-                            throw new RuleException("O período de teste (TRIAL) expirou para a organização " + uo.getOrganizationCode());
-                        }
-                    });
-        }
+    @Transactional(readOnly = true)
+    public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listUserOrganizations(Long userId) {
+        return organizationsService.listUserOrganizations(userId);
     }
-
-    private boolean isTrialInvalid(SubscriptionStatus status, Instant trialEndsAt) {
-        return SubscriptionStatus.TRIAL == status && ( trialEndsAt != null && trialEndsAt.isBefore(Instant.now()));
-    }
-
 
 }

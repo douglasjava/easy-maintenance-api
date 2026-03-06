@@ -39,7 +39,7 @@ public class OnboardingDTO {
 
     public record AccountUserResponse(
             Long billingAccountId,
-            Long userSubscriptionResponse
+            Long userSubscriptionId
     ){}
 
 

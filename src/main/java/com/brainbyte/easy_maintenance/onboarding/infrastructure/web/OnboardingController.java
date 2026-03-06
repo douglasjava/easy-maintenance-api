@@ -33,5 +33,4 @@ public class OnboardingController {
         return onboardingService.createOrganization(user, request);
     }
 
-
 }

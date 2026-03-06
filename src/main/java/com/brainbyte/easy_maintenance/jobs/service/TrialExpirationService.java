@@ -1,13 +1,16 @@
 package com.brainbyte.easy_maintenance.jobs.service;
 
+import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.Invoice;
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingCycle;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
 import com.brainbyte.easy_maintenance.commons.exceptions.AsaasException;
+import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.infrastructure.mail.MailService;
 import com.brainbyte.easy_maintenance.infrastructure.mail.utils.EmailTemplateHelper;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
@@ -42,6 +45,7 @@ public class TrialExpirationService {
     private final AsaasProperties asaasProperties;
     private final MailService mailerSendService;
     private final EmailTemplateHelper emailTemplateHelper;
+    private final BillingSubscriptionService billingSubscriptionService;
 
     @Transactional
     public void processTrialsExpiringWithinDays(int daysAhead) {
@@ -92,7 +96,11 @@ public class TrialExpirationService {
             return;
         }
 
-        var asaasResponse = createAsaasCheckout(account, invoice, plan, nextDueDate);
+        log.info("Buscando assinatura para usuário {}", payer.getId());
+        var billingSubscription = billingSubscriptionService.findByUser(payer.getId())
+                .orElseThrow(() -> new NotFoundException("Assinatura não foi encontrado para o usuário " + payer.getId()));
+
+        var asaasResponse = createAsaasCheckout(account, invoice, plan, nextDueDate, billingSubscription.getId());
 
         var paymentLink = asaasResponse.link();
         var externalPaymentId = asaasResponse.id();
@@ -102,27 +110,34 @@ public class TrialExpirationService {
         sendTrialExpirationEmail(payer, account, payment.getPaymentLink(), invoice);
     }
 
-    private AsaasDTO.CheckoutResponse createAsaasCheckout(BillingAccount account, Invoice invoice, BillingPlan plan, LocalDate nextDueDate) {
+    private AsaasDTO.CheckoutResponse createAsaasCheckout(BillingAccount account, Invoice invoice,
+                                                          BillingPlan plan,
+                                                          LocalDate nextDueDate, Long billingSubscriptionId) {
         try {
-            AsaasDTO.CreateCheckoutRequest req = mapToAsaasCheckoutRequest(account, invoice, plan, nextDueDate);
 
+            AsaasDTO.CreateCheckoutRequest req = mapToAsaasCheckoutRequest(account, invoice, plan, nextDueDate, billingSubscriptionId);
             AsaasDTO.CheckoutResponse resp = asaasClient.createCheckout(req);
+
             log.info("Asaas checkout created id={} for payer {}", resp.id(), account.getUser().getId());
+
             return resp;
+
         } catch (Exception e) {
             log.error("Failed to create Asaas checkout for payer {}: {}", account.getUser().getId(), e.getMessage());
             throw new AsaasException(String.format("Failed to create Asaas checkout for payer %s", account.getUser().getId()), e);
         }
     }
 
-    private AsaasDTO.CreateCheckoutRequest mapToAsaasCheckoutRequest(BillingAccount account, Invoice invoice, BillingPlan plan, LocalDate nextDueDate) {
+    private AsaasDTO.CreateCheckoutRequest mapToAsaasCheckoutRequest(BillingAccount account, Invoice invoice,
+                                                                     BillingPlan plan, LocalDate nextDueDate,
+                                                                     Long billingSubscriptionId) {
         AsaasDTO.Cycle cycle = mapCycle(plan.getBillingCycle());
 
         var items = invoice.getItems().stream()
                 .map(invoiceItem -> new AsaasDTO.CheckoutItem(
                         "INVITEM-" + invoiceItem.getId() + "-" + UUID.randomUUID(),
                         invoiceItem.getDescription(),
-                        invoiceItem.getPlan() != null ? invoiceItem.getPlan().getCode() : "EASY MAINTENANCE",
+                        invoiceItem.getPlan().getName(),
                         invoiceItem.getQuantity(),
                         BigDecimal.valueOf(invoiceItem.getAmountCents(), 2)
                 ))
@@ -134,7 +149,7 @@ public class TrialExpirationService {
                 nextDueDate.toString()
         );
 
-        int minutesToExpire = asaasProperties.checkoutMinutesToExpire() != null ? asaasProperties.checkoutMinutesToExpire() : 120;
+        int minutesToExpire = asaasProperties.checkoutMinutesToExpire();
 
         var callback = new AsaasDTO.CheckoutCallback(
                 asaasProperties.checkoutSuccessUrl(),
@@ -146,7 +161,7 @@ public class TrialExpirationService {
                 List.of(mapBillingType(account.getPaymentMethod())),
                 List.of(AsaasDTO.ChargeTypes.RECURRENT),
                 minutesToExpire,
-                "INV-" + invoice.getId() + "-" + UUID.randomUUID(),
+                "BILLING-" + billingSubscriptionId,
                 callback,
                 items,
                 subscription,
@@ -155,19 +170,22 @@ public class TrialExpirationService {
     }
 
     private Payment createAndSavePayment(User payer, Invoice invoice, BillingAccount account, String externalPaymentId, String paymentLink) {
+
         Payment payment = Payment.builder()
                 .invoice(invoice)
                 .payer(payer)
                 .provider(PaymentProvider.ASAAS)
-                .methodType(account.getPaymentMethod() != null ? account.getPaymentMethod() : PaymentMethodType.PIX)
+                .methodType(account.getPaymentMethod())
                 .status(PaymentStatus.PENDING)
                 .amountCents(invoice.getTotalCents())
                 .currency(invoice.getCurrency())
-                .externalReference("INV-" + invoice.getId())
+                .externalReference("INV-" + invoice.getId() +  "-" + UUID.randomUUID())
                 .externalPaymentId(externalPaymentId)
                 .paymentLink(paymentLink)
                 .build();
+
         return paymentRepository.save(payment);
+
     }
 
     private void sendTrialExpirationEmail(User payer, BillingAccount account, String paymentLink, Invoice invoice) {

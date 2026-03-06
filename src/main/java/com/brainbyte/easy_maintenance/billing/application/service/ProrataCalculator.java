@@ -12,20 +12,16 @@ import java.time.Instant;
 @Component
 public class ProrataCalculator {
 
-    public BigDecimal calculateUpgradeAmount(
-            int currentPlanPriceCents,
-            int newPlanPriceCents,
-            Instant periodStart,
-            Instant periodEnd) {
+    public int calculateUpgradeCents(int currentPlanPriceCents, int newPlanPriceCents, Instant periodStart, Instant periodEnd) {
         
         Instant now = Instant.now();
-        if (now.isAfter(periodEnd)) return BigDecimal.valueOf(newPlanPriceCents).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        if (now.isAfter(periodEnd)) return newPlanPriceCents;
         if (now.isBefore(periodStart)) now = periodStart;
 
         long totalDurationSec = Duration.between(periodStart, periodEnd).getSeconds();
         long remainingDurationSec = Duration.between(now, periodEnd).getSeconds();
 
-        if (totalDurationSec <= 0) return BigDecimal.ZERO;
+        if (totalDurationSec <= 0) return 0;
 
         BigDecimal totalDurationBD = BigDecimal.valueOf(totalDurationSec);
         BigDecimal remainingDurationBD = BigDecimal.valueOf(remainingDurationSec);
@@ -33,16 +29,18 @@ public class ProrataCalculator {
         // Valor proporcional não utilizado do plano atual
         BigDecimal currentPlanUnused = BigDecimal.valueOf(currentPlanPriceCents)
                 .multiply(remainingDurationBD)
-                .divide(totalDurationBD, 2, RoundingMode.HALF_UP);
+                .divide(totalDurationBD, 0, RoundingMode.HALF_UP);
 
         // Valor proporcional do novo plano até o fim do ciclo
         BigDecimal newPlanProrata = BigDecimal.valueOf(newPlanPriceCents)
                 .multiply(remainingDurationBD)
-                .divide(totalDurationBD, 2, RoundingMode.HALF_UP);
+                .divide(totalDurationBD, 0, RoundingMode.HALF_UP);
 
         BigDecimal finalAmountCents = newPlanProrata.subtract(currentPlanUnused);
         
         // Se por algum motivo o cálculo der negativo (não deveria em upgrade), retornamos 0
-        return finalAmountCents.max(BigDecimal.ZERO).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        return finalAmountCents.max(BigDecimal.ZERO).intValue();
+
     }
+
 }

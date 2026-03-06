@@ -23,24 +23,22 @@ public interface BillingAccountRepository extends JpaRepository<BillingAccount, 
                 u.id,
                 u.name,
                 u.email,
-                COUNT(DISTINCT s),
-                CAST(SUM(COALESCE(p.priceCents, 0)) AS long),
-                CAST(COALESCE(up.priceCents, 0) AS long)
+                COUNT(DISTINCT CASE WHEN i.sourceType = 'ORGANIZATION' THEN i.id END),
+                CAST(SUM(COALESCE(CASE WHEN i.sourceType = 'ORGANIZATION' THEN p.priceCents END, 0)) AS long),
+                CAST(COALESCE(SUM(CASE WHEN i.sourceType = 'USER' THEN p.priceCents END), 0) AS long)
             )
             FROM User u
-            LEFT JOIN OrganizationSubscription s ON s.payer = u
-            LEFT JOIN s.plan p
-            LEFT JOIN UserSubscription us ON us.user = u
-            LEFT JOIN us.plan up
-            GROUP BY u.id, u.name, u.email, up.priceCents
-            HAVING COUNT(s) > 0 OR COUNT(us) > 0
+            JOIN BillingAccount ba ON ba.user = u
+            JOIN BillingSubscription s ON s.billingAccount = ba
+            JOIN BillingSubscriptionItem i ON i.billingSubscription = s
+            JOIN i.plan p
+            GROUP BY u.id, u.name, u.email
             """,
             countQuery = """
             SELECT COUNT(DISTINCT u)
             FROM User u
-            LEFT JOIN OrganizationSubscription s ON s.payer = u
-            LEFT JOIN UserSubscription us ON us.user = u
-            WHERE s.id IS NOT NULL OR us.id IS NOT NULL
+            JOIN BillingAccount ba ON ba.user = u
+            JOIN BillingSubscription s ON s.billingAccount = ba
             """)
     Page<PayerSummaryResponse> findPayersSummary(Pageable pageable);
 
@@ -49,18 +47,17 @@ public interface BillingAccountRepository extends JpaRepository<BillingAccount, 
                 u.id,
                 u.name,
                 u.email,
-                COUNT(DISTINCT s),
-                CAST(SUM(COALESCE(p.priceCents, 0)) AS long),
-                CAST(COALESCE(up.priceCents, 0) AS long)
+                COUNT(DISTINCT CASE WHEN i.sourceType = 'ORGANIZATION' THEN i.id END),
+                CAST(SUM(COALESCE(CASE WHEN i.sourceType = 'ORGANIZATION' THEN p.priceCents END, 0)) AS long),
+                CAST(COALESCE(SUM(CASE WHEN i.sourceType = 'USER' THEN p.priceCents END), 0) AS long)
             )
             FROM User u
-            LEFT JOIN OrganizationSubscription s ON s.payer = u
-            LEFT JOIN s.plan p
-            LEFT JOIN UserSubscription us ON us.user = u
-            LEFT JOIN us.plan up
-            GROUP BY u.id, u.name, u.email, up.priceCents
-            HAVING COUNT(s) > 0 OR COUNT(us) > 0
-            ORDER BY (SUM(COALESCE(p.priceCents, 0)) + COALESCE(up.priceCents, 0)) DESC
+            JOIN BillingAccount ba ON ba.user = u
+            JOIN BillingSubscription s ON s.billingAccount = ba
+            JOIN BillingSubscriptionItem i ON i.billingSubscription = s
+            JOIN i.plan p
+            GROUP BY u.id, u.name, u.email
+            ORDER BY (SUM(COALESCE(p.priceCents, 0))) DESC
             """)
     List<PayerSummaryResponse> findTopPayers();
 }

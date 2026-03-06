@@ -1,7 +1,7 @@
 CREATE TABLE user_push_tokens (
                                   id BIGINT NOT NULL AUTO_INCREMENT,
 
-                                  user_id BIGINT NOT NULL,
+                                  user_id BIGINT NULL,
 
     -- token do FCM (pode ser grande)
                                   token VARCHAR(512) NOT NULL,

@@ -39,6 +39,12 @@ public class BillingPlan {
     @Column(name = "price_cents", nullable = false)
     private Integer priceCents;
 
+    @Column(name = "max_organizations")
+    private Integer maxOrganizations;
+
+    @Column(name = "max_assets")
+    private Integer maxAssets;
+
     @Column(name = "features_json", columnDefinition = "JSON")
     private String featuresJson;
 

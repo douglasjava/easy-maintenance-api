@@ -1,7 +1,5 @@
 package com.brainbyte.easy_maintenance.billing.domain;
 
-import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
-import com.brainbyte.easy_maintenance.org_users.domain.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -9,25 +7,37 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
 
-@Data
 @Entity
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "user_subscriptions")
-public class UserSubscription {
+@Table(name = "billing_subscription_items")
+public class BillingSubscriptionItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false, unique = true)
-    private User user;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "billing_subscription_id", nullable = false)
+    private BillingSubscription billingSubscription;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_type", nullable = false, length = 20)
+    private BillingSubscriptionItemSourceType sourceType;
+
+    @Column(name = "source_id", nullable = false, length = 120)
+    private String sourceId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plan_code", referencedColumnName = "code", nullable = false)
     private BillingPlan plan;
+
+    @Column(name = "value_cents", nullable = false)
+    @Builder.Default
+    private Long valueCents = 0L;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "next_plan_code", referencedColumnName = "code")
@@ -36,27 +46,6 @@ public class UserSubscription {
     @Column(name = "plan_change_effective_at")
     private Instant planChangeEffectiveAt;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    @Builder.Default
-    private SubscriptionStatus status = SubscriptionStatus.ACTIVE;
-
-    @Column(name = "current_period_start", nullable = false)
-    private Instant currentPeriodStart;
-
-    @Column(name = "current_period_end", nullable = false)
-    private Instant currentPeriodEnd;
-
-    @Column(name = "trial_ends_at")
-    private Instant trialEndsAt;
-
-    @Column(name = "cancel_at_period_end", nullable = false)
-    @Builder.Default
-    private Boolean cancelAtPeriodEnd = false;
-
-    @Column(name = "canceled_at")
-    private Instant canceledAt;
-
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -64,4 +53,5 @@ public class UserSubscription {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
 }

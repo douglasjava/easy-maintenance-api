@@ -2,25 +2,21 @@ package com.brainbyte.easy_maintenance.billing.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.BillingAccountDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.BillingAdminDTO;
-import com.brainbyte.easy_maintenance.billing.application.dto.UserSubscriptionDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.PayerSummaryResponse;
 import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
-import com.brainbyte.easy_maintenance.billing.domain.OrganizationSubscription;
-import com.brainbyte.easy_maintenance.billing.domain.UserSubscription;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
-import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.OrganizationSubscriptionRepository;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
 import com.brainbyte.easy_maintenance.billing.mapper.IBillingMapper;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
-import com.brainbyte.easy_maintenance.infrastructure.saas.IAsaasMapper;
-import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
-import com.brainbyte.easy_maintenance.org_users.domain.User;
+import com.brainbyte.easy_maintenance.org_users.domain.Organization;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
-import com.brainbyte.easy_maintenance.payment.application.factory.PaymentProviderFactory;
-import com.brainbyte.easy_maintenance.payment.application.service.PaymentProviderStrategy;
-import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +24,7 @@ import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -39,8 +36,9 @@ public class BillingAccountService {
 
     private final BillingAccountRepository repository;
     private final UserRepository userRepository;
-    private final OrganizationSubscriptionRepository organizationSubscriptionRepository;
-    private final UserSubscriptionService userSubscriptionService;
+    private final BillingSubscriptionRepository billingSubscriptionRepository;
+    private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
+    private final OrganizationRepository organizationRepository;
 
 
     public BillingAccountDTO.BillingAccountResponse findByUserId(Long userId) {
@@ -82,41 +80,58 @@ public class BillingAccountService {
                     summaryPage.getTotalPages(), summaryPage.getNumber(), summaryPage.getSize());
         }
 
-        List<OrganizationSubscription> orgSubscriptions = organizationSubscriptionRepository.findAllByPayerIdIn(payerIds);
-        List<UserSubscription> userSubscriptions = userSubscriptionService.findAllByUserIdIn(payerIds);
+        // Busca as assinaturas dos pagadores
+        Map<Long, BillingSubscription> subsByPayer = billingSubscriptionRepository.findAllByBillingAccountUserIdIn(payerIds).stream()
+                .collect(Collectors.toMap(s -> s.getBillingAccount().getUser().getId(), s -> s));
 
-        Map<Long, List<OrganizationSubscription>> orgSubsByPayer = orgSubscriptions.stream()
-                .collect(Collectors.groupingBy(os -> os.getPayer().getId()));
+        List<Long> subIds = subsByPayer.values().stream().map(BillingSubscription::getId).toList();
 
-        Map<Long, UserSubscription> userSubByPayer = userSubscriptions.stream()
-                .collect(Collectors.toMap(us -> us.getUser().getId(), us -> us));
+        // Busca todos os itens das assinaturas encontradas para evitar N+1
+        Map<Long, List<BillingSubscriptionItem>> itemsBySubId = billingSubscriptionItemRepository.findAllByBillingSubscriptionIdIn(subIds).stream()
+                .collect(Collectors.groupingBy(item -> item.getBillingSubscription().getId()));
+
+        // Busca organizações relacionadas para nomes e códigos
+        List<String> orgCodes = itemsBySubId.values().stream()
+                .flatMap(List::stream)
+                .filter(i -> i.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION)
+                .map(BillingSubscriptionItem::getSourceId)
+                .distinct()
+                .toList();
+
+        Map<String, Organization> orgsByCode = organizationRepository.findAllByCodeIn(orgCodes).stream()
+                .collect(Collectors.toMap(Organization::getCode, o -> o));
 
         Page<BillingAdminDTO.PayerResponse> responsePage = summaryPage.map(summary -> {
-            List<OrganizationSubscription> payerOrgSubs = orgSubsByPayer.getOrDefault(summary.userId(), List.of());
-            UserSubscription payerUserSub = userSubByPayer.get(summary.userId());
+            BillingSubscription sub = subsByPayer.get(summary.userId());
+            List<BillingSubscriptionItem> items = sub != null ? itemsBySubId.getOrDefault(sub.getId(), List.of()) : List.of();
 
-            List<BillingAdminDTO.OrganizationDetail> orgDetails = payerOrgSubs.stream()
-                    .map(os -> new BillingAdminDTO.OrganizationDetail(
-                            os.getOrganization().getId(),
-                            os.getOrganization().getCode(),
-                            os.getOrganization().getName(),
-                            os.getPlan().getCode(),
-                            os.getPlan().getName(),
-                            os.getPlan().getPriceCents().longValue(),
-                            os.getStatus(),
-                            os.getCurrentPeriodEnd()
-                    )).toList();
+            List<BillingAdminDTO.OrganizationDetail> orgDetails = items.stream()
+                    .filter(i -> i.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION)
+                    .map(i -> {
+                        Organization org = orgsByCode.get(i.getSourceId());
+                        return new BillingAdminDTO.OrganizationDetail(
+                                org != null ? org.getId() : null,
+                                i.getSourceId(),
+                                org != null ? org.getName() : "N/A",
+                                i.getPlan().getCode(),
+                                i.getPlan().getName(),
+                                i.getPlan().getPriceCents().longValue(),
+                                sub.getStatus(),
+                                sub.getCurrentPeriodEnd()
+                        );
+                    }).toList();
 
-            BillingAdminDTO.SubscriptionDetail userSubDetail = null;
-            if (payerUserSub != null) {
-                userSubDetail = new BillingAdminDTO.SubscriptionDetail(
-                        payerUserSub.getPlan().getCode(),
-                        payerUserSub.getPlan().getName(),
-                        payerUserSub.getPlan().getPriceCents().longValue(),
-                        payerUserSub.getStatus(),
-                        payerUserSub.getCurrentPeriodEnd()
-                );
-            }
+            BillingAdminDTO.SubscriptionDetail userSubDetail = items.stream()
+                    .filter(i -> i.getSourceType() == BillingSubscriptionItemSourceType.USER)
+                    .findFirst()
+                    .map(i -> new BillingAdminDTO.SubscriptionDetail(
+                            i.getPlan().getCode(),
+                            i.getPlan().getName(),
+                            i.getPlan().getPriceCents().longValue(),
+                            sub.getStatus(),
+                            sub.getCurrentPeriodEnd()
+                    ))
+                    .orElse(null);
 
             long userCents = summary.userSubscriptionPriceCents();
             long orgsCents = summary.organizationSubscriptionPriceCents();

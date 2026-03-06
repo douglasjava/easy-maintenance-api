@@ -1,7 +1,8 @@
 package com.brainbyte.easy_maintenance.admin.application.service;
 
 import com.brainbyte.easy_maintenance.admin.application.dto.AdminMetricsResponse;
-import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.OrganizationSubscriptionRepository;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.AccessAdminException;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
@@ -19,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -34,7 +36,8 @@ public class AdminService {
     private final FirstAccessTokenService firstAccessService;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
-    private final OrganizationSubscriptionRepository subscriptionRepository;
+    private final BillingSubscriptionRepository billingSubscriptionRepository;
+    private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
 
     public OrganizationDTO.OrganizationResponse createOrganization(OrganizationDTO.CreateOrganizationRequest request) {
 
@@ -98,12 +101,12 @@ public class AdminService {
         long totalOrganizations = organizationRepository.count();
         long totalUsers = userRepository.count();
 
-        var activeSubscriptions = subscriptionRepository.countByPlanName();
-
-        var organizationsByPlan = activeSubscriptions.stream()
-                .collect(Collectors.toMap(
-                        row -> Plan.from( (String) row[0] ),
-                        row -> (Long) row[1]
+        // Agrupa itens de assinatura por plano e conta as ocorrências
+        Map<Plan, Long> organizationsByPlan = billingSubscriptionItemRepository.findAll().stream()
+                .filter(item -> item.getPlan() != null)
+                .collect(Collectors.groupingBy(
+                        item -> Plan.from(item.getPlan().getCode()),
+                        Collectors.counting()
                 ));
 
         return new AdminMetricsResponse(totalOrganizations, totalUsers, organizationsByPlan);

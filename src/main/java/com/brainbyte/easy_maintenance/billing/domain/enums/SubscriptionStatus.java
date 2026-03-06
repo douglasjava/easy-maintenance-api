@@ -1,5 +1,13 @@
 package com.brainbyte.easy_maintenance.billing.domain.enums;
 
 public enum SubscriptionStatus {
-    ACTIVE, TRIAL, PAST_DUE, CANCELED, BLOCKED, NONE
+    TRIAL,
+    PENDING_PAYMENT,
+    ACTIVE,
+    PAST_DUE,
+    BLOCKED,
+    CANCELED,
+    NONE,
+    PENDING_ACTIVATION,
+    PAYMENT_FAILED
 }
