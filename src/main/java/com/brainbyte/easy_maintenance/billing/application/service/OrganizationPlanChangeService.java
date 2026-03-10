@@ -7,6 +7,7 @@ import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
 import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
 import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
@@ -32,10 +33,11 @@ public class OrganizationPlanChangeService extends AbstractSubscriptionChangePla
             BillingSubscriptionRepository billingSubscriptionRepository,
             BillingSubscriptionItemRepository billingSubscriptionItemRepository,
             AsaasClient asaasClient,
+            BillingPlanFeaturesHelper featuresHelper,
             MaintenanceItemRepository maintenanceItemRepository,
             AuthenticationService authenticationService) {
         super(planRepository, prorataCalculator, invoiceRepository, paymentRepository, auditService, objectMapper,
-                billingSubscriptionRepository, billingSubscriptionItemRepository, asaasClient);
+                billingSubscriptionRepository, billingSubscriptionItemRepository, asaasClient, featuresHelper);
         this.maintenanceItemRepository = maintenanceItemRepository;
         this.authenticationService = authenticationService;
     }
@@ -58,10 +60,11 @@ public class OrganizationPlanChangeService extends AbstractSubscriptionChangePla
     @Override
     protected void validateDowngradeLimits(String orgCode, BillingPlan newPlan) {
         long assetCount = maintenanceItemRepository.countByOrganizationCode(orgCode);
-        if (assetCount > newPlan.getMaxAssets()) {
-            throw new com.brainbyte.easy_maintenance.commons.exceptions.RuleException(
+        var features = featuresHelper.parse(newPlan);
+        if (assetCount > features.getMaxItems()) {
+            throw new RuleException(
                     String.format("O plano %s permite apenas %d ativos. A organização %s possui %d.",
-                            newPlan.getName(), newPlan.getMaxAssets(), orgCode, assetCount));
+                            newPlan.getName(), features.getMaxItems(), orgCode, assetCount));
         }
     }
 

@@ -75,7 +75,7 @@ public class OrganizationsController {
     @GetMapping("/me/{userId}")
     @Operation(summary = "Lista todas as organizações associadas ao usuário")
     public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listAllOrganizationsByMe(@PathVariable Long userId) {
-        return usersService.listUserOrganizations(userId);
+        return service.listUserOrganizations(userId);
     }
 
 }

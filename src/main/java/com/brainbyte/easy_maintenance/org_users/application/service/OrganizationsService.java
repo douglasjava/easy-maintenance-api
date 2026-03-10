@@ -177,7 +177,10 @@ public class OrganizationsService {
                                 item.getPlan().getName(),
                                 item.getValueCents(),
                                 item.getNextPlan() != null ? item.getNextPlan().getCode() : null,
-                                item.getPlanChangeEffectiveAt()
+                                item.getPlanChangeEffectiveAt(),
+                                item.getBillingSubscription().getStatus(),
+                                item.getBillingSubscription().getCurrentPeriodStart(),
+                                item.getBillingSubscription().getCurrentPeriodEnd()
                         );
                     }
 

@@ -46,6 +46,7 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
     protected final BillingSubscriptionRepository billingSubscriptionRepository;
     protected final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
     protected final AsaasClient asaasClient;
+    protected final BillingPlanFeaturesHelper featuresHelper;
 
     @Transactional
     public ChangePlanResponse changePlan(T sourceId, ChangePlanRequest request) {
@@ -94,11 +95,10 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
 
         Invoice invoice = Invoice.builder()
                 .payer(user)
-                .billingSubscription(billingSubscription)
                 .periodStart(LocalDate.now())
                 .periodEnd(billingSubscription.getCurrentPeriodEnd().atZone(ZoneOffset.UTC).toLocalDate())
                 .status(InvoiceStatus.OPEN)
-                .dueDate(LocalDate.now())
+                .dueDate(LocalDate.now().plusMonths(1))
                 .subtotalCents(amountToChargeCents)
                 .totalCents(amountToChargeCents)
                 .build();

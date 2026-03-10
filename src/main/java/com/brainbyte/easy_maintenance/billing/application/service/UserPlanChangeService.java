@@ -6,6 +6,7 @@ import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
 import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
@@ -26,15 +27,15 @@ public class UserPlanChangeService extends AbstractSubscriptionChangePlanService
             AuditService auditService, ObjectMapper objectMapper,
             BillingSubscriptionRepository billingSubscriptionRepository,
             BillingSubscriptionItemRepository billingSubscriptionItemRepository,
-            AsaasClient asaasClient, UserOrganizationRepository userOrganizationRepository) {
-
+            AsaasClient asaasClient, BillingPlanFeaturesHelper featuresHelper,
+            UserOrganizationRepository userOrganizationRepository) {
+        
         super(planRepository, prorataCalculator, invoiceRepository,
                 paymentRepository, auditService, objectMapper,
                 billingSubscriptionRepository, billingSubscriptionItemRepository,
-                asaasClient);
-
+                asaasClient, featuresHelper);
+        
         this.userOrganizationRepository = userOrganizationRepository;
-
     }
 
     @Override
@@ -54,10 +55,11 @@ public class UserPlanChangeService extends AbstractSubscriptionChangePlanService
     @Override
     protected void validateDowngradeLimits(Long userId, BillingPlan newPlan) {
         long organizationCount = userOrganizationRepository.countByUserId(userId);
-        if (organizationCount > newPlan.getMaxOrganizations()) {
-            throw new com.brainbyte.easy_maintenance.commons.exceptions.RuleException(
+        var features = featuresHelper.parse(newPlan);
+        if (organizationCount > features.getMaxOrganizations()) {
+            throw new RuleException(
                     String.format("O plano %s permite apenas %d organizações. Você possui %d.",
-                            newPlan.getName(), newPlan.getMaxOrganizations(), organizationCount));
+                            newPlan.getName(), features.getMaxOrganizations(), organizationCount));
         }
     }
 

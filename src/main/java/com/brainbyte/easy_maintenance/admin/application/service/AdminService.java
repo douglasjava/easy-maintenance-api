@@ -80,7 +80,7 @@ public class AdminService {
     }
 
     public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listAllOrganizationByIdUser(Long idUser) {
-        return usersService.listUserOrganizations(idUser);
+        return organizationsService.listUserOrganizations(idUser);
     }
 
     public PageResponse<UserDTO.UserResponse> listAllSummary(String name, String email, Pageable pageable) {

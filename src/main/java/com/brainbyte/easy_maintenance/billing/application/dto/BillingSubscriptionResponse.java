@@ -23,6 +23,9 @@ public record BillingSubscriptionResponse(
             String planName,
             Long valueCents,
             String nextPlanCode,
-            Instant planChangeEffectiveAt
+            Instant planChangeEffectiveAt,
+            SubscriptionStatus status,
+            Instant currentPeriodStart,
+            Instant currentPeriodEnd
     ) {}
 }

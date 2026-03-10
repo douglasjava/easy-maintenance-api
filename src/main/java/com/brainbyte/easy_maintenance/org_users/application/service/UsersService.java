@@ -290,11 +290,4 @@ public class UsersService {
         return IUserMapper.INSTANCE.toUserResponse(updatedUser);
     }
 
-    private final OrganizationsService organizationsService;
-
-    @Transactional(readOnly = true)
-    public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listUserOrganizations(Long userId) {
-        return organizationsService.listUserOrganizations(userId);
-    }
-
 }
