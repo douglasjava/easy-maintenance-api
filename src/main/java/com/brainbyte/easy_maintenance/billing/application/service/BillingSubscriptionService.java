@@ -68,6 +68,20 @@ public class BillingSubscriptionService {
                 });
     }
 
+    @Transactional
+    public void removeItem(Long itemId) {
+        log.info("Removing item from subscription: {}", itemId);
+        BillingSubscriptionItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new NotFoundException("Item de assinatura não encontrado: " + itemId));
+        
+        BillingSubscription subscription = item.getBillingSubscription();
+        itemRepository.delete(item);
+        
+        recalculateTotal(subscription);
+        updateAsaasSubscription(subscription);
+        repository.save(subscription);
+    }
+
     private void recalculateTotal(BillingSubscription subscription) {
         Long newTotal = itemRepository.findAllByBillingSubscriptionId(subscription.getId())
                 .stream()

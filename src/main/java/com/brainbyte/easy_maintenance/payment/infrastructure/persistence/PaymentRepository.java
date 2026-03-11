@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.domain.Pageable;
+import java.util.List;
 import java.time.Instant;
 import java.util.Optional;
 
@@ -19,6 +21,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
     Optional<Payment> findByExternalCheckoutId(String externalCheckoutId);
 
     Optional<Payment> findFirstByInvoiceIdAndStatusOrderByCreatedAtDesc(Long invoiceId, PaymentStatus status);
+
+    Optional<Payment> findFirstByInvoiceIdOrderByCreatedAtDesc(Long invoiceId);
+
+    List<Payment> findByPayerIdOrderByCreatedAtDesc(Long payerId, Pageable pageable);
 
     static Specification<Payment> hasPayerUserId(Long payerUserId) {
         return (root, query, cb) -> payerUserId == null ? null : cb.equal(root.get("payer").get("id"), payerUserId);

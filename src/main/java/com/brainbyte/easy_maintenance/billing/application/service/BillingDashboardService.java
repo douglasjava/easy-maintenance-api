@@ -1,0 +1,148 @@
+package com.brainbyte.easy_maintenance.billing.application.service;
+
+import com.brainbyte.easy_maintenance.billing.application.dto.dashboard.DashboardResponseDTO;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
+import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.InvoiceRepository;
+import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.org_users.domain.Organization;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
+import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class BillingDashboardService {
+
+    private final BillingAccountRepository billingAccountRepository;
+    private final BillingSubscriptionRepository billingSubscriptionRepository;
+    private final BillingSubscriptionItemRepository itemRepository;
+    private final InvoiceRepository invoiceRepository;
+    private final PaymentRepository paymentRepository;
+    private final OrganizationRepository organizationRepository;
+
+    @Transactional(readOnly = true)
+    public DashboardResponseDTO getDashboard(Long userId) {
+
+        log.info("Gerando dados para dashboard de faturamento para usuário {}", userId);
+
+        var account = billingAccountRepository.findByUserId(userId)
+                .orElseThrow(() -> new NotFoundException("Billing account not found for user: " + userId));
+
+        var subscription = billingSubscriptionRepository.findByBillingAccountUserId(userId).orElse(null);
+
+        List<BillingSubscriptionItem> items = Collections.emptyList();
+        if (subscription != null) {
+            items = itemRepository.findAllByBillingSubscriptionIdFetchPlan(subscription.getId());
+        }
+
+        Map<String, String> orgNames = getOrganizationNames(items);
+
+        var nextInvoice = invoiceRepository.findFirstByPayerIdAndStatusOrderByCreatedAtDesc(userId, InvoiceStatus.OPEN).orElse(null);
+
+        var recentPayments = paymentRepository.findByPayerIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 5));
+
+        return DashboardResponseDTO.builder()
+                .account(buildAccountDTO(account))
+                .summary(buildSummaryDTO(subscription))
+                .paymentMethod(buildPaymentMethodDTO(account))
+                .subscriptions(buildSubscriptionsDTO(items, subscription, orgNames))
+                .nextInvoice(buildNextInvoiceDTO(nextInvoice))
+                .recentPayments(buildRecentPaymentsDTO(recentPayments))
+                .build();
+
+    }
+
+    private DashboardResponseDTO.DashboardAccountDTO buildAccountDTO(com.brainbyte.easy_maintenance.billing.domain.BillingAccount account) {
+        return DashboardResponseDTO.DashboardAccountDTO.builder()
+                .status(account.getStatus().name())
+                .billingEmail(account.getBillingEmail())
+                .name(account.getName())
+                .document(account.getDoc())
+                .build();
+    }
+
+    private DashboardResponseDTO.DashboardSummaryDTO buildSummaryDTO(com.brainbyte.easy_maintenance.billing.domain.BillingSubscription subscription) {
+        return DashboardResponseDTO.DashboardSummaryDTO.builder()
+                .totalMonthlyCents(subscription != null ? subscription.getTotalCents() : 0L)
+                .currency("BRL")
+                .nextDueDate(subscription != null ? subscription.getNextDueDate() : null)
+                .build();
+    }
+
+    private DashboardResponseDTO.DashboardPaymentMethodDTO buildPaymentMethodDTO(com.brainbyte.easy_maintenance.billing.domain.BillingAccount account) {
+        return DashboardResponseDTO.DashboardPaymentMethodDTO.builder()
+                .type(account.getPaymentMethod() != null ? account.getPaymentMethod().name() : null)
+                .build();
+    }
+
+    private List<DashboardResponseDTO.DashboardSubscriptionDTO> buildSubscriptionsDTO(
+            List<BillingSubscriptionItem> items, 
+            com.brainbyte.easy_maintenance.billing.domain.BillingSubscription subscription, 
+            Map<String, String> orgNames) {
+        return items.stream()
+                .map(item -> DashboardResponseDTO.DashboardSubscriptionDTO.builder()
+                        .type(item.getSourceType().name())
+                        .sourceId(item.getSourceId())
+                        .name(item.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION 
+                                ? orgNames.getOrDefault(item.getSourceId(), "Organization " + item.getSourceId())
+                                : "Personal")
+                        .planCode(item.getPlan().getCode())
+                        .planName(item.getPlan().getName())
+                        .valueCents(item.getValueCents())
+                        .status(subscription != null ? subscription.getStatus().name() : null)
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private DashboardResponseDTO.DashboardInvoiceDTO buildNextInvoiceDTO(com.brainbyte.easy_maintenance.billing.domain.Invoice nextInvoice) {
+        if (nextInvoice == null) {
+            return null;
+        }
+        return DashboardResponseDTO.DashboardInvoiceDTO.builder()
+                .invoiceId(nextInvoice.getId())
+                .dueDate(nextInvoice.getDueDate())
+                .totalCents(nextInvoice.getTotalCents())
+                .status(nextInvoice.getStatus().name())
+                .build();
+    }
+
+    private List<DashboardResponseDTO.DashboardRecentPaymentDTO> buildRecentPaymentsDTO(List<com.brainbyte.easy_maintenance.payment.domain.Payment> recentPayments) {
+        return recentPayments.stream()
+                .map(payment -> DashboardResponseDTO.DashboardRecentPaymentDTO.builder()
+                        .invoiceId(payment.getInvoice().getId())
+                        .amountCents(payment.getAmountCents())
+                        .status(payment.getStatus().name())
+                        .paidAt(payment.getPaidAt() != null ? java.time.LocalDate.ofInstant(payment.getPaidAt(), java.time.ZoneId.systemDefault()) : null)
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private Map<String, String> getOrganizationNames(List<BillingSubscriptionItem> items) {
+        List<String> orgCodes = items.stream()
+                .filter(i -> i.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION)
+                .map(BillingSubscriptionItem::getSourceId)
+                .collect(Collectors.toList());
+
+        if (orgCodes.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return organizationRepository.findAllByCodeIn(orgCodes).stream()
+                .collect(Collectors.toMap(Organization::getCode, Organization::getName));
+    }
+}

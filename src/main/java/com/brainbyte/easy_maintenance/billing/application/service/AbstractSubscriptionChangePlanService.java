@@ -68,7 +68,7 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
             throw new RuleException("O novo plano é igual ao plano atual.");
         }
 
-        if (newPlan.getPriceCents() > currentPlan.getPriceCents()) {
+        if (request.applyImmediately() || newPlan.getPriceCents() > currentPlan.getPriceCents()) {
             return processUpgrade(billingSubscription, item, currentPlan, newPlan);
         } else {
             return processDowngrade(billingSubscription, item, newPlan, sourceId);

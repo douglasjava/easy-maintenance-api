@@ -13,9 +13,12 @@ import java.util.List;
 @Repository
 public interface BillingSubscriptionItemRepository extends JpaRepository<BillingSubscriptionItem, Long> {
 
-    List<BillingSubscriptionItem> findAllByBillingSubscriptionId(Long billingSubscriptionId);
+    @Query("SELECT i FROM BillingSubscriptionItem i JOIN FETCH i.plan WHERE i.billingSubscription.id = :billingSubscriptionId")
+    List<BillingSubscriptionItem> findAllByBillingSubscriptionIdFetchPlan(@Param("billingSubscriptionId") Long billingSubscriptionId);
 
     List<BillingSubscriptionItem> findAllByBillingSubscriptionIdIn(Collection<Long> billingSubscriptionIds);
+
+    List<BillingSubscriptionItem> findAllByBillingSubscriptionId(Long billingSubscriptionId);
 
     @Query("SELECT i FROM BillingSubscriptionItem i " +
             "JOIN FETCH i.plan " +

@@ -1,6 +1,8 @@
 package com.brainbyte.easy_maintenance.billing.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.InvoiceDTO;
+import com.brainbyte.easy_maintenance.billing.application.dto.InvoiceDetailResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.InvoiceHistoryResponse;
 import com.brainbyte.easy_maintenance.billing.domain.*;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
@@ -29,6 +31,7 @@ public class InvoiceService {
     private final BillingAccountRepository billingAccountRepository;
     private final BillingSubscriptionRepository billingSubscriptionRepository;
     private final BillingSubscriptionItemRepository itemRepository;
+    private final com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository paymentRepository;
 
     public InvoiceDTO.BillingSummaryResponse getSummary(Long userId) {
         var account = billingAccountRepository.findByUserId(userId)
@@ -46,6 +49,43 @@ public class InvoiceService {
         var page = repository.findAllByPayerId(userId, pageable)
                 .map(InvoiceMapper.INSTANCE::toInvoiceResponse);
         return PageResponse.of(page);
+    }
+
+    public PageResponse<InvoiceHistoryResponse> getInvoiceHistory(Long userId, Pageable pageable) {
+        var invoices = repository.findAllByPayerUserIdOrderByCreatedAtDesc(userId, pageable);
+
+        var historyList = invoices.getContent().stream()
+                .map(this::mapToInvoiceHistoryResponse)
+                .toList();
+
+        return PageResponse.of(new org.springframework.data.domain.PageImpl<>(
+                historyList, pageable, invoices.getTotalElements()));
+    }
+
+    private InvoiceHistoryResponse mapToInvoiceHistoryResponse(Invoice invoice) {
+        var payment = paymentRepository.findFirstByInvoiceIdOrderByCreatedAtDesc(invoice.getId())
+                .map(p -> InvoiceHistoryResponse.PaymentSummaryResponse.builder()
+                        .paymentId(p.getId())
+                        .provider(p.getProvider())
+                        .method(p.getMethodType())
+                        .status(p.getStatus())
+                        .paidAt(p.getPaidAt())
+                        .paymentLink(p.getPaymentLink())
+                        .build())
+                .orElse(null);
+
+        return InvoiceHistoryResponse.builder()
+                .invoiceId(invoice.getId())
+                .periodStart(invoice.getPeriodStart())
+                .periodEnd(invoice.getPeriodEnd())
+                .dueDate(invoice.getDueDate())
+                .currency(invoice.getCurrency())
+                .subtotalCents(invoice.getSubtotalCents())
+                .discountCents(invoice.getDiscountCents())
+                .totalCents(invoice.getTotalCents())
+                .status(invoice.getStatus())
+                .payment(payment)
+                .build();
     }
 
     @Transactional
@@ -102,7 +142,7 @@ public class InvoiceService {
                 .items(new ArrayList<>())
                 .build();
 
-        List<BillingSubscriptionItem> bItems = itemRepository.findAllByBillingSubscriptionId(billingSubscription.getId());
+        List<BillingSubscriptionItem> bItems = itemRepository.findAllByBillingSubscriptionIdFetchPlan(billingSubscription.getId());
         
         long subtotal = 0;
         for (var bItem : bItems) {
@@ -150,5 +190,61 @@ public class InvoiceService {
                 .map(InvoiceMapper.INSTANCE::toInvoiceResponse)
                 .orElseThrow(() -> new NotFoundException("Invoice not found: " + invoiceId));
 
+    }
+
+    public InvoiceDetailResponse getInvoiceDetail(Long userId, Long invoiceId) {
+        Invoice invoice = repository.findByIdFetchItems(invoiceId)
+                .filter(i -> i.getPayer().getId().equals(userId))
+                .orElseThrow(() -> new NotFoundException("Invoice not found: " + invoiceId));
+
+        var payment = paymentRepository.findFirstByInvoiceIdOrderByCreatedAtDesc(invoice.getId())
+                .map(p -> InvoiceDetailResponse.PaymentResponse.builder()
+                        .paymentId(p.getId())
+                        .provider(p.getProvider())
+                        .method(p.getMethodType())
+                        .status(p.getStatus())
+                        .paymentLink(p.getPaymentLink())
+                        .pixQrCode(p.getPixQrCode())
+                        .pixQrCodeBase64(p.getPixQrCodeBase64())
+                        .paidAt(p.getPaidAt())
+                        .build())
+                .orElse(null);
+
+        var billingAccount = billingAccountRepository.findByUserId(userId)
+                .orElseThrow(() -> new NotFoundException("Billing account not found for user: " + userId));
+
+        var items = invoice.getItems().stream()
+                .map(item -> InvoiceDetailResponse.InvoiceItemResponse.builder()
+                        .id(item.getId())
+                        .type(item.getOrganization() != null ? "ORGANIZATION" : "USER")
+                        .sourceId(item.getOrganization() != null ? item.getOrganization().getCode() : userId.toString())
+                        .description(item.getDescription())
+                        .planCode(item.getPlan() != null ? item.getPlan().getCode() : null)
+                        .quantity(item.getQuantity())
+                        .unitAmountCents(item.getUnitAmountCents())
+                        .amountCents(item.getAmountCents())
+                        .build())
+                .toList();
+
+        return InvoiceDetailResponse.builder()
+                .invoice(InvoiceDetailResponse.InvoiceResponse.builder()
+                        .id(invoice.getId())
+                        .status(invoice.getStatus())
+                        .currency(invoice.getCurrency())
+                        .periodStart(invoice.getPeriodStart())
+                        .periodEnd(invoice.getPeriodEnd())
+                        .dueDate(invoice.getDueDate())
+                        .subtotalCents(invoice.getSubtotalCents())
+                        .discountCents(invoice.getDiscountCents())
+                        .totalCents(invoice.getTotalCents())
+                        .build())
+                .items(items)
+                .payment(payment)
+                .billing(InvoiceDetailResponse.BillingResponse.builder()
+                        .name(billingAccount.getName())
+                        .document(billingAccount.getDoc())
+                        .email(billingAccount.getBillingEmail())
+                        .build())
+                .build();
     }
 }

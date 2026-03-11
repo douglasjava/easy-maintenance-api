@@ -43,4 +43,9 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     @Query("SELECT i FROM Invoice i WHERE i.id = :id")
     Optional<Invoice> findByIdFetchItems(@Param("id") Long id);
 
+    @Query("SELECT i FROM Invoice i " +
+            "WHERE i.payer.id = :payerUserId " +
+            "ORDER BY i.createdAt DESC")
+    Page<Invoice> findAllByPayerUserIdOrderByCreatedAtDesc(@Param("payerUserId") Long payerUserId, Pageable pageable);
+
 }
