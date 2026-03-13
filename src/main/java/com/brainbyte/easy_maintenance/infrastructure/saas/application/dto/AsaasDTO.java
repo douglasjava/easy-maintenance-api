@@ -173,9 +173,11 @@ public class AsaasDTO {
     public record WebhookSubscription(
             String id,
             String externalReference,
+            String checkoutSession,
             LocalDate nextDueDate,
             String dateCreated,
-            String status
+            String status,
+            boolean deleted
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)

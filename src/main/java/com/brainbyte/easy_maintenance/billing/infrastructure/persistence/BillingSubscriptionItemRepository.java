@@ -28,4 +28,10 @@ public interface BillingSubscriptionItemRepository extends JpaRepository<Billing
             @Param("sourceType") BillingSubscriptionItemSourceType sourceType,
             @Param("sourceIds") Collection<String> sourceIds);
 
+    @Query("SELECT bsi FROM BillingSubscriptionItem bsi " +
+            "JOIN bsi.billingSubscription bs " +
+            "WHERE bsi.cancelAtPeriodEnd = true " +
+            "AND bs.currentPeriodEnd <= CURRENT_TIMESTAMP")
+    List<BillingSubscriptionItem> findPendingCancellations();
+
 }

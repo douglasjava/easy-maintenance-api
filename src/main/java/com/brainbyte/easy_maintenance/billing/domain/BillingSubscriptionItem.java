@@ -46,6 +46,13 @@ public class BillingSubscriptionItem {
     @Column(name = "plan_change_effective_at")
     private Instant planChangeEffectiveAt;
 
+    @Column(name = "cancel_at_period_end", nullable = false)
+    @Builder.Default
+    private boolean cancelAtPeriodEnd = false;
+
+    @Column(name = "canceled_at")
+    private Instant canceledAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

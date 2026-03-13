@@ -5,5 +5,6 @@ import lombok.Builder;
 @Builder
 public record SubscriptionItemCancelResponse(
     Long subscriptionItemId,
-    String message
+    String message,
+    boolean scheduled
 ) {}

@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.brainbyte.easy_maintenance.commons.helper.DateUtils.parseEventDate;
+
 @Slf4j
 @Service
 public class AsaasWebhookService {
@@ -92,14 +94,6 @@ public class AsaasWebhookService {
         } catch (Exception e) {
             log.error("Error serializing asaas event payload", e);
             return "Serialization error";
-        }
-    }
-
-    private Instant parseEventDate(String dateStr) {
-        try {
-            return OffsetDateTime.parse(dateStr).toInstant();
-        } catch (Exception e) {
-            return Instant.now();
         }
     }
 

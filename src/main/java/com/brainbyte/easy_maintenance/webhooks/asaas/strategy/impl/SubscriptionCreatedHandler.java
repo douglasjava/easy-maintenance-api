@@ -11,6 +11,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
+
 @Slf4j
 @Component
 public class SubscriptionCreatedHandler extends AbstractAsaasWebhookStrategy {
@@ -42,30 +44,49 @@ public class SubscriptionCreatedHandler extends AbstractAsaasWebhookStrategy {
         }
 
         var asaasSub = event.subscription();
-        String ref = asaasSub.externalReference();
+        String ref = asaasSub.checkoutSession();
 
-        if (ref == null || !ref.startsWith("BILLING-")) {
+        if (asaasSub.deleted()) {
+            log.warn("[AsaasWebhook] Subscription {} is deleted, ignoring.", asaasSub.id());
+            return;
+        }
+
+        if (!"ACTIVE".equalsIgnoreCase(asaasSub.status())) {
+            log.warn("[AsaasWebhook] Subscription {} returned with status {}, ignoring activation.",
+                    asaasSub.id(), asaasSub.status());
+            return;
+        }
+
+        if (Objects.isNull(ref)) {
             log.warn("[AsaasWebhook] Subscription {} has invalid externalReference: {}", asaasSub.id(), ref);
             return;
         }
 
-        Long billingId = Long.valueOf(ref.replace("BILLING-", ""));
+        paymentRepository.findByExternalPaymentId(ref).ifPresent(payment -> {
 
-        billingSubscriptionRepository.findById(billingId).ifPresent(subscription -> {
+            var subscription = payment.getBillingSubscription();
             if (subscription.getExternalSubscriptionId() != null) {
                 log.info("[AsaasWebhook] Subscription {} already linked, ignoring", subscription.getId());
                 return;
             }
 
-            log.info("[AsaasWebhook] Linking external subscription {} to BillingSubscription {}", asaasSub.id(), billingId);
+            log.info(
+                    "[AsaasWebhook] Linking external subscription {} to BillingSubscription {} via checkout {}",
+                    asaasSub.id(),
+                    subscription.getId(),
+                    ref
+            );
+
             subscription.activate(asaasSub.id(), asaasSub.nextDueDate());
+            subscription.setStatus(SubscriptionStatus.ACTIVE);
             billingSubscriptionRepository.save(subscription);
 
-            updateSubscriptions(subscription.getBillingAccount().getUser().getId(), SubscriptionStatus.ACTIVE);
-            log.info("[AsaasWebhook] BillingSubscription {} activated and status propagated.", billingId);
+            log.info("[AsaasWebhook] BillingSubscription {} activated and status propagated.", subscription.getId());
+
         });
 
         log.info("[AsaasWebhook] Event {}/{} finished.", event.id(), event.event());
+
     }
 
 }

@@ -60,7 +60,7 @@ public class PaymentReceivedHandler extends AbstractAsaasWebhookStrategy {
         
         // 2. Se não encontrar e for checkout, tentar por externalCheckoutId
         if (paymentOpt.isEmpty() && event.checkout() != null) {
-            paymentOpt = paymentRepository.findByExternalCheckoutId(event.checkout().id());
+            paymentOpt = paymentRepository.findByExternalPaymentId(event.checkout().id());
         }
         
         if (paymentOpt.isEmpty()) {

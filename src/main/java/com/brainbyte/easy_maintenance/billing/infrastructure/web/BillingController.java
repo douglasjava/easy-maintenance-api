@@ -48,4 +48,5 @@ public class BillingController {
         var user = authenticationService.getCurrentUser();
         return invoiceService.getInvoiceDetail(user.getId(), id);
     }
+
 }

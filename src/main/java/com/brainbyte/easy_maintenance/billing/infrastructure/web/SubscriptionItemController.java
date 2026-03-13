@@ -23,7 +23,7 @@ public class SubscriptionItemController {
     private final AuthenticationService authenticationService;
 
     @PostMapping("/{id}/change-plan")
-    @Operation(summary = "Altera o plano de um item da assinatura")
+    @Operation(summary = "Alterar o plano de um item da assinatura")
     public SubscriptionItemChangePlanResponse changePlan(
             @PathVariable Long id,
             @Valid @RequestBody SubscriptionItemChangePlanRequest request) {
@@ -33,9 +33,10 @@ public class SubscriptionItemController {
     }
 
     @PostMapping("/{id}/cancel")
-    @Operation(summary = "Cancela um item da assinatura")
+    @Operation(summary = "Cancelar um item da assinatura")
     public SubscriptionItemCancelResponse cancel(@PathVariable Long id) {
         var user = authenticationService.getCurrentUser();
         return cancelAdapter.cancel(id, user);
     }
+
 }

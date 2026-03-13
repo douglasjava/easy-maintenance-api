@@ -9,6 +9,7 @@ public enum PaymentStatus {
     REFUNDED,
     OVERDUE,
     RECEIVED,
+    CHECKOUT_PAID,
     EXPIRED;
 
     public boolean isFinal() {

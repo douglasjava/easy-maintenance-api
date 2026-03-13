@@ -117,7 +117,7 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
         var checkout = createProrataCheckout(billingSubscription, invoice);
 
         Payment payment = Payment.builder()
-                .externalCheckoutId(checkout.id())
+                .externalReference(checkout.id())
                 .invoice(invoice)
                 .payer(user)
                 .amountCents(amountToChargeCents)

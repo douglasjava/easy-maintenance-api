@@ -105,7 +105,7 @@ public class TrialExpirationService {
         var paymentLink = asaasResponse.link();
         var externalPaymentId = asaasResponse.id();
 
-        var payment = createAndSavePayment(payer, invoice, account, externalPaymentId, paymentLink);
+        var payment = createAndSavePayment(payer, invoice, account, externalPaymentId, paymentLink, billingSubscription);
 
         sendTrialExpirationEmail(payer, account, payment.getPaymentLink(), invoice);
     }
@@ -169,11 +169,13 @@ public class TrialExpirationService {
         );
     }
 
-    private Payment createAndSavePayment(User payer, Invoice invoice, BillingAccount account, String externalPaymentId, String paymentLink) {
+    private Payment createAndSavePayment(User payer, Invoice invoice, BillingAccount account,
+                                         String externalPaymentId, String paymentLink, BillingSubscription billingSubscription) {
 
         Payment payment = Payment.builder()
                 .invoice(invoice)
                 .payer(payer)
+                .billingSubscription(billingSubscription)
                 .provider(PaymentProvider.ASAAS)
                 .methodType(account.getPaymentMethod())
                 .status(PaymentStatus.PENDING)

@@ -63,7 +63,7 @@ public class PaymentCreatedHandler extends AbstractAsaasWebhookStrategy {
 
         // 2. Se for checkout, tentar encontrar por externalCheckoutId
         if (event.checkout() != null) {
-            var pendingPayment = paymentRepository.findByExternalCheckoutId(event.checkout().id());
+            var pendingPayment = paymentRepository.findByExternalPaymentId(event.checkout().id());
             if (pendingPayment.isPresent()) {
                 var p = pendingPayment.get();
                 p.setExternalPaymentId(paymentObj.id());
@@ -103,6 +103,7 @@ public class PaymentCreatedHandler extends AbstractAsaasWebhookStrategy {
 
         billingSubscriptionRepository.findByBillingAccountUserId(payerUser.getId()).ifPresent(bs -> {
             var bsItems = billingSubscriptionItemRepository.findAllByBillingSubscriptionId(bs.getId());
+
             for (var bsItem : bsItems) {
                 var invoiceItem = InvoiceItem.builder()
                         .invoice(invoice)
@@ -113,12 +114,9 @@ public class PaymentCreatedHandler extends AbstractAsaasWebhookStrategy {
                         .amountCents(bsItem.getValueCents().intValue())
                         .build();
 
-                if (BillingSubscriptionItemSourceType.ORGANIZATION == bsItem.getSourceType()) {
-                    organizationRepository.findByCode(bsItem.getSourceId()).ifPresent(invoiceItem::setOrganization);
-                }
-
                 invoiceItemRepository.save(invoiceItem);
             }
+
         });
 
         Payment payment = Payment.builder()

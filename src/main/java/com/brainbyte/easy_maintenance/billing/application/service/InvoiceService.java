@@ -216,8 +216,6 @@ public class InvoiceService {
         var items = invoice.getItems().stream()
                 .map(item -> InvoiceDetailResponse.InvoiceItemResponse.builder()
                         .id(item.getId())
-                        .type(item.getOrganization() != null ? "ORGANIZATION" : "USER")
-                        .sourceId(item.getOrganization() != null ? item.getOrganization().getCode() : userId.toString())
                         .description(item.getDescription())
                         .planCode(item.getPlan() != null ? item.getPlan().getCode() : null)
                         .quantity(item.getQuantity())

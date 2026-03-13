@@ -1,0 +1,678 @@
+{
+	"info": {
+		"_postman_id": "8a8f8a8f-8a8f-4a8f-8a8f-8a8f8a8f8a8f",
+		"name": "Easy Maintenance API",
+		"description": "Collection com todas as rotas da API Easy Maintenance",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Autenticação",
+			"item": [
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"usuario@empresa.com\",\n  \"password\": \"senha123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Alterar Senha (Primeiro Acesso)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"idUser\": 1,\n  \"newPassword\": \"novaSenha123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/auth/change-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"auth",
+								"change-password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Esqueci minha Senha",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"usuario@empresa.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/auth/forgot-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"auth",
+								"forgot-password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Redefinir Senha",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"token\": \"abc-123\",\n  \"newPassword\": \"novaSenha123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/auth/reset-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"auth",
+								"reset-password"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Organizações",
+			"item": [
+				{
+					"name": "Criar Organização",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"ORG001\",\n  \"name\": \"Minha Organização\",\n  \"city\": \"São Paulo\",\n  \"doc\": \"12.345.678/0001-90\",\n  \"companyType\": \"INDUSTRIAL\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/organizations",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"organizations"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Buscar por ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/organizations/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"organizations",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Listar Organizações",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-Tenant-ID",
+								"value": "ORG001"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/organizations?page=0&size=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"organizations"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "name",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Atualizar Organização",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "X-Tenant-ID",
+								"value": "ORG001"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Nome Atualizado\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/organizations/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"organizations",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Adicionar Usuário à Organização",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/organizations/:orgCode/users/:userId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"organizations",
+								":orgCode",
+								"users",
+								":userId"
+							],
+							"variable": [
+								{
+									"key": "orgCode",
+									"value": "ORG001"
+								},
+								{
+									"key": "userId",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Remover Usuário da Organização",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/organizations/:orgCode/users/:userId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"organizations",
+								":orgCode",
+								"users",
+								":userId"
+							],
+							"variable": [
+								{
+									"key": "orgCode",
+									"value": "ORG001"
+								},
+								{
+									"key": "userId",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Listar Minhas Organizações",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/organizations/me/:userId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"organizations",
+								"me",
+								":userId"
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Ativos (Items)",
+			"item": [
+				{
+					"name": "Criar Item",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Tenant-ID",
+								"value": "ORG001"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"itemType\": \"Ar Condicionado\",\n  \"itemCategory\": \"ELETROMECANICO\",\n  \"lastPerformedAt\": \"2024-01-01\",\n  \"customPeriodUnit\": \"MONTHS\",\n  \"customPeriodQty\": 6\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/items",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"items"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Listar Itens",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-Tenant-ID",
+								"value": "ORG001"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/items?page=0&size=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"items"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Buscar Item por ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-Tenant-ID",
+								"value": "ORG001"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/items/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"items",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Deletar Item",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "X-Tenant-ID",
+								"value": "ORG001"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/items/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"items",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Faturamento (Billing)",
+			"item": [
+				{
+					"name": "Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/me/billing/dashboard",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"me",
+								"billing",
+								"dashboard"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Histórico de Faturas",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/me/billing/invoices?page=0&size=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"me",
+								"billing",
+								"invoices"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Detalhe da Fatura",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/easy-maintenance/api/v1/me/billing/invoices/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"easy-maintenance",
+								"api",
+								"v1",
+								"me",
+								"billing",
+								"invoices",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Alterar Plano do Item",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"newPlanCode\": \"PREMIUM\",\n  \"applyImmediately\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/billing/subscription-items/:id/change-plan",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"billing",
+								"subscription-items",
+								":id",
+								"change-plan"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancelar Item da Assinatura",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/billing/subscription-items/:id/cancel",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"billing",
+								"subscription-items",
+								":id",
+								"cancel"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "seu_token_aqui",
+			"type": "string"
+		}
+	]
+}

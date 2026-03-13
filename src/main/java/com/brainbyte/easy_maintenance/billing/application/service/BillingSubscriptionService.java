@@ -69,6 +69,46 @@ public class BillingSubscriptionService {
     }
 
     @Transactional
+    public void scheduleItemCancellation(Long itemId) {
+        log.info("Scheduling cancellation for subscription item: {}", itemId);
+        BillingSubscriptionItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new NotFoundException("Item de assinatura não encontrado: " + itemId));
+
+        item.setCancelAtPeriodEnd(true);
+        itemRepository.save(item);
+
+        BillingSubscription subscription = item.getBillingSubscription();
+        recalculateTotal(subscription);
+        updateAsaasSubscription(subscription);
+        repository.save(subscription);
+
+    }
+
+    @Transactional
+    public void processPendingCancellations() {
+        log.info("Processing pending subscription item cancellations");
+        var items = itemRepository.findPendingCancellations();
+        log.info("Found {} items for effective cancellation", items.size());
+
+        items.forEach(item -> {
+            try {
+                log.info("Applying effective cancellation for item {}", item.getId());
+                item.setCanceledAt(Instant.now());
+                item.setValueCents(0L);
+                item.setCancelAtPeriodEnd(false);
+                itemRepository.save(item);
+
+                BillingSubscription subscription = item.getBillingSubscription();
+                recalculateTotal(subscription);
+                updateAsaasSubscription(subscription);
+                repository.save(subscription);
+            } catch (Exception e) {
+                log.error("Failed to process cancellation for item {}: {}", item.getId(), e.getMessage());
+            }
+        });
+    }
+
+    @Transactional
     public void removeItem(Long itemId) {
         log.info("Removing item from subscription: {}", itemId);
         BillingSubscriptionItem item = itemRepository.findById(itemId)
@@ -85,6 +125,7 @@ public class BillingSubscriptionService {
     private void recalculateTotal(BillingSubscription subscription) {
         Long newTotal = itemRepository.findAllByBillingSubscriptionId(subscription.getId())
                 .stream()
+                .filter(i -> !i.isCancelAtPeriodEnd())
                 .mapToLong(BillingSubscriptionItem::getValueCents)
                 .sum();
         subscription.setTotalCents(newTotal);
@@ -92,6 +133,11 @@ public class BillingSubscriptionService {
 
     private void updateAsaasSubscription(BillingSubscription subscription) {
         if (subscription.getExternalSubscriptionId() == null) return;
+
+        if (subscription.getTotalCents() == 0) {
+            cancelAsaasSubscription(subscription);
+            return;
+        }
 
         var req = new AsaasDTO.UpdateSubscriptionRequest(
                 BigDecimal.valueOf(subscription.getTotalCents(), 2),
@@ -105,6 +151,16 @@ public class BillingSubscriptionService {
             log.info("Asaas subscription {} updated to new value {}", subscription.getExternalSubscriptionId(), req.value());
         } catch (Exception e) {
             log.error("Failed to update Asaas subscription {}: {}", subscription.getExternalSubscriptionId(), e.getMessage());
+        }
+    }
+
+    private void cancelAsaasSubscription(BillingSubscription subscription) {
+        try {
+            asaasClient.cancelSubscription(subscription.getExternalSubscriptionId());
+            subscription.setStatus(SubscriptionStatus.CANCELED);
+            log.info("Asaas subscription {} canceled as total value is zero", subscription.getExternalSubscriptionId());
+        } catch (Exception e) {
+            log.error("Failed to cancel Asaas subscription {}: {}", subscription.getExternalSubscriptionId(), e.getMessage());
         }
     }
 

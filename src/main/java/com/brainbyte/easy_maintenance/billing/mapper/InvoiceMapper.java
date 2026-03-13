@@ -15,9 +15,5 @@ public interface InvoiceMapper {
     @Mapping(target = "payerUserId", source = "payer.id")
     InvoiceDTO.InvoiceResponse toInvoiceResponse(Invoice invoice);
 
-    @Mapping(target = "organizationCode", source = "organization.code")
-    @Mapping(target = "planCode", source = "plan.code")
-    InvoiceDTO.InvoiceItemResponse toInvoiceItemResponse(InvoiceItem item);
-
 }
 

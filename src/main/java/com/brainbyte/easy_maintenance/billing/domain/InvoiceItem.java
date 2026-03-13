@@ -24,10 +24,6 @@ public class InvoiceItem {
     private Invoice invoice;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "organization_code", referencedColumnName = "code", nullable = false)
-    private Organization organization;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plan_code", referencedColumnName = "code")
     private BillingPlan plan;
 

@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.payment.domain;
 
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.Invoice;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
@@ -29,6 +30,10 @@ public class Payment {
     private Invoice invoice;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "billing_subscription_id", nullable = false)
+    private BillingSubscription billingSubscription;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payer_user_id", nullable = false)
     private User payer;
 
@@ -53,9 +58,6 @@ public class Payment {
 
     @Column(name = "external_payment_id", length = 120)
     private String externalPaymentId;
-
-    @Column(name = "external_checkout_id", length = 120)
-    private String externalCheckoutId;
 
     @Column(name = "external_reference", length = 120)
     private String externalReference;

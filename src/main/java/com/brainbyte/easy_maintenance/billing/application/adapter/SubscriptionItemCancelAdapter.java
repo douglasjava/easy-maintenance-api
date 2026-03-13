@@ -21,6 +21,7 @@ public class SubscriptionItemCancelAdapter {
 
     @Transactional
     public SubscriptionItemCancelResponse cancel(Long id, User user) {
+
         BillingSubscriptionItem item = itemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Item de assinatura não encontrado: " + id));
 
@@ -28,15 +29,12 @@ public class SubscriptionItemCancelAdapter {
             throw new NotFoundException("Item de assinatura não encontrado.");
         }
 
-        if (item.getSourceType() == BillingSubscriptionItemSourceType.USER) {
-            throw new RuleException("Não é possível cancelar o item principal da assinatura do usuário.");
-        }
-
-        subscriptionService.removeItem(id);
+        subscriptionService.scheduleItemCancellation(id);
 
         return SubscriptionItemCancelResponse.builder()
                 .subscriptionItemId(id)
-                .message("Item de assinatura cancelado com sucesso")
+                .message("Cancelamento do item de assinatura agendado para o final do ciclo")
+                .scheduled(true)
                 .build();
     }
 }
