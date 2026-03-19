@@ -5,6 +5,7 @@ import com.brainbyte.easy_maintenance.billing.application.dto.ChangePlanResponse
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.domain.Invoice;
 import com.brainbyte.easy_maintenance.billing.domain.InvoiceItem;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
@@ -16,6 +17,7 @@ import com.brainbyte.easy_maintenance.infrastructure.audit.AuditAction;
 import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
+import com.brainbyte.easy_maintenance.infrastructure.saas.properties.AsaasProperties;
 import com.brainbyte.easy_maintenance.payment.domain.Payment;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
@@ -32,6 +34,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -47,18 +50,19 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
     protected final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
     protected final AsaasClient asaasClient;
     protected final BillingPlanFeaturesHelper featuresHelper;
+    private final AsaasProperties asaasProperties;
 
     @Transactional
-    public ChangePlanResponse changePlan(T sourceId, ChangePlanRequest request) {
+    public ChangePlanResponse changePlan(T sourceId, Long idItem, ChangePlanRequest request) {
         log.info("Processando mudança de plano para {}: novo plano {}", sourceId, request.newPlanCode());
 
-        BillingSubscription billingSubscription = findBillingSubscription(sourceId);
+
+        BillingSubscriptionItem item = findSubscriptionItem(idItem);
+        BillingSubscription billingSubscription = item.getBillingSubscription();
 
         if (billingSubscription.getStatus() != SubscriptionStatus.ACTIVE && billingSubscription.getStatus() != SubscriptionStatus.TRIAL) {
             throw new RuleException("A assinatura precisa estar ATIVA ou em PERÍODO DE TESTE para alterar o plano.");
         }
-
-        BillingSubscriptionItem item = findSubscriptionItem(billingSubscription, sourceId);
 
         BillingPlan currentPlan = item.getPlan();
         BillingPlan newPlan = planRepository.findByCode(request.newPlanCode())
@@ -73,11 +77,15 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
         } else {
             return processDowngrade(billingSubscription, item, newPlan, sourceId);
         }
+
     }
 
-    protected abstract BillingSubscription findBillingSubscription(T sourceId);
+    protected BillingSubscriptionItem findSubscriptionItem(Long itemId) {
 
-    protected abstract BillingSubscriptionItem findSubscriptionItem(BillingSubscription subscription, T sourceId);
+        return billingSubscriptionItemRepository.findById(itemId)
+                .orElseThrow(() -> new NotFoundException(String.format("Item de assinatura não encontrado para: %s", itemId)));
+
+    }
 
     protected abstract void validateDowngradeLimits(T sourceId, BillingPlan newPlan);
 
@@ -105,10 +113,11 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
 
         InvoiceItem invoiceItem = InvoiceItem.builder()
                 .invoice(invoice)
-                .description("Upgrade de Plano: " + current.getName() + " -> " + newPlan.getName())
+                .description("Pagamento Pró-rata - Upgrade de Plano: " + current.getName() + " -> " + newPlan.getName())
                 .quantity(1)
                 .unitAmountCents(amountToChargeCents)
                 .amountCents(amountToChargeCents)
+                .plan(newPlan)
                 .build();
 
         invoice.setItems(Collections.singletonList(invoiceItem));
@@ -123,11 +132,13 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
                 .amountCents(amountToChargeCents)
                 .status(PaymentStatus.PENDING)
                 .provider(PaymentProvider.ASAAS)
+                .methodType(PaymentMethodType.CARD)
+                .paymentLink(checkout.link())
                 .build();
 
         paymentRepository.save(payment);
 
-        setPendingPlan(billingSubscription, item, newPlan);
+        setPendingPlan(item, newPlan);
         billingSubscriptionRepository.save(billingSubscription);
         billingSubscriptionItemRepository.save(item);
 
@@ -141,24 +152,42 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
         );
     }
 
-    protected abstract void setPendingPlan(BillingSubscription subscription, BillingSubscriptionItem item, BillingPlan newPlan);
+    protected void setPendingPlan(BillingSubscriptionItem item, BillingPlan newPlan) {
+        item.setNextPlan(newPlan);
+    }
+
+    protected void setNextPlan(BillingSubscription subscription, BillingSubscriptionItem item, BillingPlan newPlan) {
+        item.setPlanChangeEffectiveAt(subscription.getCurrentPeriodEnd());
+        item.setNextPlan(newPlan);
+    }
 
     protected AsaasDTO.CheckoutResponse createProrataCheckout(BillingSubscription billingSubscription, Invoice invoice) {
-        AsaasDTO.CheckoutItem checkoutItem = new AsaasDTO.CheckoutItem(
-                null,
-                "Pagamento Pró-rata - Upgrade de Assinatura",
-                "Upgrade de Assinatura",
-                1,
-                BigDecimal.valueOf(invoice.getTotalCents()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+
+        var items = invoice.getItems().stream()
+                .map(invoiceItem -> new AsaasDTO.CheckoutItem(
+                        "INVITEM-" + invoiceItem.getId() + "-" + UUID.randomUUID(),
+                        invoiceItem.getDescription(),
+                        "Upgrade de Assinatura",
+                        invoiceItem.getQuantity(),
+                        BigDecimal.valueOf(invoiceItem.getAmountCents()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                ))
+                .toList();
+
+        int minutesToExpire = asaasProperties.checkoutMinutesToExpire();
+
+        var callback = new AsaasDTO.CheckoutCallback(
+                asaasProperties.checkoutSuccessUrl(),
+                asaasProperties.checkoutCancelUrl(),
+                asaasProperties.checkoutExpiredUrl()
         );
 
         AsaasDTO.CreateCheckoutRequest checkoutRequest = new AsaasDTO.CreateCheckoutRequest(
-                List.of(AsaasDTO.BillingType.PIX, AsaasDTO.BillingType.CREDIT_CARD, AsaasDTO.BillingType.BOLETO),
-                null,
-                null,
-                null,
-                null,
-                List.of(checkoutItem),
+                List.of(AsaasDTO.BillingType.CREDIT_CARD),
+                List.of(AsaasDTO.ChargeTypes.DETACHED),
+                minutesToExpire,
+                "BILLING-" + billingSubscription.getId(),
+                callback,
+                items,
                 null,
                 billingSubscription.getBillingAccount().getExternalCustomerId()
         );
@@ -186,5 +215,4 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
         );
     }
 
-    protected abstract void setNextPlan(BillingSubscription subscription, BillingSubscriptionItem item, BillingPlan newPlan);
 }

@@ -37,8 +37,4 @@ public interface BillingSubscriptionRepository extends JpaRepository<BillingSubs
             "AND s.updatedAt <= :limitDate")
     List<BillingSubscription> findEligibleForBlocking(@Param("limitDate") Instant limitDate);
 
-    @Query("SELECT s FROM BillingSubscription s " +
-            "WHERE s.planChangeEffectiveAt IS NOT NULL " +
-            "AND s.planChangeEffectiveAt <= :now")
-    List<BillingSubscription> findEligibleForPlanChange(@Param("now") Instant now);
 }

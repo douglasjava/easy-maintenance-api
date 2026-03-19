@@ -8,7 +8,9 @@ import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
 import com.brainbyte.easy_maintenance.commons.helper.DateUtils;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
+import com.brainbyte.easy_maintenance.payment.domain.Payment;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
+import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentGatewayEventRepository;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
 import com.brainbyte.easy_maintenance.webhooks.asaas.strategy.AbstractAsaasWebhookStrategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Component;
 public class CheckoutPaidHandler extends AbstractAsaasWebhookStrategy {
 
     public CheckoutPaidHandler(InvoiceService invoiceService, PaymentRepository paymentRepository,
+                               PaymentGatewayEventRepository paymentGatewayEventRepository,
                                InvoiceRepository invoiceRepository, BillingAccountRepository billingAccountRepository,
                                BillingSubscriptionRepository billingSubscriptionRepository,
                                BillingSubscriptionItemRepository billingSubscriptionItemRepository,
@@ -27,7 +30,7 @@ public class CheckoutPaidHandler extends AbstractAsaasWebhookStrategy {
                                OrganizationRepository organizationRepository,
                                ObjectMapper objectMapper) {
 
-        super(invoiceService, paymentRepository, invoiceRepository, billingAccountRepository,
+        super(invoiceService, paymentRepository, paymentGatewayEventRepository, invoiceRepository, billingAccountRepository,
                 billingSubscriptionRepository, billingSubscriptionItemRepository, invoiceItemRepository,
                 organizationRepository, objectMapper);
 
@@ -44,18 +47,23 @@ public class CheckoutPaidHandler extends AbstractAsaasWebhookStrategy {
         
         log.info("[CHECKOUT_PAID] - Iniciando fluxo para checkout com event: {}", event.event());
         if (event.checkout() == null) {
+            saveGatewayEvent(event, null);
             log.info("[AsaasWebhook] Event {}/{} finished (checkout object is null).", event.id(), event.event());
             return;
         }
 
-        paymentRepository.findByExternalPaymentId(event.checkout().id()).ifPresentOrElse(payment -> {
+        var paymentOpt = paymentRepository.findByExternalPaymentId(event.checkout().id());
+        Long internalPaymentId = paymentOpt.map(Payment::getId).orElse(null);
+        saveGatewayEvent(event, internalPaymentId);
+
+        paymentOpt.ifPresentOrElse(payment -> {
 
             if (payment.getStatus().isFinal()) {
                 log.info("[AsaasWebhook] Checkout {} already finalized, ignoring", event.checkout().id());
                 return;
             }
 
-            payment.setStatus(PaymentStatus.PAID);
+            payment.setStatus(PaymentStatus.CHECKOUT_PAID);
             payment.setPaidAt(DateUtils.parseEventDate(event.dateCreated()));
             payment.setRawPayloadJson(serializeWebhookEvent(event));
             paymentRepository.save(payment);

@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.webhooks.asaas.strategy.impl;
 
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.domain.Invoice;
 import com.brainbyte.easy_maintenance.billing.domain.InvoiceItem;
@@ -12,6 +13,7 @@ import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.Organ
 import com.brainbyte.easy_maintenance.payment.domain.Payment;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
+import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentGatewayEventRepository;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
 import com.brainbyte.easy_maintenance.webhooks.asaas.strategy.AbstractAsaasWebhookStrategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,13 +21,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Component
 public class PaymentCreatedHandler extends AbstractAsaasWebhookStrategy {
 
     public PaymentCreatedHandler(InvoiceService invoiceService, PaymentRepository paymentRepository,
+                                 PaymentGatewayEventRepository paymentGatewayEventRepository,
                                  InvoiceRepository invoiceRepository, BillingAccountRepository billingAccountRepository,
                                  BillingSubscriptionRepository billingSubscriptionRepository,
                                  BillingSubscriptionItemRepository billingSubscriptionItemRepository,
@@ -33,8 +39,8 @@ public class PaymentCreatedHandler extends AbstractAsaasWebhookStrategy {
                                  OrganizationRepository organizationRepository,
                                  ObjectMapper objectMapper) {
 
-        super(invoiceService, paymentRepository, invoiceRepository, billingAccountRepository,
-                billingSubscriptionRepository, billingSubscriptionItemRepository,
+        super(invoiceService, paymentRepository, paymentGatewayEventRepository, invoiceRepository,
+                billingAccountRepository, billingSubscriptionRepository, billingSubscriptionItemRepository,
                 invoiceItemRepository, organizationRepository, objectMapper);
 
     }
@@ -50,94 +56,73 @@ public class PaymentCreatedHandler extends AbstractAsaasWebhookStrategy {
 
         var paymentObj = event.payment();
         if (paymentObj == null) {
+             saveGatewayEvent(event, null);
              log.info("[AsaasWebhook] Event {}/{} finished (payment object is null).", event.id(), event.event());
              return;
         }
 
-        // 1. Tentar encontrar pagamento existente pelo externalPaymentId
-        var existingPayment = paymentRepository.findByExternalPaymentId(paymentObj.id());
-        if (existingPayment.isPresent()) {
-            log.info("[AsaasWebhook] Payment {} already processed. Skipping.", paymentObj.id());
-            return;
+        // 1. Localizar o payment existente usando externalReference ou externalPaymentId (checkoutSession no Asaas)
+        Optional<Payment> paymentOpt = Optional.empty();
+
+        if (paymentObj.externalReference() != null) {
+            paymentOpt = paymentRepository.findByExternalReference(paymentObj.externalReference());
         }
 
-        // 2. Se for checkout, tentar encontrar por externalCheckoutId
-        if (event.checkout() != null) {
-            var pendingPayment = paymentRepository.findByExternalPaymentId(event.checkout().id());
-            if (pendingPayment.isPresent()) {
-                var p = pendingPayment.get();
-                p.setExternalPaymentId(paymentObj.id());
-                p.setRawPayloadJson(serializeWebhookEvent(event));
-                if (paymentObj.invoiceUrl() != null) {
-                    p.setPaymentLink(paymentObj.invoiceUrl());
+        if (paymentOpt.isEmpty() && paymentObj.checkoutSession() != null) {
+            paymentOpt = paymentRepository.findByExternalPaymentId(paymentObj.checkoutSession());
+        }
+
+        if (paymentOpt.isEmpty()) {
+            paymentOpt = paymentRepository.findByExternalPaymentId(paymentObj.id());
+        }
+
+        Long internalPaymentId = paymentOpt.map(Payment::getId).orElse(null);
+        saveGatewayEvent(event, internalPaymentId);
+
+        if (paymentOpt.isPresent()) {
+            var payment = paymentOpt.get();
+
+            payment.setExternalPaymentId(paymentObj.id());
+            payment.setGatewayStatus(paymentObj.status());
+            payment.setPaymentLink(paymentObj.invoiceUrl());
+            payment.setReceiptUrl(paymentObj.transactionReceiptUrl());
+            payment.setInvoiceNumber(paymentObj.invoiceNumber());
+
+            if (paymentObj.netValue() != null) {
+                payment.setNetAmountCents(paymentObj.netValue().movePointRight(2).intValueExact());
+                if (paymentObj.value() != null) {
+                    BigDecimal fee = paymentObj.value().subtract(paymentObj.netValue());
+                    payment.setGatewayFeeCents(fee.movePointRight(2).intValueExact());
                 }
-                paymentRepository.save(p);
-                log.info("[AsaasWebhook] Updated pending payment {} with externalPaymentId {}", p.getId(), paymentObj.id());
-                return;
             }
+
+            if ("CONFIRMED".equals(paymentObj.status()) || "RECEIVED".equals(paymentObj.status())) {
+                payment.setStatus(PaymentStatus.PAID);
+                if (paymentObj.confirmedDate() != null) {
+                    payment.setPaidAt(paymentObj.confirmedDate().atStartOfDay(ZoneId.systemDefault()).toInstant());
+                }
+            } else {
+                payment.setStatus(mapAsaasStatusToPaymentStatus(paymentObj.status()));
+            }
+
+            paymentRepository.save(payment);
+            log.info("[AsaasWebhook] Payment {} updated for internal id {}", paymentObj.id(), payment.getId());
+        } else {
+            log.warn("[AsaasWebhook] Payment not found for external id {} or reference {}", paymentObj.id(), paymentObj.externalReference());
         }
 
-        String customer = paymentObj.customer();
-        log.info("Buscando dados da conta do usuário {}", customer);
-        var billingAccount = billingAccountRepository.findByExternalCustomerId(customer)
-                .orElseThrow(() -> new NotFoundException(String.format("Conta não encontrada para usuário %s", customer)));
-
-        var payerUser = billingAccount.getUser();
-
-        LocalDate dueDate = paymentObj.dueDate();
-        BigDecimal value = paymentObj.value();
-        Integer totalCents = value.multiply(new BigDecimal(100)).intValue();
-
-        Invoice invoice = Invoice.builder()
-                .payer(payerUser)
-                .currency("BRL")
-                .periodStart(dueDate)
-                .periodEnd(dueDate.plusMonths(1).minusDays(1))
-                .status(InvoiceStatus.OPEN)
-                .dueDate(dueDate)
-                .subtotalCents(totalCents)
-                .totalCents(totalCents)
-                .build();
-
-        invoiceRepository.save(invoice);
-
-        billingSubscriptionRepository.findByBillingAccountUserId(payerUser.getId()).ifPresent(bs -> {
-            var bsItems = billingSubscriptionItemRepository.findAllByBillingSubscriptionId(bs.getId());
-
-            for (var bsItem : bsItems) {
-                var invoiceItem = InvoiceItem.builder()
-                        .invoice(invoice)
-                        .plan(bsItem.getPlan())
-                        .description(paymentObj.description())
-                        .quantity(1)
-                        .unitAmountCents(bsItem.getValueCents().intValue())
-                        .amountCents(bsItem.getValueCents().intValue())
-                        .build();
-
-                invoiceItemRepository.save(invoiceItem);
-            }
-
-        });
-
-        Payment payment = Payment.builder()
-                .invoice(invoice)
-                .payer(payerUser)
-                .provider(PaymentProvider.ASAAS)
-                .methodType(parseMethodType(paymentObj.billingType()))
-                .status(PaymentStatus.PENDING)
-                .amountCents(totalCents)
-                .currency("BRL")
-                .externalPaymentId(paymentObj.id())
-                .externalReference(paymentObj.externalReference())
-                .paymentLink(paymentObj.invoiceUrl())
-                .rawPayloadJson(serializeWebhookEvent(event))
-                .build();
-
-        paymentRepository.save(payment);
-
-        log.info("[AsaasWebhook] Invoice {} and Payment created for event {} and payer {}", invoice.getId(), event.id(), payerUser.getId());
         log.info("[AsaasWebhook] Event {}/{} finished.", event.id(), event.event());
+    }
 
+    private PaymentStatus mapAsaasStatusToPaymentStatus(String asaasStatus) {
+        if (asaasStatus == null) return PaymentStatus.PENDING;
+
+        return switch (asaasStatus.toUpperCase()) {
+            case "RECEIVED", "CONFIRMED" -> PaymentStatus.PAID;
+            case "OVERDUE" -> PaymentStatus.OVERDUE;
+            case "REFUNDED" -> PaymentStatus.REFUNDED;
+            default -> PaymentStatus.PENDING;
+        };
     }
 
 }

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
@@ -33,5 +34,10 @@ public interface BillingSubscriptionItemRepository extends JpaRepository<Billing
             "WHERE bsi.cancelAtPeriodEnd = true " +
             "AND bs.currentPeriodEnd <= CURRENT_TIMESTAMP")
     List<BillingSubscriptionItem> findPendingCancellations();
+
+    @Query("SELECT s FROM BillingSubscriptionItem s " +
+            "WHERE s.planChangeEffectiveAt IS NOT NULL " +
+            "AND s.planChangeEffectiveAt <= :now")
+    List<BillingSubscriptionItem> findEligibleForPlanChange(@Param("now") Instant now);
 
 }

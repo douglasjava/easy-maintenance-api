@@ -8,6 +8,7 @@ import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
+import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentGatewayEventRepository;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public abstract class AbstractAsaasWebhookStrategy implements AsaasWebhookStrate
 
     protected final InvoiceService invoiceService;
     protected final PaymentRepository paymentRepository;
+    protected final PaymentGatewayEventRepository paymentGatewayEventRepository;
     protected final InvoiceRepository invoiceRepository;
     protected final BillingAccountRepository billingAccountRepository;
     protected final BillingSubscriptionRepository billingSubscriptionRepository;
@@ -44,6 +46,25 @@ public abstract class AbstractAsaasWebhookStrategy implements AsaasWebhookStrate
             case "CREDIT_CARD" -> PaymentMethodType.CARD;
             default -> PaymentMethodType.PIX;
         };
+    }
+
+    protected void saveGatewayEvent(AsaasDTO.WebhookCheckoutEvent event, Long paymentId) {
+        try {
+            var payload = objectMapper.writeValueAsString(event);
+            var externalId = event.payment() != null ? event.payment().id() : null;
+
+            var gatewayEvent = com.brainbyte.easy_maintenance.payment.domain.PaymentGatewayEvent.builder()
+                    .gateway("ASAAS")
+                    .eventType(event.event())
+                    .externalId(externalId)
+                    .paymentId(paymentId)
+                    .payloadJson(payload)
+                    .build();
+
+            paymentGatewayEventRepository.save(gatewayEvent);
+        } catch (Exception e) {
+            log.error("[AsaasWebhook] Error saving gateway event", e);
+        }
     }
 
     protected void updateSubscriptions(Long userId, SubscriptionStatus status) {

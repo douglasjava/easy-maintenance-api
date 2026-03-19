@@ -18,6 +18,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
 
     Optional<Payment> findByExternalPaymentId(String externalPaymentId);
 
+    Optional<Payment> findByExternalReference(String externalReference);
+
     Optional<Payment> findFirstByInvoiceIdAndStatusOrderByCreatedAtDesc(Long invoiceId, PaymentStatus status);
 
     Optional<Payment> findFirstByInvoiceIdOrderByCreatedAtDesc(Long invoiceId);

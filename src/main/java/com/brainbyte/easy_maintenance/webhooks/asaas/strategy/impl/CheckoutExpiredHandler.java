@@ -7,18 +7,23 @@ import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
+import com.brainbyte.easy_maintenance.payment.domain.Payment;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
+import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentGatewayEventRepository;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
 import com.brainbyte.easy_maintenance.webhooks.asaas.strategy.AbstractAsaasWebhookStrategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+
 @Slf4j
 @Component
 public class CheckoutExpiredHandler extends AbstractAsaasWebhookStrategy {
 
     public CheckoutExpiredHandler(InvoiceService invoiceService, PaymentRepository paymentRepository,
+                                  PaymentGatewayEventRepository paymentGatewayEventRepository,
                                   InvoiceRepository invoiceRepository, BillingAccountRepository billingAccountRepository,
                                   BillingSubscriptionRepository billingSubscriptionRepository,
                                   BillingSubscriptionItemRepository billingSubscriptionItemRepository,
@@ -26,7 +31,8 @@ public class CheckoutExpiredHandler extends AbstractAsaasWebhookStrategy {
                                   OrganizationRepository organizationRepository,
                                   ObjectMapper objectMapper) {
 
-           super(invoiceService, paymentRepository, invoiceRepository, billingAccountRepository,
+           super(invoiceService, paymentRepository, paymentGatewayEventRepository, invoiceRepository,
+                   billingAccountRepository,
                    billingSubscriptionRepository, billingSubscriptionItemRepository,
                    invoiceItemRepository, organizationRepository, objectMapper);
 
@@ -42,11 +48,16 @@ public class CheckoutExpiredHandler extends AbstractAsaasWebhookStrategy {
         log.info("[AsaasWebhook] Event {}/{} started.", event.id(), event.event());
         
         if (event.checkout() == null) {
+            saveGatewayEvent(event, null);
             log.info("[AsaasWebhook] Event {}/{} finished (checkout object is null).", event.id(), event.event());
             return;
         }
 
-        paymentRepository.findByExternalPaymentId(event.checkout().id()).ifPresentOrElse(payment -> {
+        var paymentOpt = paymentRepository.findByExternalPaymentId(event.checkout().id());
+        Long internalPaymentId = paymentOpt.map(Payment::getId).orElse(null);
+        saveGatewayEvent(event, internalPaymentId);
+
+        paymentOpt.ifPresentOrElse(payment -> {
 
             if (payment.getStatus().isFinal()) {
                 log.info("[AsaasWebhook] Checkout {} already finalized, ignoring", event.checkout().id());
@@ -56,14 +67,21 @@ public class CheckoutExpiredHandler extends AbstractAsaasWebhookStrategy {
             payment.setStatus(PaymentStatus.EXPIRED);
             payment.setFailureReason(getEventType());
             payment.setRawPayloadJson(serializeWebhookEvent(event));
+
             paymentRepository.save(payment);
 
             Invoice invoice = payment.getInvoice();
-            invoice.setStatus(InvoiceStatus.CANCELED);
-            invoiceRepository.save(invoice);
+            if (invoice != null) {
+                invoice.setStatus(InvoiceStatus.CANCELED);
+                invoiceRepository.save(invoice);
+            }
 
-            updateSubscriptions(payment.getPayer().getId(), SubscriptionStatus.PAYMENT_FAILED);
+            if (payment.getBillingSubscription() != null) {
+                payment.getBillingSubscription().setStatus(SubscriptionStatus.PAYMENT_FAILED);
+            }
+
             log.info("[AsaasWebhook] Checkout {} marked as EXPIRED/CANCELED", event.checkout().id());
+
         }, () -> log.warn("[AsaasWebhook] Payment for checkout {} not found", event.checkout().id()));
 
         log.info("[AsaasWebhook] Event {}/{} finished.", event.id(), event.event());

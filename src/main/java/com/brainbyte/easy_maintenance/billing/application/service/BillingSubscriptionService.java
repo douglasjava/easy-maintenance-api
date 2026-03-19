@@ -35,38 +35,26 @@ public class BillingSubscriptionService {
     private final AsaasClient asaasClient;
 
     @Transactional
-    public void applyPendingPlans(BillingSubscription billingSubscription) {
-        log.info("Applying pending plans for billing subscription {}", billingSubscription.getId());
+    public void applyPendingPlans(BillingSubscriptionItem billingSubscriptionItem) {
+        log.info("Applying pending plans for billing subscription {}", billingSubscriptionItem.getId());
+
+        var billingSubscription = billingSubscriptionItem.getBillingSubscription();
 
         boolean updated = false;
-        if (billingSubscription.getNextPlanUser() != null) {
-            updateItemPlan(billingSubscription, BillingSubscriptionItemSourceType.USER, billingSubscription.getNextPlanUser());
-            updated = true;
-        }
-
-        if (billingSubscription.getNextPlanOrg() != null) {
-            updateItemPlan(billingSubscription, BillingSubscriptionItemSourceType.ORGANIZATION, billingSubscription.getNextPlanOrg());
+        if (billingSubscriptionItem.getNextPlan() != null) {
+            billingSubscriptionItem.setPlan(billingSubscriptionItem.getNextPlan());
+            billingSubscriptionItem.setValueCents(billingSubscriptionItem.getNextPlan().getPriceCents().longValue());
+            itemRepository.save(billingSubscriptionItem);
             updated = true;
         }
 
         if (updated) {
             recalculateTotal(billingSubscription);
             updateAsaasSubscription(billingSubscription);
-            billingSubscription.applyPendingPlans();
             repository.save(billingSubscription);
         }
     }
 
-    private void updateItemPlan(BillingSubscription subscription, BillingSubscriptionItemSourceType type, BillingPlan newPlan) {
-        List<BillingSubscriptionItem> items = itemRepository.findAllByBillingSubscriptionId(subscription.getId());
-        items.stream()
-                .filter(i -> i.getSourceType() == type)
-                .forEach(i -> {
-                    i.setPlan(newPlan);
-                    i.setValueCents(newPlan.getPriceCents().longValue());
-                    itemRepository.save(i);
-                });
-    }
 
     @Transactional
     public void scheduleItemCancellation(Long itemId) {
@@ -224,11 +212,4 @@ public class BillingSubscriptionService {
         return repository.findByBillingAccountUserId(userId);
     }
 
-    @Transactional
-    public void updateStatus(Long id, Consumer<BillingSubscription> statusUpdater) {
-        log.info("Updating status for billing subscription {}", id);
-        BillingSubscription subscription = findById(id);
-        statusUpdater.accept(subscription);
-        repository.save(subscription);
-    }
 }

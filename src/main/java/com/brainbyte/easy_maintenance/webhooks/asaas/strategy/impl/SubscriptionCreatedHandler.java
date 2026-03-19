@@ -5,6 +5,8 @@ import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
+import com.brainbyte.easy_maintenance.payment.domain.Payment;
+import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentGatewayEventRepository;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
 import com.brainbyte.easy_maintenance.webhooks.asaas.strategy.AbstractAsaasWebhookStrategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,13 +20,14 @@ import java.util.Objects;
 public class SubscriptionCreatedHandler extends AbstractAsaasWebhookStrategy {
 
     public SubscriptionCreatedHandler(InvoiceService invoiceService, PaymentRepository paymentRepository,
+                                     PaymentGatewayEventRepository paymentGatewayEventRepository,
                                      InvoiceRepository invoiceRepository, BillingAccountRepository billingAccountRepository,
                                      BillingSubscriptionRepository billingSubscriptionRepository,
                                      BillingSubscriptionItemRepository billingSubscriptionItemRepository,
                                      InvoiceItemRepository invoiceItemRepository,
                                      OrganizationRepository organizationRepository,
                                      ObjectMapper objectMapper) {
-        super(invoiceService, paymentRepository, invoiceRepository, billingAccountRepository,
+        super(invoiceService, paymentRepository, paymentGatewayEventRepository, invoiceRepository, billingAccountRepository,
                 billingSubscriptionRepository, billingSubscriptionItemRepository, invoiceItemRepository,
                 organizationRepository, objectMapper);
     }
@@ -39,12 +42,17 @@ public class SubscriptionCreatedHandler extends AbstractAsaasWebhookStrategy {
         log.info("[AsaasWebhook] Event {}/{} started.", event.id(), event.event());
 
         if (event.subscription() == null) {
+            saveGatewayEvent(event, null);
             log.warn("[AsaasWebhook] Event {}/{} finished (subscription object is null).", event.id(), event.event());
             return;
         }
 
         var asaasSub = event.subscription();
         String ref = asaasSub.checkoutSession();
+
+        var paymentOpt = paymentRepository.findByExternalPaymentId(ref);
+        Long internalPaymentId = paymentOpt.map(Payment::getId).orElse(null);
+        saveGatewayEvent(event, internalPaymentId);
 
         if (asaasSub.deleted()) {
             log.warn("[AsaasWebhook] Subscription {} is deleted, ignoring.", asaasSub.id());
@@ -62,7 +70,7 @@ public class SubscriptionCreatedHandler extends AbstractAsaasWebhookStrategy {
             return;
         }
 
-        paymentRepository.findByExternalPaymentId(ref).ifPresent(payment -> {
+        paymentOpt.ifPresent(payment -> {
 
             var subscription = payment.getBillingSubscription();
             if (subscription.getExternalSubscriptionId() != null) {

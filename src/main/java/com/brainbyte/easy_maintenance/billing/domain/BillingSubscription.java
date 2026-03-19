@@ -50,17 +50,6 @@ public class BillingSubscription {
     @Column(name = "current_period_end")
     private Instant currentPeriodEnd;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "next_plan_user_code", referencedColumnName = "code")
-    private BillingPlan nextPlanUser;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "next_plan_org_code", referencedColumnName = "code")
-    private BillingPlan nextPlanOrg;
-
-    @Column(name = "plan_change_effective_at")
-    private Instant planChangeEffectiveAt;
-
     @Column(name = "total_cents")
     private Long totalCents;
 
@@ -99,15 +88,6 @@ public class BillingSubscription {
         this.status = SubscriptionStatus.CANCELED;
     }
 
-    public void applyPendingPlans() {
-        if (this.nextPlanUser != null) {
-            this.nextPlanUser = null;
-        }
-        if (this.nextPlanOrg != null) {
-            this.nextPlanOrg = null;
-        }
-        this.planChangeEffectiveAt = null;
-    }
 
     public void addItem(BillingSubscriptionItem item) {
         item.setBillingSubscription(this);

@@ -4,32 +4,33 @@ import java.net.URI;
 
 public enum ProblemType {
 
-  VALIDATION("validation-error", "Validation error"),
-  CONFLICT("conflict", "Conflict"),
-  NOT_FOUND("not-found", "Not found"),
-  NO_CONTENT("not-content", "No Content"),
-  RULES_INVALID("rules-invalid", "Rules invalid"),
-  TENANT_MISSING("tenant-missing", "Invalid request"),
-  TENANT_INVALID("tenant-invalid", "Invalid request"),
-  WITHOUT_PERMISSIONS("permissions-invalid", "Permissions invalid"),
-  UNEXPECTED("unexpected", "Unexpected error");
+    VALIDATION("validation-error", "Validation error"),
+    CONFLICT("conflict", "Conflict"),
+    NOT_FOUND("not-found", "Not found"),
+    NO_CONTENT("not-content", "No Content"),
+    RULES_INVALID("rules-invalid", "Rules invalid"),
+    TENANT_MISSING("tenant-missing", "Invalid request"),
+    TENANT_INVALID("tenant-invalid", "Invalid request"),
+    WITHOUT_PERMISSIONS("permissions-invalid", "Permissions invalid"),
+    NOT_AUTHENTICATED("not-authenticated", "User not authenticated"),
+    UNEXPECTED("unexpected", "Unexpected error");
 
-  private static final String BASE = "https://easy-maintenance/api/problems/";
+    private static final String BASE = "https://easy-maintenance/api/problems/";
 
-  private final URI type;
-  private final String title;
+    private final URI type;
+    private final String title;
 
-  ProblemType(String slug, String title) {
-    this.type = URI.create(BASE + slug);
-    this.title = title;
-  }
+    ProblemType(String slug, String title) {
+        this.type = URI.create(BASE + slug);
+        this.title = title;
+    }
 
-  public URI type() {
-    return type;
-  }
+    public URI type() {
+        return type;
+    }
 
-  public String title() {
-    return title;
-  }
+    public String title() {
+        return title;
+    }
 
 }

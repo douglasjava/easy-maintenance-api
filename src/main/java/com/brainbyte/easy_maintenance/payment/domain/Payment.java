@@ -71,6 +71,21 @@ public class Payment {
     @Column(name = "payment_link", length = 600)
     private String paymentLink;
 
+    @Column(name = "receipt_url", length = 500)
+    private String receiptUrl;
+
+    @Column(name = "invoice_number", length = 50)
+    private String invoiceNumber;
+
+    @Column(name = "net_amount_cents")
+    private Integer netAmountCents;
+
+    @Column(name = "gateway_fee_cents")
+    private Integer gatewayFeeCents;
+
+    @Column(name = "gateway_status", length = 50)
+    private String gatewayStatus;
+
     @Column(name = "failure_reason", length = 240)
     private String failureReason;
 

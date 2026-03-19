@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.jobs.service;
 
 import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +15,7 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class BillingCycleJobService {
 
-    private final BillingSubscriptionRepository billingSubscriptionRepository;
+    private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
     private final BillingSubscriptionService billingSubscriptionService;
 
     @Transactional
@@ -22,7 +23,7 @@ public class BillingCycleJobService {
         log.info("[BillingCycleJob] Iniciando job de virada de ciclo.");
 
         var now = Instant.now();
-        var eligibleForPlanChange = billingSubscriptionRepository.findEligibleForPlanChange(now);
+        var eligibleForPlanChange = billingSubscriptionItemRepository.findEligibleForPlanChange(now);
 
         log.info("[BillingCycleJob] Encontradas {} assinaturas com mudança de plano agendada.", eligibleForPlanChange.size());
 

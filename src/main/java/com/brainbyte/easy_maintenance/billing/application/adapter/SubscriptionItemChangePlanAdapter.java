@@ -41,9 +41,9 @@ public class SubscriptionItemChangePlanAdapter {
         ChangePlanResponse serviceResponse;
 
         if (item.getSourceType() == BillingSubscriptionItemSourceType.USER) {
-            serviceResponse = userPlanChangeService.changePlan(user.getId(), serviceRequest);
+            serviceResponse = userPlanChangeService.changePlan(user.getId(), item.getId(), serviceRequest);
         } else if (item.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION) {
-            serviceResponse = organizationPlanChangeService.changePlan(item.getSourceId(), serviceRequest);
+            serviceResponse = organizationPlanChangeService.changePlan(item.getSourceId(), item.getId(), serviceRequest);
         } else {
             throw new IllegalArgumentException("Tipo de item de assinatura não suportado: " + item.getSourceType());
         }

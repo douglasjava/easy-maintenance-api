@@ -151,6 +151,20 @@ public class GlobalExceptionHandler {
 
     }
 
+    @ExceptionHandler(NotAuthorizedException.class)
+    public ProblemDetail handleNotAuthorizedException(NotAuthorizedException ex, HttpServletRequest request) {
+        log.error("Usuário não autenticado", ex);
+
+        return ProblemDetails.of(
+                HttpStatus.UNAUTHORIZED,
+                ProblemType.NOT_AUTHENTICATED,
+                ex.getMessage(),
+                request
+        );
+
+    }
+
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex, HttpServletRequest request) {
         log.error("Unexpected error", ex);
@@ -189,9 +203,6 @@ public class GlobalExceptionHandler {
         );
 
     }
-
-
-
 
     public record FieldViolation(String field, String message) {
     }

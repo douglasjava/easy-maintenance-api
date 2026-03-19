@@ -6,7 +6,9 @@ import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
+import com.brainbyte.easy_maintenance.payment.domain.Payment;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
+import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentGatewayEventRepository;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
 import com.brainbyte.easy_maintenance.webhooks.asaas.strategy.AbstractAsaasWebhookStrategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Component;
 public class PaymentOverdueHandler extends AbstractAsaasWebhookStrategy {
 
     public PaymentOverdueHandler(InvoiceService invoiceService, PaymentRepository paymentRepository,
+                                 PaymentGatewayEventRepository paymentGatewayEventRepository,
                                  InvoiceRepository invoiceRepository, BillingAccountRepository billingAccountRepository,
                                  BillingSubscriptionRepository billingSubscriptionRepository,
                                  BillingSubscriptionItemRepository billingSubscriptionItemRepository,
@@ -25,7 +28,7 @@ public class PaymentOverdueHandler extends AbstractAsaasWebhookStrategy {
                                  OrganizationRepository organizationRepository,
                                  ObjectMapper objectMapper) {
 
-        super(invoiceService, paymentRepository, invoiceRepository, billingAccountRepository,
+        super(invoiceService, paymentRepository, paymentGatewayEventRepository, invoiceRepository, billingAccountRepository,
                 billingSubscriptionRepository, billingSubscriptionItemRepository, invoiceItemRepository,
                 organizationRepository, objectMapper);
 
@@ -42,12 +45,15 @@ public class PaymentOverdueHandler extends AbstractAsaasWebhookStrategy {
         
         var paymentObj = event.payment();
         if (paymentObj == null) {
+            saveGatewayEvent(event, null);
             log.info("[AsaasWebhook] Event {}/{} finished (payment object is null).", event.id(), event.event());
             return;
         }
 
         var paymentOpt = paymentRepository.findByExternalPaymentId(paymentObj.id());
-        
+        Long internalPaymentId = paymentOpt.map(Payment::getId).orElse(null);
+        saveGatewayEvent(event, internalPaymentId);
+
         if (paymentOpt.isEmpty()) {
             log.info("[AsaasWebhook] Payment with external_payment_id {} not found. Skipping PAYMENT_OVERDUE processing.", paymentObj.id());
 
@@ -63,6 +69,7 @@ public class PaymentOverdueHandler extends AbstractAsaasWebhookStrategy {
 
         payment.setStatus(PaymentStatus.OVERDUE);
         payment.setRawPayloadJson(serializeWebhookEvent(event));
+        payment.setFailureReason(getEventType());
         paymentRepository.save(payment);
 
         Invoice invoice = payment.getInvoice();

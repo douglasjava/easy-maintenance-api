@@ -3,12 +3,11 @@ package com.brainbyte.easy_maintenance.billing.application.service;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
-import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
-import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
 import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
+import com.brainbyte.easy_maintenance.infrastructure.saas.properties.AsaasProperties;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,28 +27,14 @@ public class UserPlanChangeService extends AbstractSubscriptionChangePlanService
             BillingSubscriptionRepository billingSubscriptionRepository,
             BillingSubscriptionItemRepository billingSubscriptionItemRepository,
             AsaasClient asaasClient, BillingPlanFeaturesHelper featuresHelper,
-            UserOrganizationRepository userOrganizationRepository) {
+            UserOrganizationRepository userOrganizationRepository, AsaasProperties asaasProperties) {
         
         super(planRepository, prorataCalculator, invoiceRepository,
                 paymentRepository, auditService, objectMapper,
                 billingSubscriptionRepository, billingSubscriptionItemRepository,
-                asaasClient, featuresHelper);
+                asaasClient, featuresHelper, asaasProperties);
         
         this.userOrganizationRepository = userOrganizationRepository;
-    }
-
-    @Override
-    protected BillingSubscription findBillingSubscription(Long userId) {
-        return billingSubscriptionRepository.findByBillingAccountUserId(userId)
-                .orElseThrow(() -> new NotFoundException(String.format("Usuário %s não tem assinatura", userId)));
-    }
-
-    @Override
-    protected BillingSubscriptionItem findSubscriptionItem(BillingSubscription subscription, Long userId) {
-        return subscription.getItems().stream()
-                .filter(item -> item.getSourceType() == BillingSubscriptionItemSourceType.USER && item.getSourceId().equals(userId.toString()))
-                .findFirst()
-                .orElseThrow(() -> new NotFoundException("Item de assinatura de usuário não encontrado para o usuário: " + userId));
     }
 
     @Override
@@ -61,19 +46,6 @@ public class UserPlanChangeService extends AbstractSubscriptionChangePlanService
                     String.format("O plano %s permite apenas %d organizações. Você possui %d.",
                             newPlan.getName(), features.getMaxOrganizations(), organizationCount));
         }
-    }
-
-    @Override
-    protected void setPendingPlan(BillingSubscription subscription, BillingSubscriptionItem item, BillingPlan newPlan) {
-        subscription.setNextPlanUser(newPlan);
-        item.setNextPlan(newPlan);
-    }
-
-    @Override
-    protected void setNextPlan(BillingSubscription subscription, BillingSubscriptionItem item, BillingPlan newPlan) {
-        subscription.setNextPlanUser(newPlan);
-        subscription.setPlanChangeEffectiveAt(subscription.getCurrentPeriodEnd());
-        item.setNextPlan(newPlan);
     }
 
 }
