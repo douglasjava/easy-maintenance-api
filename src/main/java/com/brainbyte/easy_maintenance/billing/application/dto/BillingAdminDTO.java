@@ -2,7 +2,12 @@ package com.brainbyte.easy_maintenance.billing.application.dto;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.response.PayerSummaryResponse;
 
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
+import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
+import com.fasterxml.jackson.annotation.JsonFormat;
+
+import java.time.Instant;
 import java.util.List;
 
 public class BillingAdminDTO {
@@ -53,6 +58,21 @@ public class BillingAdminDTO {
     public record RevenueDetail(
             Long userCents,
             Long orgsCents,
+            Long totalCents
+    ) {}
+
+    public record SubscriptionResponse(
+            Long itemId,
+            Long subscriptionId,
+            BillingSubscriptionItemSourceType sourceType,
+            String planCode,
+            Long payerAccountId,
+            String payerName,
+            SubscriptionStatus status,
+            @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
+            Instant periodStart,
+            @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
+            Instant periodEnd,
             Long totalCents
     ) {}
 

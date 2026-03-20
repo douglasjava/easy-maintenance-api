@@ -17,7 +17,7 @@ public class BillingCancellationJob {
     public void run() {
         log.info("[BillingCancellationJob] Iniciando job de aplicação de cancelamentos.");
         try {
-            billingSubscriptionService.processPendingCancellations();
+            billingSubscriptionService.processSubscriptionCycle();
         } catch (Exception e) {
             log.error("[BillingCancellationJob] Erro ao processar cancelamentos: {}", e.getMessage());
         }

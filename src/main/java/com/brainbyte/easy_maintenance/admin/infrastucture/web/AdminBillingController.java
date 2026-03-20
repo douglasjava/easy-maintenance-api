@@ -3,6 +3,7 @@ package com.brainbyte.easy_maintenance.admin.infrastucture.web;
 import com.brainbyte.easy_maintenance.billing.application.dto.*;
 import com.brainbyte.easy_maintenance.billing.application.service.*;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
+import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +27,7 @@ public class AdminBillingController {
     private final BillingAccountService accountService;
     private final InvoiceService invoiceService;
     private final BillingSubscriptionRepository billingSubscriptionRepository;
+    private final BillingSubscriptionService billingSubscriptionService;
 
     @GetMapping("/plans")
     @Operation(summary = "Lista todos os planos de faturamento")
@@ -95,6 +97,16 @@ public class AdminBillingController {
     @Operation(summary = "Busca uma fatura por ID com seus itens")
     public InvoiceDTO.InvoiceResponse getInvoice(@PathVariable Long invoiceId) {
         return invoiceService.getInvoiceById(invoiceId);
+    }
+
+    @GetMapping("/subscriptions")
+    @Operation(summary = "Lista e filtra assinaturas (itens de assinatura)")
+    public PageResponse<BillingAdminDTO.SubscriptionResponse> listSubscriptions(
+            @RequestParam(required = false) String planCode,
+            @RequestParam(required = false) String payerName,
+            @RequestParam(required = false) SubscriptionStatus status,
+            Pageable pageable) {
+        return billingSubscriptionService.listSubscriptions(planCode, payerName, status, pageable);
     }
 
 }

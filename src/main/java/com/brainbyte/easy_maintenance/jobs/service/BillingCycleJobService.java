@@ -23,6 +23,14 @@ public class BillingCycleJobService {
         log.info("[BillingCycleJob] Iniciando job de virada de ciclo.");
 
         var now = Instant.now();
+
+        log.info("[BillingCycleJob] Processando cancelamentos e atualizações de ciclo.");
+        try {
+            billingSubscriptionService.processSubscriptionCycle();
+        } catch (Exception e) {
+            log.error("[BillingCycleJob] Erro ao processar ciclo de assinaturas: {}", e.getMessage());
+        }
+
         var eligibleForPlanChange = billingSubscriptionItemRepository.findEligibleForPlanChange(now);
 
         log.info("[BillingCycleJob] Encontradas {} assinaturas com mudança de plano agendada.", eligibleForPlanChange.size());

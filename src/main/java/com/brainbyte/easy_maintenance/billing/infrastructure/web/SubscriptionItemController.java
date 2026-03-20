@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/billing/subscription-items")
+@RequestMapping("/easy-maintenance/api/v1/billing/subscription-items")
 @Tag(name = "Subscription Items", description = "Gerenciamento de itens de assinatura")
 public class SubscriptionItemController {
     
@@ -37,6 +37,13 @@ public class SubscriptionItemController {
     public SubscriptionItemCancelResponse cancel(@PathVariable Long id) {
         var user = authenticationService.getCurrentUser();
         return cancelAdapter.cancel(id, user);
+    }
+
+    @PostMapping("/{id}/undo-cancel")
+    @Operation(summary = "Desfazer o cancelamento de um item da assinatura")
+    public SubscriptionItemCancelResponse undoCancel(@PathVariable Long id) {
+        var user = authenticationService.getCurrentUser();
+        return cancelAdapter.undoCancel(id, user);
     }
 
 }

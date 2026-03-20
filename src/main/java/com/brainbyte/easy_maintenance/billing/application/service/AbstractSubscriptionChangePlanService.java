@@ -138,7 +138,7 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
 
         paymentRepository.save(payment);
 
-        setPendingPlan(item, newPlan);
+        setNextPlan(billingSubscription, item, newPlan);
         billingSubscriptionRepository.save(billingSubscription);
         billingSubscriptionItemRepository.save(item);
 
@@ -150,10 +150,6 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
                 amountToChargeCents,
                 null
         );
-    }
-
-    protected void setPendingPlan(BillingSubscriptionItem item, BillingPlan newPlan) {
-        item.setNextPlan(newPlan);
     }
 
     protected void setNextPlan(BillingSubscription subscription, BillingSubscriptionItem item, BillingPlan newPlan) {

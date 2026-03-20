@@ -53,6 +53,13 @@ public class BillingSubscription {
     @Column(name = "total_cents")
     private Long totalCents;
 
+    @Column(name = "cancel_at_period_end", nullable = false)
+    @Builder.Default
+    private boolean cancelAtPeriodEnd = false;
+
+    @Column(name = "canceled_at")
+    private Instant canceledAt;
+
     @OneToMany(mappedBy = "billingSubscription", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<BillingSubscriptionItem> items = new ArrayList<>();

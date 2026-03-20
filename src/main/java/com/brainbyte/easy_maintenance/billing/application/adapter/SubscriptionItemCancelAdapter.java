@@ -37,4 +37,23 @@ public class SubscriptionItemCancelAdapter {
                 .scheduled(true)
                 .build();
     }
+
+    @Transactional
+    public SubscriptionItemCancelResponse undoCancel(Long id, User user) {
+
+        BillingSubscriptionItem item = itemRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Item de assinatura não encontrado: " + id));
+
+        if (!item.getBillingSubscription().getBillingAccount().getUser().getId().equals(user.getId())) {
+            throw new NotFoundException("Item de assinatura não encontrado.");
+        }
+
+        subscriptionService.undoItemCancellation(id);
+
+        return SubscriptionItemCancelResponse.builder()
+                .subscriptionItemId(id)
+                .message("Cancelamento do item de assinatura desfeito")
+                .scheduled(false)
+                .build();
+    }
 }

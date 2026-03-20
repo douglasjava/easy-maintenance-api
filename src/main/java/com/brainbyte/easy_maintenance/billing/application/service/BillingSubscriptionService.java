@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.billing.application.service;
 
+import com.brainbyte.easy_maintenance.billing.application.dto.BillingAdminDTO;
 import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
@@ -7,12 +8,16 @@ import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSour
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
+import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
-import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingCycle;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,9 +26,10 @@ import java.time.Instant;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 @Slf4j
 @Service
@@ -33,6 +39,59 @@ public class BillingSubscriptionService {
     private final BillingSubscriptionRepository repository;
     private final BillingSubscriptionItemRepository itemRepository;
     private final AsaasClient asaasClient;
+
+    public PageResponse<BillingAdminDTO.SubscriptionResponse> listSubscriptions(
+            String planCode,
+            String payerName,
+            SubscriptionStatus status,
+            Pageable pageable) {
+
+        Specification<BillingSubscriptionItem> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            Join<BillingSubscriptionItem, BillingSubscription> subscriptionJoin = root.join("billingSubscription");
+            Join<BillingSubscription, BillingAccount> accountJoin = subscriptionJoin.join("billingAccount");
+
+            if (planCode != null && !planCode.isBlank()) {
+                predicates.add(cb.equal(root.get("plan").get("code"), planCode));
+            }
+
+            if (status != null) {
+                predicates.add(cb.equal(subscriptionJoin.get("status"), status));
+            }
+
+            if (payerName != null && !payerName.isBlank()) {
+                predicates.add(cb.like(cb.lower(accountJoin.get("name")), "%" + payerName.toLowerCase() + "%"));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        var page = itemRepository.findAll(spec, pageable);
+
+        var content = page.getContent().stream()
+                .map(item -> new BillingAdminDTO.SubscriptionResponse(
+                        item.getId(),
+                        item.getBillingSubscription().getId(),
+                        item.getSourceType(),
+                        item.getPlan().getCode(),
+                        item.getBillingSubscription().getBillingAccount().getId(),
+                        item.getBillingSubscription().getBillingAccount().getName(),
+                        item.getBillingSubscription().getStatus(),
+                        item.getBillingSubscription().getCurrentPeriodStart(),
+                        item.getBillingSubscription().getCurrentPeriodEnd(),
+                        item.getBillingSubscription().getTotalCents()
+                ))
+                .toList();
+
+        return new PageResponse<>(
+                content,
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.getNumber(),
+                page.getSize()
+        );
+    }
 
     @Transactional
     public void applyPendingPlans(BillingSubscriptionItem billingSubscriptionItem) {
@@ -44,6 +103,8 @@ public class BillingSubscriptionService {
         if (billingSubscriptionItem.getNextPlan() != null) {
             billingSubscriptionItem.setPlan(billingSubscriptionItem.getNextPlan());
             billingSubscriptionItem.setValueCents(billingSubscriptionItem.getNextPlan().getPriceCents().longValue());
+            billingSubscriptionItem.setNextPlan(null);
+            billingSubscriptionItem.setPlanChangeEffectiveAt(null);
             itemRepository.save(billingSubscriptionItem);
             updated = true;
         }
@@ -58,42 +119,112 @@ public class BillingSubscriptionService {
 
     @Transactional
     public void scheduleItemCancellation(Long itemId) {
-        log.info("Scheduling cancellation for subscription item: {}", itemId);
+
         BillingSubscriptionItem item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new NotFoundException("Item de assinatura não encontrado: " + itemId));
+                .orElseThrow(() -> new NotFoundException("Assinatura não encontrada"));
+
+        BillingSubscription subscription = item.getBillingSubscription();
+
+        // CASE 1: USER item -> full cancellation
+        if (item.getSourceType() == BillingSubscriptionItemSourceType.USER) {
+
+            if (subscription.isCancelAtPeriodEnd()) {
+                log.info("Subscription {} already scheduled for cancellation", subscription.getId());
+                return;
+            }
+
+            subscription.setCancelAtPeriodEnd(true);
+            subscription.setStatus(SubscriptionStatus.CANCELED);
+            repository.save(subscription);
+
+            log.info("Full subscription cancellation scheduled for subscription {}", subscription.getId());
+
+            return;
+        }
+
+        // CASE 2: ORGANIZATION item -> partial cancellation
+        if (item.isCancelAtPeriodEnd()) {
+            log.info("Item {} already scheduled for cancellation", item.getId());
+            return;
+        }
 
         item.setCancelAtPeriodEnd(true);
         itemRepository.save(item);
 
-        BillingSubscription subscription = item.getBillingSubscription();
-        recalculateTotal(subscription);
-        updateAsaasSubscription(subscription);
-        repository.save(subscription);
+        log.info("Item {} scheduled for cancellation at period end", item.getId());
 
     }
 
     @Transactional
-    public void processPendingCancellations() {
-        log.info("Processing pending subscription item cancellations");
-        var items = itemRepository.findPendingCancellations();
-        log.info("Found {} items for effective cancellation", items.size());
+    public void undoItemCancellation(Long itemId) {
+        log.info("Undoing cancellation for subscription item: {}", itemId);
 
-        items.forEach(item -> {
-            try {
-                log.info("Applying effective cancellation for item {}", item.getId());
-                item.setCanceledAt(Instant.now());
-                item.setValueCents(0L);
-                item.setCancelAtPeriodEnd(false);
-                itemRepository.save(item);
+        BillingSubscriptionItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new NotFoundException("Item not found"));
 
-                BillingSubscription subscription = item.getBillingSubscription();
-                recalculateTotal(subscription);
-                updateAsaasSubscription(subscription);
-                repository.save(subscription);
-            } catch (Exception e) {
-                log.error("Failed to process cancellation for item {}: {}", item.getId(), e.getMessage());
+        BillingSubscription subscription = item.getBillingSubscription();
+
+        if (item.getSourceType() == BillingSubscriptionItemSourceType.USER) {
+            subscription.setCancelAtPeriodEnd(false);
+            repository.save(subscription);
+            log.info("Subscription cancellation undone for subscription {}", subscription.getId());
+            return;
+        }
+
+        item.setCancelAtPeriodEnd(false);
+        itemRepository.save(item);
+        log.info("Item cancellation undone for item {}", item.getId());
+    }
+
+    @Transactional
+    public void processSubscriptionCycle() {
+        log.info("Starting processing of subscription cycle for {}", java.time.LocalDate.now());
+
+        List<BillingSubscription> subscriptions = repository.findAllByNextDueDate(LocalDate.now());
+
+        for (BillingSubscription sub : subscriptions) {
+
+            log.info("Processing subscription {}", sub.getId());
+
+            List<BillingSubscriptionItem> items = itemRepository.findAllByBillingSubscriptionId(sub.getId());
+
+            // STEP 1 — handle full cancellation
+            if (sub.isCancelAtPeriodEnd()) {
+
+                sub.setStatus(SubscriptionStatus.CANCELED);
+                sub.setCanceledAt(Instant.now());
+
+                repository.save(sub);
+
+                log.info("Subscription {} canceled at cycle end", sub.getId());
+
+                cancelAsaasSubscription(sub);
+
+                continue;
             }
-        });
+
+            // STEP 2 — canceled items
+            List<BillingSubscriptionItem> toRemove = items.stream()
+                    .filter(BillingSubscriptionItem::isCancelAtPeriodEnd)
+                    .toList();
+
+            for (BillingSubscriptionItem item : toRemove) {
+                item.setCancelAtPeriodEnd(false);
+                item.setCanceledAt(Instant.now());
+                itemRepository.save(item);
+                log.info("Removed item {} at cycle end", item.getId());
+            }
+
+            // STEP 3 — recalculate total
+            recalculateTotal(sub);
+
+            // STEP 4 — update Asaas subscription value
+            updateAsaasSubscription(sub);
+
+            repository.save(sub);
+
+            log.info("Subscription {} updated for next cycle", sub.getId());
+        }
     }
 
     @Transactional
@@ -113,7 +244,7 @@ public class BillingSubscriptionService {
     private void recalculateTotal(BillingSubscription subscription) {
         Long newTotal = itemRepository.findAllByBillingSubscriptionId(subscription.getId())
                 .stream()
-                .filter(i -> !i.isCancelAtPeriodEnd())
+                .filter(item -> item.getCanceledAt() == null)
                 .mapToLong(BillingSubscriptionItem::getValueCents)
                 .sum();
         subscription.setTotalCents(newTotal);
@@ -143,10 +274,11 @@ public class BillingSubscriptionService {
     }
 
     private void cancelAsaasSubscription(BillingSubscription subscription) {
+        if (subscription.getExternalSubscriptionId() == null) return;
+        
         try {
             asaasClient.cancelSubscription(subscription.getExternalSubscriptionId());
-            subscription.setStatus(SubscriptionStatus.CANCELED);
-            log.info("Asaas subscription {} canceled as total value is zero", subscription.getExternalSubscriptionId());
+            log.info("Asaas subscription {} canceled", subscription.getExternalSubscriptionId());
         } catch (Exception e) {
             log.error("Failed to cancel Asaas subscription {}: {}", subscription.getExternalSubscriptionId(), e.getMessage());
         }

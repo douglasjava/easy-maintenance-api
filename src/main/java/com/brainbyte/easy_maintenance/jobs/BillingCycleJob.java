@@ -13,7 +13,7 @@ public class BillingCycleJob {
 
     private final BillingCycleJobService billingCycleJobService;
 
-    @Scheduled(cron = "${billing.cycle.cron:0 30 2 * * *}") // Padrão: 2:30h da manhã
+    @Scheduled(cron = "${billing.cycle.cron:0 0 2 * * *}") // 2:00h da manhã
     public void run() {
         billingCycleJobService.executeCycleTurnJob();
     }

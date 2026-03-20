@@ -1,8 +1,8 @@
 package com.brainbyte.easy_maintenance.billing.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.dashboard.DashboardResponseDTO;
-import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
-import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSummaryResponse;
+import com.brainbyte.easy_maintenance.billing.domain.*;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
@@ -11,6 +11,8 @@ import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.Invoice
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
+import com.brainbyte.easy_maintenance.payment.domain.Payment;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -36,6 +39,112 @@ public class BillingDashboardService {
     private final OrganizationRepository organizationRepository;
 
     @Transactional(readOnly = true)
+    public BillingSummaryResponse getBillingSummary(Long userId) {
+        log.info("Generating billing summary for user {}", userId);
+
+        var subscriptionOpt = billingSubscriptionRepository.findByBillingAccountUserId(userId);
+        var accountOpt = billingAccountRepository.findByUserId(userId);
+        var recentInvoices = invoiceRepository.findRecentInvoices(userId, PageRequest.of(0, 5));
+
+        if (subscriptionOpt.isEmpty()) {
+            return BillingSummaryResponse.builder()
+                    .items(Collections.emptyList())
+                    .invoices(mapInvoicesToSummary(recentInvoices))
+                    .billingAccount(mapAccountToSummary(accountOpt.orElse(null)))
+                    .build();
+        }
+
+        var subscription = subscriptionOpt.get();
+        var items = getBillingSubscriptionItemActive(subscription.getId());
+        Map<String, String> orgNames = getOrganizationNames(items);
+
+        return BillingSummaryResponse.builder()
+                .subscription(mapToSubscriptionSummary(subscription))
+                .items(items.stream()
+                        .map(item -> mapToSubscriptionItemDTO(item, orgNames))
+                        .toList())
+                .invoices(mapInvoicesToSummary(recentInvoices))
+                .billingAccount(mapAccountToSummary(accountOpt.orElse(null)))
+                .build();
+    }
+
+    private static BillingSummaryResponse.SubscriptionItemDTO mapToSubscriptionItemDTO(BillingSubscriptionItem item, Map<String, String> orgNames) {
+        return BillingSummaryResponse.SubscriptionItemDTO.builder()
+                .id(item.getId())
+                .type(item.getSourceType().name())
+                .reference(item.getSourceId())
+                .name(item.getSourceType() == BillingSubscriptionItemSourceType.USER ? "Plano Individual" : orgNames.getOrDefault(item.getSourceId(), item.getSourceId()))
+                .valueCents(item.getValueCents())
+                .plan(mapToPlanDTO(item.getPlan()))
+                .pendingChange(item.getNextPlan() != null ? mapToPendingChangeDTO(item) : null)
+                .build();
+    }
+
+    private static BillingSummaryResponse.PendingChangeDTO mapToPendingChangeDTO(BillingSubscriptionItem item) {
+        return BillingSummaryResponse.PendingChangeDTO.builder()
+                .nextPlan(mapToPlanDTO(item.getNextPlan()))
+                .effectiveAt(item.getPlanChangeEffectiveAt())
+                .build();
+    }
+
+    private static BillingSummaryResponse.PlanDTO mapToPlanDTO(BillingPlan item) {
+        return BillingSummaryResponse.PlanDTO.builder()
+                .code(item.getCode())
+                .name(item.getName())
+                .priceCents(item.getPriceCents().longValue())
+                .build();
+    }
+
+    private static BillingSummaryResponse.SubscriptionSummaryDTO mapToSubscriptionSummary(BillingSubscription subscription) {
+        return BillingSummaryResponse.SubscriptionSummaryDTO.builder()
+                .id(subscription.getId())
+                .status(subscription.getStatus().name())
+                .cycle(subscription.getCycle().name())
+                .totalCents(subscription.getTotalCents())
+                .nextDueDate(subscription.getNextDueDate())
+                .build();
+    }
+
+    private List<BillingSummaryResponse.InvoiceSummaryDTO> mapInvoicesToSummary(List<Invoice> invoices) {
+        if (invoices == null || invoices.isEmpty()) return Collections.emptyList();
+        return invoices.stream()
+                .map(this::mapInvoiceToSummary)
+                .toList();
+    }
+
+    private BillingSummaryResponse.InvoiceSummaryDTO mapInvoiceToSummary(Invoice invoice) {
+        if (invoice == null) return null;
+
+        String paymentLink = null;
+        if (invoice.getStatus() == InvoiceStatus.OPEN || invoice.getStatus() == InvoiceStatus.OVERDUE) {
+            paymentLink = paymentRepository.findFirstByInvoiceIdAndStatusOrderByCreatedAtDesc(invoice.getId(), PaymentStatus.PENDING)
+                    .map(Payment::getPaymentLink)
+                    .orElse(null);
+        }
+
+        return BillingSummaryResponse.InvoiceSummaryDTO.builder()
+                .id(invoice.getId())
+                .status(invoice.getStatus().name())
+                .amountCents(invoice.getTotalCents().longValue())
+                .periodStart(invoice.getPeriodStart())
+                .periodEnd(invoice.getPeriodEnd())
+                .paymentLink(paymentLink)
+                .fromPlanChange(false)
+                .build();
+    }
+
+    private BillingSummaryResponse.BillingAccountSummaryDTO mapAccountToSummary(com.brainbyte.easy_maintenance.billing.domain.BillingAccount account) {
+        if (account == null) return null;
+        return BillingSummaryResponse.BillingAccountSummaryDTO.builder()
+                .email(account.getBillingEmail())
+                .paymentMethod(account.getPaymentMethod() != null ? account.getPaymentMethod().name() : null)
+                // cardLast4 and cardBrand are not available in current BillingAccount entity, returning null as per current schema
+                .cardLast4(null)
+                .cardBrand(null)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
     public DashboardResponseDTO getDashboard(Long userId) {
 
         log.info("Gerando dados para dashboard de faturamento para usuário {}", userId);
@@ -47,7 +156,7 @@ public class BillingDashboardService {
 
         List<BillingSubscriptionItem> items = Collections.emptyList();
         if (subscription != null) {
-            items = itemRepository.findAllByBillingSubscriptionIdFetchPlan(subscription.getId());
+            items = getBillingSubscriptionItemActive(subscription.getId());
         }
 
         Map<String, String> orgNames = getOrganizationNames(items);
@@ -145,4 +254,12 @@ public class BillingDashboardService {
         return organizationRepository.findAllByCodeIn(orgCodes).stream()
                 .collect(Collectors.toMap(Organization::getCode, Organization::getName));
     }
+
+    private List<BillingSubscriptionItem> getBillingSubscriptionItemActive(Long idSubscription) {
+
+        return itemRepository.findAllByBillingSubscriptionIdFetchPlan(idSubscription).stream()
+                .filter(item -> item.getCanceledAt() == null)
+                .toList();
+    }
+
 }

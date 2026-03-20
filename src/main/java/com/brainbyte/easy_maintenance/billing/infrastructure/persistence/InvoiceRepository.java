@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -47,5 +48,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             "WHERE i.payer.id = :payerUserId " +
             "ORDER BY i.createdAt DESC")
     Page<Invoice> findAllByPayerUserIdOrderByCreatedAtDesc(@Param("payerUserId") Long payerUserId, Pageable pageable);
+
+    @Query("""
+        SELECT i FROM Invoice i
+        WHERE i.payer.id = :payerUserId
+        ORDER BY i.createdAt DESC
+    """)
+    List<Invoice> findRecentInvoices(@Param("payerUserId") Long payerUserId, Pageable pageable);
 
 }

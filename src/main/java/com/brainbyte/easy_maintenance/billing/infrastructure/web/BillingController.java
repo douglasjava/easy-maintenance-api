@@ -3,6 +3,7 @@ package com.brainbyte.easy_maintenance.billing.infrastructure.web;
 import com.brainbyte.easy_maintenance.billing.application.dto.InvoiceDetailResponse;
 import com.brainbyte.easy_maintenance.billing.application.dto.InvoiceHistoryResponse;
 import com.brainbyte.easy_maintenance.billing.application.dto.dashboard.DashboardResponseDTO;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSummaryResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingDashboardService;
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
@@ -32,6 +33,13 @@ public class BillingController {
     public DashboardResponseDTO getDashboard() {
         var user = authenticationService.getCurrentUser();
         return dashboardService.getDashboard(user.getId());
+    }
+
+    @GetMapping("/summary")
+    @Operation(summary = "Retorna o resumo completo de faturamento do usuário")
+    public BillingSummaryResponse getSummary() {
+        var user = authenticationService.getCurrentUser();
+        return dashboardService.getBillingSummary(user.getId());
     }
 
     @GetMapping("/invoices")

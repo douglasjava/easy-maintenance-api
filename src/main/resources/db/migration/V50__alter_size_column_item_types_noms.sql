@@ -1,0 +1,2 @@
+ALTER TABLE norms
+    MODIFY item_type VARCHAR(200) NULL;
