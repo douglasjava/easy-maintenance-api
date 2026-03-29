@@ -40,6 +40,7 @@ public class BillingSubscriptionService {
     private final BillingSubscriptionItemRepository itemRepository;
     private final AsaasClient asaasClient;
 
+    @Transactional(readOnly = true)
     public PageResponse<BillingAdminDTO.SubscriptionResponse> listSubscriptions(
             String planCode,
             String payerName,
@@ -48,6 +49,12 @@ public class BillingSubscriptionService {
 
         Specification<BillingSubscriptionItem> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            if (query.getResultType() != Long.class && query.getResultType() != long.class) {
+                root.fetch("billingSubscription", jakarta.persistence.criteria.JoinType.LEFT)
+                        .fetch("billingAccount", jakarta.persistence.criteria.JoinType.LEFT);
+                root.fetch("plan", jakarta.persistence.criteria.JoinType.LEFT);
+            }
 
             Join<BillingSubscriptionItem, BillingSubscription> subscriptionJoin = root.join("billingSubscription");
             Join<BillingSubscription, BillingAccount> accountJoin = subscriptionJoin.join("billingAccount");

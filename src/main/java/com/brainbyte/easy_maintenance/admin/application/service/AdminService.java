@@ -2,7 +2,6 @@ package com.brainbyte.easy_maintenance.admin.application.service;
 
 import com.brainbyte.easy_maintenance.admin.application.dto.AdminMetricsResponse;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
-import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.AccessAdminException;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
@@ -13,6 +12,8 @@ import com.brainbyte.easy_maintenance.org_users.application.service.UsersService
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Plan;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
+import com.brainbyte.easy_maintenance.infrastructure.mail.MailService;
+import com.brainbyte.easy_maintenance.infrastructure.mail.utils.EmailTemplateHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,13 +32,17 @@ public class AdminService {
     @Value("${bootstrap.admin.token}")
     private String adminToken;
 
+    @Value("${frontend.login-url}")
+    private String loginUrl;
+
     private final UsersService usersService;
     private final OrganizationsService organizationsService;
     private final FirstAccessTokenService firstAccessService;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
-    private final BillingSubscriptionRepository billingSubscriptionRepository;
     private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
+    private final MailService mailService;
+    private final EmailTemplateHelper emailTemplateHelper;
 
     public OrganizationDTO.OrganizationResponse createOrganization(OrganizationDTO.CreateOrganizationRequest request) {
 
@@ -124,6 +129,15 @@ public class AdminService {
         var firstAccess = firstAccessService.createForUser(userResponse.id());
 
         log.info("Usuário criado com sucesso - Token criado para primeiro acesso {}", firstAccess.getToken());
+
+        try {
+            String subject = "Conclua seu cadastro na Easy Maintenance";
+            String htmlContent = emailTemplateHelper.generateAdminInvitationHtml(userResponse.name(), loginUrl);
+            mailService.sendEmail(userResponse.email(), userResponse.name(), subject, subject, htmlContent);
+            log.info("E-mail de convite enviado para {}", userResponse.email());
+        } catch (Exception e) {
+            log.error("Erro ao enviar e-mail de convite para {}: {}", userResponse.email(), e.getMessage());
+        }
 
         return userResponse;
     }

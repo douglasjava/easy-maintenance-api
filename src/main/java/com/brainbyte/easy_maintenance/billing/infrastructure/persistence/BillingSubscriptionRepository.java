@@ -17,7 +17,11 @@ public interface BillingSubscriptionRepository extends JpaRepository<BillingSubs
 
     Optional<BillingSubscription> findByBillingAccountUserId(Long userId);
 
-    List<BillingSubscription> findAllByBillingAccountUserIdIn(List<Long> userIds);
+    @Query("SELECT s FROM BillingSubscription s " +
+            "JOIN FETCH s.billingAccount ba " +
+            "JOIN FETCH ba.user " +
+            "WHERE ba.user.id IN :userIds")
+    List<BillingSubscription> findAllByBillingAccountUserIdIn(@Param("userIds") List<Long> userIds);
 
     Optional<BillingSubscription> findByExternalSubscriptionId(String externalSubscriptionId);
 

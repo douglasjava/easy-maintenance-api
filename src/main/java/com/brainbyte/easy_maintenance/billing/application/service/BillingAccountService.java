@@ -67,6 +67,7 @@ public class BillingAccountService {
     }
 
 
+    @Transactional(readOnly = true)
     public PageResponse<BillingAdminDTO.PayerResponse> getPayersOverview(Pageable pageable) {
 
         Page<PayerSummaryResponse> summaryPage = repository.findPayersSummary(pageable);
