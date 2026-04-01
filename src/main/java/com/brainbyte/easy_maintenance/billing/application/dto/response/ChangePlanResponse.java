@@ -1,6 +1,4 @@
-package com.brainbyte.easy_maintenance.billing.application.dto;
-
-import java.math.BigDecimal;
+package com.brainbyte.easy_maintenance.billing.application.dto.response;
 
 public record ChangePlanResponse(
     PlanChangeType type,

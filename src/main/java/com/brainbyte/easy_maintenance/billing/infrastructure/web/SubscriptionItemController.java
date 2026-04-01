@@ -2,9 +2,11 @@ package com.brainbyte.easy_maintenance.billing.infrastructure.web;
 
 import com.brainbyte.easy_maintenance.billing.application.adapter.SubscriptionItemCancelAdapter;
 import com.brainbyte.easy_maintenance.billing.application.adapter.SubscriptionItemChangePlanAdapter;
-import com.brainbyte.easy_maintenance.billing.application.dto.SubscriptionItemCancelResponse;
-import com.brainbyte.easy_maintenance.billing.application.dto.SubscriptionItemChangePlanRequest;
-import com.brainbyte.easy_maintenance.billing.application.dto.SubscriptionItemChangePlanResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSubscriptionResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.SubscriptionItemCancelResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.request.SubscriptionItemChangePlanRequest;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.SubscriptionItemChangePlanResponse;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionItemService;
 import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,7 +22,14 @@ public class SubscriptionItemController {
     
     private final SubscriptionItemChangePlanAdapter changePlanAdapter;
     private final SubscriptionItemCancelAdapter cancelAdapter;
+    private final BillingSubscriptionItemService itemService;
     private final AuthenticationService authenticationService;
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Obter detalhes de um item da assinatura")
+    public BillingSubscriptionResponse.SubscriptionItemResponse findById(@PathVariable Long id) {
+        return itemService.findById(id);
+    }
 
     @PostMapping("/{id}/change-plan")
     @Operation(summary = "Alterar o plano de um item da assinatura")

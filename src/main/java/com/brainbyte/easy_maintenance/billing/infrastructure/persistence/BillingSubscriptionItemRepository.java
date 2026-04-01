@@ -11,9 +11,16 @@ import org.springframework.stereotype.Repository;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface BillingSubscriptionItemRepository extends JpaRepository<BillingSubscriptionItem, Long>, JpaSpecificationExecutor<BillingSubscriptionItem> {
+
+    @Query("SELECT i FROM BillingSubscriptionItem i " +
+            "JOIN FETCH i.billingSubscription " +
+            "JOIN FETCH i.plan " +
+            "WHERE i.id = :id")
+    Optional<BillingSubscriptionItem> findByIdFetchDetails(@Param("id") Long id);
 
     @Query("SELECT i FROM BillingSubscriptionItem i JOIN FETCH i.plan WHERE i.billingSubscription.id = :billingSubscriptionId")
     List<BillingSubscriptionItem> findAllByBillingSubscriptionIdFetchPlan(@Param("billingSubscriptionId") Long billingSubscriptionId);
@@ -21,6 +28,8 @@ public interface BillingSubscriptionItemRepository extends JpaRepository<Billing
     List<BillingSubscriptionItem> findAllByBillingSubscriptionIdIn(Collection<Long> billingSubscriptionIds);
 
     List<BillingSubscriptionItem> findAllByBillingSubscriptionId(Long billingSubscriptionId);
+
+    Optional<BillingSubscriptionItem> findBySourceId(String sourceId);
 
     @Query("SELECT i FROM BillingSubscriptionItem i " +
             "JOIN FETCH i.plan " +

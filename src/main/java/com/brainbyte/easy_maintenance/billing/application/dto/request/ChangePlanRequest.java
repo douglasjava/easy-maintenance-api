@@ -1,4 +1,4 @@
-package com.brainbyte.easy_maintenance.billing.application.dto;
+package com.brainbyte.easy_maintenance.billing.application.dto.request;
 
 public record ChangePlanRequest(
     String newPlanCode,

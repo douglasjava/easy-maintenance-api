@@ -2,7 +2,6 @@ package com.brainbyte.easy_maintenance.billing.mapper;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.*;
 import com.brainbyte.easy_maintenance.billing.domain.*;
-import com.brainbyte.easy_maintenance.billing.application.dto.BillingSubscriptionResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.factory.Mappers;
@@ -22,5 +21,4 @@ public interface IBillingMapper {
     @Mapping(target = "updatedAt", ignore = true)
     BillingPlan toBillingPlan(BillingPlanDTO.CreateBillingPlanRequest request);
 
-    BillingSubscriptionResponse toBillingSubscriptionResponse(BillingSubscription subscription);
 }

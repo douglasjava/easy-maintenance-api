@@ -1,11 +1,10 @@
 package com.brainbyte.easy_maintenance.billing.application.service;
 
-import com.brainbyte.easy_maintenance.billing.application.dto.ChangePlanRequest;
-import com.brainbyte.easy_maintenance.billing.application.dto.ChangePlanResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.request.ChangePlanRequest;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.ChangePlanResponse;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
-import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.domain.Invoice;
 import com.brainbyte.easy_maintenance.billing.domain.InvoiceItem;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;

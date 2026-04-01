@@ -1,6 +1,8 @@
 package com.brainbyte.easy_maintenance.shared.web;
 
 import com.brainbyte.easy_maintenance.commons.exceptions.*;
+import com.brainbyte.easy_maintenance.infrastructure.access.domain.enums.AccessScope;
+import com.brainbyte.easy_maintenance.infrastructure.access.exception.SubscriptionWriteAccessDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.ValidationException;
@@ -164,6 +166,24 @@ public class GlobalExceptionHandler {
 
     }
 
+
+    @ExceptionHandler(SubscriptionWriteAccessDeniedException.class)
+    public ProblemDetail handleSubscriptionDenied(SubscriptionWriteAccessDeniedException ex, HttpServletRequest request) {
+        log.warn("Subscription access denied: {}", ex.getMessage());
+
+        String title = ex.getScope() == AccessScope.USER_ACCOUNT
+                ? "A assinatura do usuário não permite esta operação."
+                : "A assinatura da empresa não permite operações de gravação.";
+
+        ProblemDetail pd = ProblemDetails.of(
+                HttpStatus.FORBIDDEN,
+                ProblemType.SUBSCRIPTION_DENIED,
+                ex.getMessage(),
+                request
+        );
+        pd.setTitle(title);
+        return pd;
+    }
 
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex, HttpServletRequest request) {

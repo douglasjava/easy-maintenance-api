@@ -1,6 +1,6 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
-import com.brainbyte.easy_maintenance.billing.application.dto.BillingSubscriptionResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSubscriptionResponse;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
@@ -13,7 +13,6 @@ import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
-import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Plan;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
@@ -29,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -36,7 +36,6 @@ import java.util.List;
 public class OrganizationsService {
 
     private final OrganizationRepository repository;
-    private final UserRepository userRepository;
     private final BillingSubscriptionRepository billingSubscriptionRepository;
     private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
 
@@ -68,28 +67,27 @@ public class OrganizationsService {
                 .orElseThrow(() -> new NotFoundException(String.format("Organization with id %s not found", id)));
 
         var organizationResponse = IOrganizationMapper.INSTANCE.toOrganizationResponse(organization);
+        var billingSubscriptionItem = billingSubscriptionItemRepository.findBySourceId(organization.getCode())
+                .orElseThrow(() -> new NotFoundException(String.format("Billing Subscription with code %s not found", organization.getCode())));
 
-        var users = userRepository.findAllByOrganizationCode(organization.getCode(), Pageable.ofSize(1));
-        if (!users.isEmpty()) {
-            var user = users.getContent().stream().findFirst().orElse(null);
-            var responsibleUser = IOrganizationMapper.INSTANCE.toResponsibleUser(user);
-            organizationResponse = new OrganizationDTO.OrganizationResponse(
-                    organizationResponse.id(),
-                    organizationResponse.code(),
-                    organizationResponse.name(),
-                    organizationResponse.city(),
-                    organizationResponse.street(),
-                    organizationResponse.number(),
-                    organizationResponse.complement(),
-                    organizationResponse.neighborhood(),
-                    organizationResponse.state(),
-                    organizationResponse.zipCode(),
-                    organizationResponse.country(),
-                    organizationResponse.doc(),
-                    organizationResponse.companyType(),
-                    responsibleUser
-            );
-        }
+
+        organizationResponse = new OrganizationDTO.OrganizationResponse(
+                organizationResponse.id(),
+                organizationResponse.code(),
+                organizationResponse.name(),
+                organizationResponse.city(),
+                organizationResponse.street(),
+                organizationResponse.number(),
+                organizationResponse.complement(),
+                organizationResponse.neighborhood(),
+                organizationResponse.state(),
+                organizationResponse.zipCode(),
+                organizationResponse.country(),
+                organizationResponse.doc(),
+                organizationResponse.companyType(),
+                billingSubscriptionItem.getId()
+        );
+
 
         return organizationResponse;
     }
@@ -194,11 +192,11 @@ public class OrganizationsService {
 
         var subscription = billingSubscriptionRepository.findByBillingAccountUserId(user.getId())
                 .orElseThrow(() -> new RuleException("Assinatura não encontrada para o usuário " + user.getEmail()));
-        
+
         // Simplificando validação baseada no novo modelo
-        if (SubscriptionStatus.TRIAL == subscription.getStatus() && 
-            subscription.getCurrentPeriodEnd() != null && 
-            subscription.getCurrentPeriodEnd().isBefore(Instant.now())) {
+        if (SubscriptionStatus.TRIAL == subscription.getStatus() &&
+                subscription.getCurrentPeriodEnd() != null &&
+                subscription.getCurrentPeriodEnd().isBefore(Instant.now())) {
             throw new RuleException("O período de teste (TRIAL) expirou para o usuário " + user.getEmail());
         }
 

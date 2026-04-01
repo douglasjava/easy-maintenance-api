@@ -13,6 +13,7 @@ public enum ProblemType {
     TENANT_INVALID("tenant-invalid", "Invalid request"),
     WITHOUT_PERMISSIONS("permissions-invalid", "Permissions invalid"),
     NOT_AUTHENTICATED("not-authenticated", "User not authenticated"),
+    SUBSCRIPTION_DENIED("subscription-denied", "Subscription access denied"),
     UNEXPECTED("unexpected", "Unexpected error");
 
     private static final String BASE = "https://easy-maintenance/api/problems/";

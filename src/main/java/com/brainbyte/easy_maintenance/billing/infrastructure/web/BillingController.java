@@ -1,7 +1,7 @@
 package com.brainbyte.easy_maintenance.billing.infrastructure.web;
 
-import com.brainbyte.easy_maintenance.billing.application.dto.InvoiceDetailResponse;
-import com.brainbyte.easy_maintenance.billing.application.dto.InvoiceHistoryResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.InvoiceDetailResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.InvoiceHistoryResponse;
 import com.brainbyte.easy_maintenance.billing.application.dto.dashboard.DashboardResponseDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSummaryResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingDashboardService;

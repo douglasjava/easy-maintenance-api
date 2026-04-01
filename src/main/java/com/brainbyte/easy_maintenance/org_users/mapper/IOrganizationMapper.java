@@ -14,7 +14,6 @@ public interface IOrganizationMapper {
 
     IOrganizationMapper INSTANCE = Mappers.getMapper(IOrganizationMapper.class);
 
-    @Mapping(target = "responsibleUser", ignore = true)
     OrganizationDTO.OrganizationResponse toOrganizationResponse(Organization organization);
 
     OrganizationDTO.ResponsibleUser toResponsibleUser(User user);

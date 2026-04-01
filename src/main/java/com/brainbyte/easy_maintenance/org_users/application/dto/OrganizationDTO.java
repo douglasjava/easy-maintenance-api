@@ -2,7 +2,7 @@ package com.brainbyte.easy_maintenance.org_users.application.dto;
 
 import com.brainbyte.easy_maintenance.ai.application.dto.CompanyType;
 import com.brainbyte.easy_maintenance.commons.validation.Doc;
-import com.brainbyte.easy_maintenance.billing.application.dto.BillingSubscriptionResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSubscriptionResponse;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Role;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Status;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -57,7 +57,7 @@ public final class OrganizationDTO {
             String country,
             String doc,
             CompanyType companyType,
-            ResponsibleUser responsibleUser
+            Long billingSubscriptionItem
     ) {}
 
     public record OrganizationWithSubscriptionResponse(

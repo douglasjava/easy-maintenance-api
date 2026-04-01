@@ -1,4 +1,4 @@
-package com.brainbyte.easy_maintenance.billing.application.dto;
+package com.brainbyte.easy_maintenance.billing.application.dto.response;
 
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingCycle;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;

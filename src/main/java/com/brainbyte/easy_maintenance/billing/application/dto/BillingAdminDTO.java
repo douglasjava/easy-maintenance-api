@@ -1,7 +1,5 @@
 package com.brainbyte.easy_maintenance.billing.application.dto;
 
-import com.brainbyte.easy_maintenance.billing.application.dto.response.PayerSummaryResponse;
-
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
@@ -38,8 +36,8 @@ public class BillingAdminDTO {
             String planCode,
             String planName,
             Long priceCents,
-            com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus status,
-            @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
+            SubscriptionStatus status,
+            @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
             java.time.Instant currentPeriodEnd
     ) {}
 
@@ -50,8 +48,8 @@ public class BillingAdminDTO {
             String planCode,
             String planName,
             Long priceCents,
-            com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus status,
-            @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
+            SubscriptionStatus status,
+            @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
             java.time.Instant currentPeriodEnd
     ) {}
 
@@ -68,6 +66,7 @@ public class BillingAdminDTO {
             String planCode,
             Long payerAccountId,
             String payerName,
+            Long idUser,
             SubscriptionStatus status,
             @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
             Instant periodStart,

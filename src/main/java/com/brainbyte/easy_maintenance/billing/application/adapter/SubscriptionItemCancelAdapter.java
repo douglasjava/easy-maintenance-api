@@ -1,12 +1,10 @@
 package com.brainbyte.easy_maintenance.billing.application.adapter;
 
-import com.brainbyte.easy_maintenance.billing.application.dto.SubscriptionItemCancelResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.SubscriptionItemCancelResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
-import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
-import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

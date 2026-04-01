@@ -6,6 +6,7 @@ import com.brainbyte.easy_maintenance.assets.application.dto.ItemResponse;
 import com.brainbyte.easy_maintenance.assets.application.service.MaintenanceItemService;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
+import com.brainbyte.easy_maintenance.infrastructure.access.infrastructure.security.RequiresFullAccess;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
 import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.shared.web.openapi.PageableAsQueryParam;
@@ -32,6 +33,7 @@ public class ItemsController {
 
     @PostMapping
     @RequireTenant
+    @RequiresFullAccess
     @Operation(summary = "Cria um novo item de manutenção")
     public ResponseEntity<ItemResponse> create(@Valid @RequestBody CreateItemRequest req) {
         String orgId = TenantContext.get().orElseThrow();
@@ -40,6 +42,7 @@ public class ItemsController {
 
     @PostMapping("/batch")
     @RequireTenant
+    @RequiresFullAccess
     @Operation(summary = "Cria novos itens de manutenção em lote")
     public ResponseEntity<List<ItemResponse>> createBatch(@Valid @RequestBody List<CreateItemRequest> req) {
         String orgId = TenantContext.get().orElseThrow();
@@ -69,6 +72,7 @@ public class ItemsController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/{id}")
     @RequireTenant
+    @RequiresFullAccess
     @Operation(summary = "Cria um novo item de manutenção")
     public void delete(@PathVariable("id") Long id) {
         String orgId = TenantContext.get().orElseThrow();
@@ -77,6 +81,7 @@ public class ItemsController {
 
     @PutMapping("/{id}")
     @RequireTenant
+    @RequiresFullAccess
     @Operation(summary = "Editar item de manutenção")
     public ResponseEntity<ItemResponse> update(@PathVariable("id") Long id, @RequestBody CreateItemRequest request) {
         String orgId = TenantContext.get().orElseThrow();

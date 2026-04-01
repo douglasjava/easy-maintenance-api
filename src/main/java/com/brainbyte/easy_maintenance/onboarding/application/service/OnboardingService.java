@@ -1,14 +1,11 @@
 package com.brainbyte.easy_maintenance.onboarding.application.service;
 
-import com.brainbyte.easy_maintenance.billing.application.dto.BillingSubscriptionResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
-import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingPlanRepository;
-import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
 import com.brainbyte.easy_maintenance.billing.mapper.IBillingMapper;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.onboarding.application.dto.OnboardingDTO;

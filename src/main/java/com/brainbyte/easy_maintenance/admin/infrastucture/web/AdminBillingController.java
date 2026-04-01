@@ -1,11 +1,22 @@
 package com.brainbyte.easy_maintenance.admin.infrastucture.web;
 
+import com.brainbyte.easy_maintenance.billing.application.adapter.SubscriptionItemCancelAdapter;
+import com.brainbyte.easy_maintenance.billing.application.adapter.SubscriptionItemChangePlanAdapter;
 import com.brainbyte.easy_maintenance.billing.application.dto.*;
+import com.brainbyte.easy_maintenance.billing.application.dto.request.SubscriptionItemChangePlanRequest;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSubscriptionResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.SubscriptionItemCancelResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.SubscriptionItemChangePlanResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.*;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
+import com.brainbyte.easy_maintenance.billing.mapper.IBillingMapper;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
+import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.org_users.application.service.UsersService;
+import com.brainbyte.easy_maintenance.org_users.domain.User;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,6 +39,11 @@ public class AdminBillingController {
     private final InvoiceService invoiceService;
     private final BillingSubscriptionRepository billingSubscriptionRepository;
     private final BillingSubscriptionService billingSubscriptionService;
+    private final BillingSubscriptionItemService billingSubscriptionItemService;
+    private final BillingSubscriptionItemService itemService;
+    private final SubscriptionItemChangePlanAdapter changePlanAdapter;
+    private final SubscriptionItemCancelAdapter cancelAdapter;
+    private final UserRepository userRepository;
 
     @GetMapping("/plans")
     @Operation(summary = "Lista todos os planos de faturamento")
@@ -107,6 +123,47 @@ public class AdminBillingController {
             @RequestParam(required = false) SubscriptionStatus status,
             Pageable pageable) {
         return billingSubscriptionService.listSubscriptions(planCode, payerName, status, pageable);
+    }
+
+    @GetMapping("/subscription-item/{id}")
+    @Operation(summary = "Buscar item da assinatura")
+    public BillingSubscriptionResponse.SubscriptionItemResponse findByItemId(@PathVariable Long id) {
+        return billingSubscriptionItemService.findById(id);
+    }
+
+    @GetMapping("/subscription-items/{id}")
+    @Operation(summary = "Obter detalhes de um item da assinatura")
+    public BillingSubscriptionResponse.SubscriptionItemResponse findById(@PathVariable Long id) {
+        return itemService.findById(id);
+    }
+
+    @PostMapping("/subscription-items/{id}/change-plan")
+    @Operation(summary = "Alterar o plano de um item da assinatura")
+    public SubscriptionItemChangePlanResponse changePlan(
+            @PathVariable Long id,
+            @RequestHeader("X-id-User") Long idUser,
+            @Valid @RequestBody SubscriptionItemChangePlanRequest request) {
+
+        var user = getOrElseThrow(idUser);
+        return changePlanAdapter.changePlan(id, user, request);
+    }
+
+    @PostMapping("/subscription-items/{id}/cancel")
+    @Operation(summary = "Cancelar um item da assinatura")
+    public SubscriptionItemCancelResponse cancel(@PathVariable Long id, @RequestHeader("X-id-User") Long idUser) {
+        var user = getOrElseThrow(idUser);
+        return cancelAdapter.cancel(id, user);
+    }
+
+    @PostMapping("/subscription-items/{id}/undo-cancel")
+    @Operation(summary = "Desfazer o cancelamento de um item da assinatura")
+    public SubscriptionItemCancelResponse undoCancel(@PathVariable Long id, @RequestHeader("X-id-User") Long idUser) {
+        var user = getOrElseThrow(idUser);
+        return cancelAdapter.undoCancel(id, user);
+    }
+
+    private User getOrElseThrow(Long idUser) {
+        return userRepository.findById(idUser).orElseThrow(() -> new NotFoundException("Usuário não encontrado"));
     }
 
 }

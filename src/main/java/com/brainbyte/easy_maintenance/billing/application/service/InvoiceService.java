@@ -1,8 +1,8 @@
 package com.brainbyte.easy_maintenance.billing.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.InvoiceDTO;
-import com.brainbyte.easy_maintenance.billing.application.dto.InvoiceDetailResponse;
-import com.brainbyte.easy_maintenance.billing.application.dto.InvoiceHistoryResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.InvoiceDetailResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.InvoiceHistoryResponse;
 import com.brainbyte.easy_maintenance.billing.domain.*;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service

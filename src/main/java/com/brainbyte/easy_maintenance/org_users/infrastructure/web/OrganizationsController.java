@@ -1,6 +1,8 @@
 package com.brainbyte.easy_maintenance.org_users.infrastructure.web;
 
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
+import com.brainbyte.easy_maintenance.infrastructure.access.domain.enums.AccessScope;
+import com.brainbyte.easy_maintenance.infrastructure.access.infrastructure.security.RequiresFullAccess;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.CreateOrganizationRequest;
@@ -30,6 +32,7 @@ public class OrganizationsController {
     private final UsersService usersService;
 
     @PostMapping
+    @RequiresFullAccess(scope = AccessScope.USER_ACCOUNT)
     @Operation(summary = "Cria uma nova organização para um usuário")
     public OrganizationResponse create(@Valid @RequestBody CreateOrganizationRequest request) {
         return service.create(request);
@@ -55,6 +58,7 @@ public class OrganizationsController {
 
     @PatchMapping("/{id}")
     @RequireTenant
+    @RequiresFullAccess(scope = AccessScope.ORGANIZATION)
     @Operation(summary = "Atualiza dados de uma organização")
     public OrganizationResponse update(@PathVariable Long id, @Valid @RequestBody UpdateOrganizationRequest req) {
         return service.update(id, req);

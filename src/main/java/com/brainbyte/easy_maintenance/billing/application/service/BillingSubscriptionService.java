@@ -77,18 +77,22 @@ public class BillingSubscriptionService {
         var page = itemRepository.findAll(spec, pageable);
 
         var content = page.getContent().stream()
-                .map(item -> new BillingAdminDTO.SubscriptionResponse(
-                        item.getId(),
-                        item.getBillingSubscription().getId(),
-                        item.getSourceType(),
-                        item.getPlan().getCode(),
-                        item.getBillingSubscription().getBillingAccount().getId(),
-                        item.getBillingSubscription().getBillingAccount().getName(),
-                        item.getBillingSubscription().getStatus(),
-                        item.getBillingSubscription().getCurrentPeriodStart(),
-                        item.getBillingSubscription().getCurrentPeriodEnd(),
-                        item.getBillingSubscription().getTotalCents()
-                ))
+                .map(item -> {
+                    BillingAccount billingAccount = item.getBillingSubscription().getBillingAccount();
+                    return new BillingAdminDTO.SubscriptionResponse(
+                            item.getId(),
+                            item.getBillingSubscription().getId(),
+                            item.getSourceType(),
+                            item.getPlan().getCode(),
+                            billingAccount.getId(),
+                            billingAccount.getName(),
+                            billingAccount.getUser().getId(),
+                            item.getBillingSubscription().getStatus(),
+                            item.getBillingSubscription().getCurrentPeriodStart(),
+                            item.getBillingSubscription().getCurrentPeriodEnd(),
+                            item.getBillingSubscription().getTotalCents()
+                    );
+                })
                 .toList();
 
         return new PageResponse<>(
