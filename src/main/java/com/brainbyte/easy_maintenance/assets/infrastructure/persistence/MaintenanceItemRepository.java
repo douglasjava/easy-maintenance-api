@@ -43,6 +43,8 @@ public interface MaintenanceItemRepository extends JpaRepository<MaintenanceItem
 
   @Query("select count(mi) from MaintenanceItem mi where mi.organizationCode = :org and mi.nextDueAt between :start and :end")
   long countDueSoon(@Param("org") String orgId, @Param("start") LocalDate start, @Param("end") LocalDate end);
+
+  List<MaintenanceItem> findAllByNextDueAtIn(java.util.Collection<LocalDate> dates);
 }
 
 

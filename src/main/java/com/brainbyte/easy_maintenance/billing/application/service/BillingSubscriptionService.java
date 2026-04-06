@@ -12,6 +12,7 @@ import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingCycle;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingNotificationService;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class BillingSubscriptionService {
     private final BillingSubscriptionRepository repository;
     private final BillingSubscriptionItemRepository itemRepository;
     private final AsaasClient asaasClient;
+    private final BillingNotificationService billingNotificationService;
 
     @Transactional(readOnly = true)
     public PageResponse<BillingAdminDTO.SubscriptionResponse> listSubscriptions(
@@ -189,7 +191,7 @@ public class BillingSubscriptionService {
 
     @Transactional
     public void processSubscriptionCycle() {
-        log.info("Starting processing of subscription cycle for {}", java.time.LocalDate.now());
+        log.info("Starting processing of subscription cycle for {}", LocalDate.now());
 
         List<BillingSubscription> subscriptions = repository.findAllByNextDueDate(LocalDate.now());
 
@@ -210,6 +212,7 @@ public class BillingSubscriptionService {
                 log.info("Subscription {} canceled at cycle end", sub.getId());
 
                 cancelAsaasSubscription(sub);
+                billingNotificationService.sendCancellationProcessedEmail(sub);
 
                 continue;
             }

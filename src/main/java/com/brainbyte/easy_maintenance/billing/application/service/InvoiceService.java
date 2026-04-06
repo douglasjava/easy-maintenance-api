@@ -173,10 +173,12 @@ public class InvoiceService {
         return String.format("Assinatura %s - Plano: %s (%s)", type, bItem.getPlan().getName(), bItem.getSourceId());
     }
 
-    public PageResponse<InvoiceDTO.InvoiceResponse> listAllInvoices(
-            InvoiceStatus status, LocalDate periodStart, LocalDate periodEnd, Long payerUserId, Pageable pageable) {
+    public PageResponse<InvoiceDTO.InvoiceResponse> listAllInvoices(InvoiceStatus status,
+            LocalDate periodStart, LocalDate periodEnd,
+            LocalDate dueDateStart, LocalDate dueDateEnd,
+            Long payerUserId, Pageable pageable) {
 
-        var page = repository.findAllFiltered(status, periodStart, periodEnd, payerUserId, pageable)
+        var page = repository.findAllFiltered(status, periodStart, periodEnd, dueDateStart, dueDateEnd, payerUserId, pageable)
                 .map(InvoiceMapper.INSTANCE::toInvoiceResponse);
 
         return PageResponse.of(page);

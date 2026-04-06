@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -81,7 +82,8 @@ public class AdminController {
 
     @PostMapping("/users")
     @Operation(summary = "Cria um novo usuário")
-    public UserDTO.UserResponse createUserWithOrganization(@Valid @RequestBody UserDTO.CreateUserRequest request) {
+    @ResponseStatus(HttpStatus.CREATED)
+    public UserDTO.UserResponse createUser(@Valid @RequestBody UserDTO.CreateUserAdminRequest request) {
         return adminService.createUser(request);
     }
 

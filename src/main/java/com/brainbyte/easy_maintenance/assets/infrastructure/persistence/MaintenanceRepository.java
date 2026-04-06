@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 @Repository
 public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>, JpaSpecificationExecutor<Maintenance> {
@@ -22,5 +23,8 @@ public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>,
   boolean existsByItemIdAndPerformedAt(Long itemId, LocalDate performedAt);
 
   boolean existsByItemId(Long itemId);
+
+  @Query("SELECT m FROM Maintenance m JOIN com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem i ON i.id = m.itemId WHERE m.nextDueAt IN :dates")
+  List<Maintenance> findAllByNextDueAtIn(@Param("dates") java.util.Collection<LocalDate> dates);
 
 }

@@ -11,81 +11,101 @@ import java.util.List;
 
 public final class UserDTO {
 
-  public record CreateUserRequest(
-          @Schema(example = "usuario@empresa.com")
-          @Email @NotBlank String email,
-          @Schema(example = "João Silva")
-          @NotBlank String name,
-          @NotNull Role role,
-          @NotNull Status status,
-          @Schema(example = "senha123")
-          @NotBlank String password
-  ) {}
+    public record CreateUserAdminRequest(
+            @Schema(example = "usuario@empresa.com")
+            @Email @NotBlank String email,
+            @Schema(example = "João Silva")
+            @NotBlank String name,
+            @NotNull Role role,
+            Status status
+    ) {
+    }
 
-  public record UpdateUserRequest(
-          @Schema(example = "João Silva Atualizado")
-          @NotBlank String name,
-          @NotNull Role role,
-          @NotNull Status status,
-          @Schema(example = "usuario@empresa.com")
-          @Email @NotBlank String email
-  ) {}
+    public record CreateUserRequest(
+            @Schema(example = "usuario@empresa.com")
+            @Email @NotBlank String email,
+            @Schema(example = "João Silva")
+            @NotBlank String name,
+            @NotNull Role role,
+            @NotNull Status status,
+            @Schema(example = "senha123")
+            @NotBlank String password
+    ) {
+    }
 
-  public record UserResponse(
-          Long id,
-          String email,
-          String name,
-          Role role,
-          Status status,
-          List<String> organizationCodes
-  ) {}
+    public record UpdateUserRequest(
+            @Schema(example = "João Silva Atualizado")
+            @NotBlank String name,
+            @NotNull Role role,
+            @NotNull Status status,
+            @Schema(example = "usuario@empresa.com")
+            @Email @NotBlank String email
+    ) {
+    }
 
-  public record UserSummaryResponse(
-          Long id,
-          String email,
-          String name,
-          Role role,
-          Status status
-  ) {}
+    public record UserResponse(
+            Long id,
+            String email,
+            String name,
+            Role role,
+            Status status,
+            List<String> organizationCodes
+    ) {
+    }
 
-  public record LoginRequest(
-          @Schema(example = "usuario@empresa.com")
-          @Email @NotBlank String email,
-          @Schema(example = "senha123")
-          @NotBlank String password
-  ) {}
+    public record UserSummaryResponse(
+            Long id,
+            String email,
+            String name,
+            Role role,
+            Status status
+    ) {
+    }
 
-  public record LoginResponse(
-          Long id,
-          List<String> organizationCodes,
-          String email,
-          String name,
-          Role role,
-          Status status,
-          String accessToken,
-          String tokenType,
-          boolean firstAccess
-  ) {}
+    public record LoginRequest(
+            @Schema(example = "usuario@empresa.com")
+            @Email @NotBlank String email,
+            @Schema(example = "senha123")
+            @NotBlank String password
+    ) {
+    }
 
-  public record ChangePasswordRequest(
-          @NotNull Long idUser,
-          @Schema(example = "novaSenha123")
-          @NotBlank String newPassword
-  ) {}
+    public record LoginResponse(
+            Long id,
+            List<String> organizationCodes,
+            String email,
+            String name,
+            Role role,
+            Status status,
+            String accessToken,
+            String tokenType,
+            boolean firstAccess
+    ) {
+    }
 
-  public record ForgotPasswordRequest(
-          @Schema(example = "usuario@empresa.com")
-          @Email @NotBlank String email
-  ) {}
+    public record ChangePasswordRequest(
+            @NotNull Long idUser,
+            @Schema(example = "novaSenha123")
+            @NotBlank String newPassword
+    ) {
+    }
 
-  public record ResetPasswordRequest(
-          @NotBlank String token,
-          @Schema(example = "novaSenha123")
-          @NotBlank String newPassword
-  ) {}
+    public record ForgotPasswordRequest(
+            @Schema(example = "usuario@empresa.com")
+            @Email @NotBlank String email
+    ) {
+    }
 
-  public record AuthMessageResponse(
-          String message
-  ) {}
+    public record ResetPasswordRequest(
+            @NotBlank String token,
+            @Schema(example = "novaSenha123")
+            @NotBlank String newPassword
+    ) {
+    }
+
+    public record AuthMessageResponse(
+            String message
+    ) {
+    }
 
 }

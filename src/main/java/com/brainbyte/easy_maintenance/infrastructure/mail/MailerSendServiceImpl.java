@@ -16,7 +16,7 @@ import java.util.List;
 
 @Slf4j
 @Service
-@Profile("!local")
+@Profile("local")
 public class MailerSendServiceImpl implements MailService {
 
     private final WebClient mailerSendWebClient;

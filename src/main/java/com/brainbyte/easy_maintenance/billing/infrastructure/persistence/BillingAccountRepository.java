@@ -3,6 +3,7 @@ package com.brainbyte.easy_maintenance.billing.infrastructure.persistence;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.PayerSummaryResponse;
 import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -12,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface BillingAccountRepository extends JpaRepository<BillingAccount, Long> {
+public interface BillingAccountRepository extends JpaRepository<BillingAccount, Long>, JpaSpecificationExecutor<BillingAccount> {
 
     Optional<BillingAccount> findByUserId(Long userId);
 

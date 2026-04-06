@@ -8,6 +8,7 @@ import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSu
 import com.brainbyte.easy_maintenance.billing.application.dto.response.SubscriptionItemCancelResponse;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.SubscriptionItemChangePlanResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.*;
+import com.brainbyte.easy_maintenance.billing.domain.enums.BillingStatus;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
@@ -22,6 +23,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,6 +46,7 @@ public class AdminBillingController {
     private final SubscriptionItemChangePlanAdapter changePlanAdapter;
     private final SubscriptionItemCancelAdapter cancelAdapter;
     private final UserRepository userRepository;
+    private final BillingAccountService billingAccountService;
 
     @GetMapping("/plans")
     @Operation(summary = "Lista todos os planos de faturamento")
@@ -66,6 +69,16 @@ public class AdminBillingController {
         return planService.update(code, request);
     }
 
+    @GetMapping("accounts")
+    @Operation(summary = "Lista as contas de faturamento com filtros")
+    public PageResponse<BillingAccountDTO.BillingAccountResponse> listBillingAccounts(
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String doc,
+            @RequestParam(required = false) BillingStatus status,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return billingAccountService.findAll(email, name, doc, status, pageable);
+    }
 
     @GetMapping("/users/{userId}/account")
     @Operation(summary = "Busca a conta de faturamento de um usuário")
@@ -104,9 +117,11 @@ public class AdminBillingController {
             @RequestParam(required = false) InvoiceStatus status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodStart,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodEnd,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueDateStart,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueDateEnd,
             @RequestParam(required = false) Long payerUserId,
             Pageable pageable) {
-        return invoiceService.listAllInvoices(status, periodStart, periodEnd, payerUserId, pageable);
+        return invoiceService.listAllInvoices(status, periodStart, periodEnd, dueDateStart, dueDateEnd, payerUserId, pageable);
     }
 
     @GetMapping("/invoices/{invoiceId}")

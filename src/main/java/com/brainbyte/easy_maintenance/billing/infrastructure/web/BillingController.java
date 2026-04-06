@@ -1,11 +1,14 @@
 package com.brainbyte.easy_maintenance.billing.infrastructure.web;
 
+import com.brainbyte.easy_maintenance.billing.application.dto.BillingAccountDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.InvoiceDetailResponse;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.InvoiceHistoryResponse;
 import com.brainbyte.easy_maintenance.billing.application.dto.dashboard.DashboardResponseDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSummaryResponse;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingAccountService;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingDashboardService;
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
+import com.brainbyte.easy_maintenance.billing.domain.enums.BillingStatus;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,10 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -27,6 +27,18 @@ public class BillingController {
     private final BillingDashboardService dashboardService;
     private final InvoiceService invoiceService;
     private final AuthenticationService authenticationService;
+    private final BillingAccountService billingAccountService;
+
+    @GetMapping("accounts")
+    @Operation(summary = "Lista as contas de faturamento com filtros")
+    public PageResponse<BillingAccountDTO.BillingAccountResponse> listBillingAccounts(
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String doc,
+            @RequestParam(required = false) BillingStatus status,
+            @PageableDefault(size = 10) Pageable pageable) {
+        return billingAccountService.findAll(email, name, doc, status, pageable);
+    }
 
     @GetMapping("/dashboard")
     @Operation(summary = "Retorna as informações consolidadas do dashboard de faturamento")

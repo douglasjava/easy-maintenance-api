@@ -7,6 +7,7 @@ import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
+import com.brainbyte.easy_maintenance.billing.domain.enums.BillingStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
@@ -15,8 +16,10 @@ import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,7 @@ import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +44,32 @@ public class BillingAccountService {
     private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
     private final OrganizationRepository organizationRepository;
 
+
+    public PageResponse<BillingAccountDTO.BillingAccountResponse> findAll(
+            String email, String name, String doc, BillingStatus status, Pageable pageable) {
+
+        Specification<BillingAccount> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (email != null && !email.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("billingEmail")), "%" + email.toLowerCase() + "%"));
+            }
+            if (name != null && !name.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("name")), "%" + name.toLowerCase() + "%"));
+            }
+            if (doc != null && !doc.isBlank()) {
+                predicates.add(cb.like(root.get("doc"), "%" + doc + "%"));
+            }
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<BillingAccount> page = repository.findAll(spec, pageable);
+        return PageResponse.of(page.map(IBillingMapper.INSTANCE::toBillingAccountResponse));
+    }
 
     public BillingAccountDTO.BillingAccountResponse findByUserId(Long userId) {
         return repository.findByUserId(userId)

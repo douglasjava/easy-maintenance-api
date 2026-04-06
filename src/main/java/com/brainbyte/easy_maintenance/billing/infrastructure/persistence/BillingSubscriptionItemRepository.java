@@ -32,6 +32,7 @@ public interface BillingSubscriptionItemRepository extends JpaRepository<Billing
     Optional<BillingSubscriptionItem> findBySourceId(String sourceId);
 
     @Query("SELECT i FROM BillingSubscriptionItem i " +
+            "JOIN FETCH i.billingSubscription " +
             "JOIN FETCH i.plan " +
             "LEFT JOIN FETCH i.nextPlan " +
             "WHERE i.sourceType = :sourceType AND i.sourceId IN :sourceIds")

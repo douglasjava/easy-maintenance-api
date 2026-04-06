@@ -10,6 +10,7 @@ public class InvoiceDTO {
     public record InvoiceResponse(
             Long id,
             Long payerUserId,
+            String payerUserName,
             String currency,
             LocalDate periodStart,
             LocalDate periodEnd,

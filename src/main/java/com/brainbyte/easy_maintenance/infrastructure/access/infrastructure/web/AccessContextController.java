@@ -1,6 +1,6 @@
 package com.brainbyte.easy_maintenance.infrastructure.access.infrastructure.web;
 
-import com.brainbyte.easy_maintenance.infrastructure.access.application.dto.AccessContextDTO;
+import com.brainbyte.easy_maintenance.infrastructure.access.application.dto.response.AccessContextResponse;
 import com.brainbyte.easy_maintenance.infrastructure.access.application.service.FeatureAccessService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,7 +19,7 @@ public class AccessContextController {
 
     @GetMapping
     @Operation(summary = "Obter o contexto de acesso resolvido para o usuário e organização atuais")
-    public AccessContextDTO getAccessContext() {
+    public AccessContextResponse getAccessContext() {
         return featureAccessService.getAccessContext();
     }
 }

@@ -13,6 +13,7 @@ public interface InvoiceMapper {
     InvoiceMapper INSTANCE = Mappers.getMapper(InvoiceMapper.class);
 
     @Mapping(target = "payerUserId", source = "payer.id")
+    @Mapping(target = "payerUserName", source = "payer.name")
     InvoiceDTO.InvoiceResponse toInvoiceResponse(Invoice invoice);
 
 }

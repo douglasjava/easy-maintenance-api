@@ -26,21 +26,26 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     Page<Invoice> findAllByPayerId(Long payerUserId, Pageable pageable);
 
-    @EntityGraph(attributePaths = "items")
+    @EntityGraph(attributePaths = {"items", "payer"})
     @Query("SELECT i FROM Invoice i " +
+            "JOIN FETCH i.payer p " +
             "WHERE (:status IS NULL OR i.status = :status) " +
             "AND (:periodStart IS NULL OR i.periodStart >= :periodStart) " +
             "AND (:periodEnd IS NULL OR i.periodEnd <= :periodEnd) " +
-            "AND (:payerUserId IS NULL OR i.payer.id = :payerUserId)")
+            "AND (:dueDateStart IS NULL OR i.dueDate >= :dueDateStart) " +
+            "AND (:dueDateEnd IS NULL OR i.dueDate <= :dueDateEnd) " +
+            "AND (:payerUserId IS NULL OR p.id = :payerUserId)")
     Page<Invoice> findAllFiltered(
             @Param("status") InvoiceStatus status,
             @Param("periodStart") LocalDate periodStart,
             @Param("periodEnd") LocalDate periodEnd,
+            @Param("dueDateStart") LocalDate dueDateStart,
+            @Param("dueDateEnd") LocalDate dueDateEnd,
             @Param("payerUserId") Long payerUserId,
             Pageable pageable
     );
 
-    @EntityGraph(attributePaths = "items")
+    @EntityGraph(attributePaths = {"items", "payer"})
     @Query("SELECT i FROM Invoice i WHERE i.id = :id")
     Optional<Invoice> findByIdFetchItems(@Param("id") Long id);
 

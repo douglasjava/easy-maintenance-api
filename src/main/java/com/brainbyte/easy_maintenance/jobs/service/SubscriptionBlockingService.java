@@ -2,6 +2,7 @@ package com.brainbyte.easy_maintenance.jobs.service;
 
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +18,7 @@ import java.time.Instant;
 public class SubscriptionBlockingService {
 
     private final BillingSubscriptionRepository billingSubscriptionRepository;
+    private final BillingNotificationService billingNotificationService;
 
     @Value("${billing.blocking.days-after-due:3}")
     private int daysAfterDue;
@@ -44,6 +46,7 @@ public class SubscriptionBlockingService {
                     billingSubscriptionRepository.save(bs);
                     
                     log.info("[SubscriptionBlocking] BillingSubscription {} bloqueada com sucesso.", bs.getId());
+                    billingNotificationService.sendSubscriptionBlockedEmail(bs);
                 }
 
             } catch (Exception e) {

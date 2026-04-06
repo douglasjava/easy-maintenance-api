@@ -1,9 +1,11 @@
 package com.brainbyte.easy_maintenance.infrastructure.access.application.service;
 
+import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
+import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
-import com.brainbyte.easy_maintenance.infrastructure.access.application.dto.AccessContextDTO;
+import com.brainbyte.easy_maintenance.infrastructure.access.application.dto.response.*;
 import com.brainbyte.easy_maintenance.infrastructure.access.domain.enums.AccessMode;
-import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
@@ -11,9 +13,8 @@ import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.Organ
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -27,72 +28,90 @@ public class FeatureAccessService {
     private final SubscriptionAccessService subscriptionAccessService;
     private final AuthenticationService authenticationService;
     private final OrganizationRepository organizationRepository;
+    private final BillingPlanFeaturesHelper billingPlanFeaturesHelper;
 
-    public AccessContextDTO getAccessContext() {
+    public AccessContextResponse getAccessContext() {
         User user = authenticationService.getCurrentUser();
-        String currentOrgCode = TenantContext.get().orElse(null);
 
-        AccessMode userMode = subscriptionAccessService.resolveUserAccessMode(user.getId());
-        SubscriptionStatus userStatus = subscriptionAccessService.getUserSubscriptionStatus(user.getId()).orElse(null);
+        AccountAccessResponse accountAccess = buildAccountAccess(user.getId());
 
-        AccessContextDTO.AccessDetail accountAccess = AccessContextDTO.AccessDetail.builder()
-                .subscriptionStatus(userStatus != null ? userStatus.name() : "NONE")
-                .accessMode(userMode)
-                .message(userMode != AccessMode.FULL_ACCESS ? USER_INACTIVE_MSG : USER_FULL_ACCESS_MSG)
-                .build();
-
-        List<AccessContextDTO.AccessDetail> organizationsAccess = organizationRepository.findAllByUserId(user.getId())
+        List<OrganizationAccessResponse> organizationsAccess = organizationRepository.findAllByUserId(user.getId())
                 .stream()
-                .map(org -> {
-                    AccessMode mode = subscriptionAccessService.resolveOrganizationAccessMode(org.getCode());
-                    SubscriptionStatus status = subscriptionAccessService.getOrganizationSubscriptionStatus(org.getCode()).orElse(null);
-
-                    return AccessContextDTO.AccessDetail.builder()
-                            .organizationCode(org.getCode())
-                            .organizationName(org.getName())
-                            .subscriptionStatus(status != null ? status.name() : "NONE")
-                            .accessMode(mode)
-                            .message(mode != AccessMode.FULL_ACCESS ? ORG_INACTIVE_MSG : ORG_FULL_ACCESS_MSG)
-                            .build();
-                })
+                .map(org -> buildOrganizationAccess(org))
                 .toList();
 
-        AccessMode currentOrgMode = AccessMode.READ_ONLY;
-        if (currentOrgCode != null) {
-            currentOrgMode = subscriptionAccessService.resolveOrganizationAccessMode(currentOrgCode);
-        }
-
-        return AccessContextDTO.builder()
-                .user(AccessContextDTO.UserInfo.builder()
+        return AccessContextResponse.builder()
+                .user(AccessContextResponse.UserInfo.builder()
                         .id(user.getId())
                         .name(user.getName())
                         .build())
                 .accountAccess(accountAccess)
                 .organizationsAccess(organizationsAccess)
-                .permissions(resolvePermissions(userMode, currentOrgMode))
                 .build();
     }
 
-    private Map<String, Boolean> resolvePermissions(AccessMode userMode, AccessMode orgMode) {
-        Map<String, Boolean> permissions = new HashMap<>();
+    private AccountAccessResponse buildAccountAccess(Long userId) {
+        AccessMode mode = subscriptionAccessService.resolveUserAccessMode(userId);
+        Optional<BillingSubscriptionItem> subscriptionItem = subscriptionAccessService.getUserSubscriptionItem(userId);
+        SubscriptionStatus status = subscriptionItem.map(item -> item.getBillingSubscription().getStatus()).orElse(null);
+        BillingPlan plan = subscriptionItem.map(BillingSubscriptionItem::getPlan).orElse(null);
 
-        // User Account Capabilities
-        boolean userFull = userMode == AccessMode.FULL_ACCESS;
-        permissions.put("canViewOrganizations", true);
-        permissions.put("canCreateOrganization", userFull);
-        permissions.put("canManageOwnBilling", true);
+        return AccountAccessResponse.builder()
+                .subscriptionStatus(status != null ? status.name() : "NONE")
+                .accessMode(mode)
+                .message(mode != AccessMode.FULL_ACCESS ? USER_INACTIVE_MSG : USER_FULL_ACCESS_MSG)
+                .plan(mapPlan(plan))
+                .features(billingPlanFeaturesHelper.parse(plan))
+                .permissions(buildAccountPermissions(mode))
+                .build();
+    }
 
-        // Organization Capabilities
-        boolean orgFull = orgMode == AccessMode.FULL_ACCESS;
-        permissions.put("canReadDashboard", true);
-        permissions.put("canCreateItem", orgFull);
-        permissions.put("canEditItem", orgFull);
-        permissions.put("canDeleteItem", orgFull);
-        permissions.put("canRegisterMaintenance", orgFull);
-        permissions.put("canManageOrganizationUsers", orgFull);
-        permissions.put("canUpdateOrganization", orgFull);
-        permissions.put("canManageOrganizationBilling", true);
+    private AccountPermissionsResponse buildAccountPermissions(AccessMode mode) {
+        boolean fullAccess = mode == AccessMode.FULL_ACCESS;
+        return AccountPermissionsResponse.builder()
+                .canViewOrganizations(true)
+                .canCreateOrganization(fullAccess)
+                .canManageOwnBilling(true)
+                .build();
+    }
 
-        return permissions;
+    private OrganizationAccessResponse buildOrganizationAccess(Organization org) {
+        AccessMode mode = subscriptionAccessService.resolveOrganizationAccessMode(org.getCode());
+        Optional<BillingSubscriptionItem> subscriptionItem = subscriptionAccessService.getOrganizationSubscriptionItem(org.getCode());
+        SubscriptionStatus status = subscriptionItem.map(item -> item.getBillingSubscription().getStatus()).orElse(null);
+        BillingPlan plan = subscriptionItem.map(BillingSubscriptionItem::getPlan).orElse(null);
+
+        return OrganizationAccessResponse.builder()
+                .organizationCode(org.getCode())
+                .organizationName(org.getName())
+                .subscriptionStatus(status != null ? status.name() : "NONE")
+                .accessMode(mode)
+                .message(mode != AccessMode.FULL_ACCESS ? ORG_INACTIVE_MSG : ORG_FULL_ACCESS_MSG)
+                .plan(mapPlan(plan))
+                .features(billingPlanFeaturesHelper.parse(plan))
+                .permissions(buildOrganizationPermissions(mode))
+                .build();
+    }
+
+    private PlanSummaryResponse mapPlan(BillingPlan plan) {
+        if (plan == null) return null;
+        return PlanSummaryResponse.builder()
+                .code(plan.getCode())
+                .name(plan.getName())
+                .build();
+    }
+
+    private OrganizationPermissionsResponse buildOrganizationPermissions(AccessMode mode) {
+        boolean fullAccess = mode == AccessMode.FULL_ACCESS;
+        return OrganizationPermissionsResponse.builder()
+                .canReadDashboard(true)
+                .canCreateItem(fullAccess)
+                .canEditItem(fullAccess)
+                .canDeleteItem(fullAccess)
+                .canRegisterMaintenance(fullAccess)
+                .canManageOrganizationUsers(fullAccess)
+                .canUpdateOrganization(fullAccess)
+                .canManageOrganizationBilling(true)
+                .build();
     }
 }

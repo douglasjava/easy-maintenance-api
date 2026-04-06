@@ -3,6 +3,7 @@ package com.brainbyte.easy_maintenance.onboarding.application.service;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingPlanRepository;
@@ -15,12 +16,17 @@ import com.brainbyte.easy_maintenance.org_users.application.service.UsersService
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.payment.application.factory.PaymentProviderFactory;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
+import com.brainbyte.easy_maintenance.infrastructure.mail.MailService;
+import com.brainbyte.easy_maintenance.infrastructure.mail.utils.EmailTemplateHelper;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 @Slf4j
 @Service
@@ -33,6 +39,11 @@ public class OnboardingService {
     private final UsersService usersService;
     private final BillingSubscriptionService billingSubscriptionService;
     private final BillingPlanRepository billingPlanRepository;
+    private final MailService mailService;
+    private final EmailTemplateHelper emailTemplateHelper;
+
+    @Value("${frontend.login-url}")
+    private String loginUrl;
 
     @Transactional
     public OnboardingDTO.AccountUserResponse createUser(User user, OnboardingDTO.AccountUserRequest request) {
@@ -93,6 +104,9 @@ public class OnboardingService {
         log.info("5. Adicionar item ORGANIZATION à BillingSubscription");
         billingSubscriptionService.addItem(billingSubscription, BillingSubscriptionItemSourceType.ORGANIZATION, createdOrganization.code(), orgPlan);
 
+        log.info("6. Enviar e-mail de ativação do trial");
+        sendTrialActivatedEmail(user, billingSubscription);
+
         return new OnboardingDTO.AccountOrganizationResponse(
                 createdOrganization.id(),
                 billingSubscription.getId(),
@@ -100,6 +114,26 @@ public class OnboardingService {
                 createdOrganization.name()
         );
 
+    }
+
+    private void sendTrialActivatedEmail(User user, BillingSubscription subscription) {
+        try {
+            var dataFimTrial = "";
+            if (subscription.getCurrentPeriodEnd() != null) {
+                dataFimTrial = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                        .withZone(ZoneId.systemDefault())
+                        .format(subscription.getCurrentPeriodEnd());
+            }
+
+            String htmlContent = emailTemplateHelper.generateTrialActivatedHtml(user.getName(), dataFimTrial, loginUrl);
+            String subject = "Seu acesso completo ao Easy Maintenance foi liberado";
+            String textContent = "Olá, " + user.getName() + "! Seu acesso ao Easy Maintenance foi liberado até " + dataFimTrial + ". Acesse em: " + loginUrl;
+
+            mailService.sendEmail(user.getEmail(), user.getName(), subject, textContent, htmlContent);
+            log.info("E-mail de ativação do trial enviado para {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("Erro ao enviar e-mail de ativação do trial para {}: {}", user.getEmail(), e.getMessage());
+        }
     }
 
     private static void mergeBillingAccountChanges(OnboardingDTO.AccountUserRequest request, BillingAccount account) {

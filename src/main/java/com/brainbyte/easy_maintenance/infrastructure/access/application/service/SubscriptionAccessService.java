@@ -52,17 +52,27 @@ public class SubscriptionAccessService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<SubscriptionStatus> getUserSubscriptionStatus(Long userId) {
-         return subscriptionItemRepository.findAllBySourceTypeAndSourceIdIn(
+    public Optional<BillingSubscriptionItem> getUserSubscriptionItem(Long userId) {
+        return subscriptionItemRepository.findAllBySourceTypeAndSourceIdIn(
                 BillingSubscriptionItemSourceType.USER, List.of(userId.toString()))
-                 .stream().findFirst().map(item -> item.getBillingSubscription().getStatus());
+                .stream().findFirst();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<BillingSubscriptionItem> getOrganizationSubscriptionItem(String organizationCode) {
+        return subscriptionItemRepository.findAllBySourceTypeAndSourceIdIn(
+                BillingSubscriptionItemSourceType.ORGANIZATION, List.of(organizationCode))
+                .stream().findFirst();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<SubscriptionStatus> getUserSubscriptionStatus(Long userId) {
+        return getUserSubscriptionItem(userId).map(item -> item.getBillingSubscription().getStatus());
     }
 
     @Transactional(readOnly = true)
     public Optional<SubscriptionStatus> getOrganizationSubscriptionStatus(String organizationCode) {
-        return subscriptionItemRepository.findAllBySourceTypeAndSourceIdIn(
-                BillingSubscriptionItemSourceType.ORGANIZATION, List.of(organizationCode))
-                .stream().findFirst().map(item -> item.getBillingSubscription().getStatus());
+        return getOrganizationSubscriptionItem(organizationCode).map(item -> item.getBillingSubscription().getStatus());
     }
 
     private AccessMode mapToAccessMode(SubscriptionStatus status) {
