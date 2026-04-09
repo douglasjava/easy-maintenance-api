@@ -5,6 +5,7 @@ import com.brainbyte.easy_maintenance.ai.application.dto.AiBootstrapApplyRespons
 import com.brainbyte.easy_maintenance.ai.application.dto.AiBootstrapPreviewRequest;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiBootstrapPreviewResponse;
 import com.brainbyte.easy_maintenance.ai.application.service.AiBootstrapService;
+import com.brainbyte.easy_maintenance.shared.ratelimit.RateLimit;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +27,7 @@ public class AiBootstrapController {
     private final AiBootstrapService bootstrapService;
 
     @PostMapping("/preview")
+    @RateLimit("ai")
     @RequireTenant
     @Operation(summary = "Gera um preview de itens de manutenção para onboarding baseado no tipo de empresa")
     public ResponseEntity<AiBootstrapPreviewResponse> preview(@Validated @RequestBody AiBootstrapPreviewRequest request) {

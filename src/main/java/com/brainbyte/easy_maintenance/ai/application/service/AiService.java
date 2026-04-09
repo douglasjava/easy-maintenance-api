@@ -14,6 +14,7 @@ import com.brainbyte.easy_maintenance.catalog_norms.application.service.NormServ
 import com.brainbyte.easy_maintenance.catalog_norms.application.dto.NormDTO;
 import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -36,6 +37,7 @@ public class AiService {
     private final AiProvider aiProvider;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @CircuitBreaker(name = "ai")
     public AiSummaryResponse getSummary(boolean pretty) {
         String orgId = TenantContext.get().orElseThrow();
         long total = itemRepository.countByOrganizationCode(orgId);
@@ -65,6 +67,7 @@ public class AiService {
         return builder.build();
     }
 
+    @CircuitBreaker(name = "ai")
     public AiAssistantResponse assistant(AiAssistantRequest req) {
         String orgId = TenantContext.get().orElseThrow();
         // Build minimal context: counts + next due items + norms for optional itemType
@@ -77,6 +80,7 @@ public class AiService {
                 .build();
     }
 
+    @CircuitBreaker(name = "ai")
     public AiSuggestItemResponse suggestItem(AiSuggestItemRequest req) {
         // orgId is not strictly needed for suggestion, but keep for future context if provided
         String prompt = PromptBuilder.suggestItemPrompt(req.getDescription(), req.getContextItemType());

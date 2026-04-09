@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.ai.infrastructure.web;
 
 import com.brainbyte.easy_maintenance.ai.application.service.AiService;
+import com.brainbyte.easy_maintenance.shared.ratelimit.RateLimit;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiAssistantRequest;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiAssistantResponse;
 import com.brainbyte.easy_maintenance.ai.application.dto.AiSuggestItemRequest;
@@ -23,6 +24,7 @@ public class AiController {
     private final AiService aiService;
 
     @GetMapping("/summary")
+    @RateLimit("ai")
     @RequireTenant
     @Operation(summary = "Obtém um resumo executivo gerado por IA")
     public ResponseEntity<AiSummaryResponse> summary(@RequestParam(name = "pretty", defaultValue = "false") boolean pretty) {
@@ -30,6 +32,7 @@ public class AiController {
     }
 
     @PostMapping("/assistant")
+    @RateLimit("ai")
     @RequireTenant
     @Operation(summary = "Chat com o assistente de manutenção")
     public ResponseEntity<AiAssistantResponse> assistant(@Validated @RequestBody AiAssistantRequest req) {
@@ -37,6 +40,7 @@ public class AiController {
     }
 
     @PostMapping("/suggest-item")
+    @RateLimit("ai")
     @RequireTenant
     @Operation(summary = "Sugere configurações para um novo item de manutenção")
     public ResponseEntity<AiSuggestItemResponse> suggestItem(@Validated @RequestBody AiSuggestItemRequest req) {

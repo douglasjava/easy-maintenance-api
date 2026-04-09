@@ -3,6 +3,7 @@ package com.brainbyte.easy_maintenance.infrastructure.saas.client;
 import com.brainbyte.easy_maintenance.commons.exceptions.AsaasException;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.infrastructure.saas.properties.AsaasProperties;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
@@ -10,6 +11,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.*;
 import reactor.core.publisher.Mono;
+
+import java.time.Duration;
 
 @Slf4j
 @Component
@@ -27,6 +30,9 @@ public class AsaasClient {
                 .build();
     }
 
+    private static final Duration ASAAS_TIMEOUT = Duration.ofSeconds(10);
+
+    @CircuitBreaker(name = "asaas")
     public AsaasDTO.CustomerResponse createCustomer(AsaasDTO.CreateCustomerRequest req) {
         return webClient.post()
                 .uri("/customers")
@@ -34,9 +40,11 @@ public class AsaasClient {
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, this::mapError)
                 .bodyToMono(AsaasDTO.CustomerResponse.class)
+                .timeout(ASAAS_TIMEOUT)
                 .block();
     }
 
+    @CircuitBreaker(name = "asaas")
     public AsaasDTO.SubscriptionResponse createSubscription(AsaasDTO.CreateSubscriptionRequest req) {
         return webClient.post()
                 .uri("/subscriptions")
@@ -44,18 +52,22 @@ public class AsaasClient {
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, this::mapError)
                 .bodyToMono(AsaasDTO.SubscriptionResponse.class)
+                .timeout(ASAAS_TIMEOUT)
                 .block();
     }
 
+    @CircuitBreaker(name = "asaas")
     public AsaasDTO.SubscriptionResponse getSubscription(String subscriptionId) {
         return webClient.get()
                 .uri("/subscriptions/{id}", subscriptionId)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, this::mapError)
                 .bodyToMono(AsaasDTO.SubscriptionResponse.class)
+                .timeout(ASAAS_TIMEOUT)
                 .block();
     }
 
+    @CircuitBreaker(name = "asaas")
     public AsaasDTO.SubscriptionResponse updateSubscription(String subscriptionId, AsaasDTO.UpdateSubscriptionRequest req) {
         return webClient.post()
                 .uri("/subscriptions/{id}", subscriptionId)
@@ -63,18 +75,22 @@ public class AsaasClient {
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, this::mapError)
                 .bodyToMono(AsaasDTO.SubscriptionResponse.class)
+                .timeout(ASAAS_TIMEOUT)
                 .block();
     }
 
+    @CircuitBreaker(name = "asaas")
     public void cancelSubscription(String subscriptionId) {
         webClient.delete()
                 .uri("/subscriptions/{id}", subscriptionId)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, this::mapError)
                 .toBodilessEntity()
+                .timeout(ASAAS_TIMEOUT)
                 .block();
     }
 
+    @CircuitBreaker(name = "asaas")
     public AsaasDTO.PaymentResponse createPayment(AsaasDTO.CreatePaymentRequest req) {
         return webClient.post()
                 .uri("/payments")
@@ -82,17 +98,19 @@ public class AsaasClient {
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, this::mapError)
                 .bodyToMono(AsaasDTO.PaymentResponse.class)
+                .timeout(ASAAS_TIMEOUT)
                 .block();
     }
 
+    @CircuitBreaker(name = "asaas")
     public AsaasDTO.CheckoutResponse createCheckout(AsaasDTO.CreateCheckoutRequest req) {
-
         return webClient.post()
                 .uri("/checkouts")
                 .bodyValue(req)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, this::mapError)
                 .bodyToMono(AsaasDTO.CheckoutResponse.class)
+                .timeout(ASAAS_TIMEOUT)
                 .block();
     }
 

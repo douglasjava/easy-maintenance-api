@@ -4,6 +4,7 @@ import com.brainbyte.easy_maintenance.commons.exceptions.InternalErrorException;
 import com.brainbyte.easy_maintenance.commons.properties.MailerSendProperties;
 import com.brainbyte.easy_maintenance.infrastructure.mail.dto.MailerSendEmailRequest;
 import com.brainbyte.easy_maintenance.infrastructure.observability.service.BusinessMetricsService;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
@@ -16,7 +17,7 @@ import java.util.List;
 
 @Slf4j
 @Service
-@Profile("local")
+@Profile("!local")
 public class MailerSendServiceImpl implements MailService {
 
     private final WebClient mailerSendWebClient;
@@ -31,6 +32,7 @@ public class MailerSendServiceImpl implements MailService {
         this.businessMetricsService = businessMetricsService;
     }
 
+    @Retry(name = "mailersend", fallbackMethod = "sendEmailFallback")
     public void sendEmail(String toEmail, String toName, String subject, String text, String html) {
 
         MailerSendEmailRequest payload = MailerSendEmailRequest.builder()
@@ -61,7 +63,11 @@ public class MailerSendServiceImpl implements MailService {
                 )
                 .toBodilessEntity()
                 .doOnSuccess(entity -> businessMetricsService.counter("email.sent"))
-                .subscribe();
+                .block();
+    }
 
+    public void sendEmailFallback(String toEmail, String toName, String subject, String text, String html, Exception ex) {
+        log.error("MailerSend failed after all retries: to={} subject='{}' — {}", toEmail, subject, ex.getMessage());
+        businessMetricsService.counter("email.failed");
     }
 }

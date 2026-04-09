@@ -7,6 +7,8 @@ import com.brainbyte.easy_maintenance.webhooks.commons.service.WebhookEventServi
 import com.brainbyte.easy_maintenance.webhooks.asaas.strategy.AsaasWebhookStrategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,26 +35,33 @@ public class AsaasWebhookService {
                 .collect(Collectors.toMap(AsaasWebhookStrategy::getEventType, s -> s));
     }
 
+    @Async
     @Transactional
     public void processEvent(AsaasDTO.WebhookCheckoutEvent event) {
         if (event == null) {
-            log.warn("Asaas webhook received null event");
+            log.warn("[AsaasWebhook] Evento nulo recebido — ignorado.");
             return;
         }
 
-        log.info("[AsaasWebhook] Event {}/{} started.", event.id(), event.event());
+        log.info("[AsaasWebhook] Processando evento {}/{}", event.id(), event.event());
 
+        // Verificação prévia de duplicidade (otimização — evita alocar o payload)
         if (webhookEventService.findByProviderEventId(event.id()).isPresent()) {
-            log.info("[AsaasWebhook] Event {} already processed. Skipping.", event.id());
+            log.info("[AsaasWebhook] Evento {} já processado anteriormente. Ignorando.", event.id());
             return;
         }
 
         var strategy = strategies.get(event.event());
         String rawPayload = serializeWebhookEvent(event);
 
-        var webhookEvent = getWebhookEvent(event, rawPayload);
-
-        webhookEvent = webhookEventService.save(webhookEvent);
+        WebhookEvent webhookEvent;
+        try {
+            // INSERT atômico: a constraint UNIQUE garante idempotência mesmo em race condition
+            webhookEvent = webhookEventService.save(getWebhookEvent(event, rawPayload));
+        } catch (DataIntegrityViolationException e) {
+            log.info("[AsaasWebhook] Evento {} duplicado detectado via constraint (race condition). Ignorando.", event.id());
+            return;
+        }
 
         try {
             webhookEvent.setStatus(WebhookEventStatus.PROCESSING);
@@ -61,20 +70,21 @@ public class AsaasWebhookService {
             if (strategy != null) {
                 strategy.handle(event);
             } else {
-                log.info("[AsaasWebhook] Event type {} not handled", event.event());
+                log.info("[AsaasWebhook] Tipo de evento {} sem handler registrado.", event.event());
             }
 
             webhookEvent.setStatus(WebhookEventStatus.PROCESSED);
             webhookEvent.setProcessedAt(Instant.now());
             webhookEventService.save(webhookEvent);
-            log.info("[AsaasWebhook] Event {} processed successfully", event.id());
+            log.info("[AsaasWebhook] Evento {} processado com sucesso.", event.id());
 
         } catch (Exception e) {
-            log.error("[AsaasWebhook] Error processing event {}: {}", event.id(), e.getMessage(), e);
+            log.error("[AsaasWebhook] Erro ao processar evento {}: {}", event.id(), e.getMessage(), e);
             webhookEvent.setStatus(WebhookEventStatus.ERROR);
             webhookEvent.setErrorMessage(e.getMessage());
             webhookEventService.save(webhookEvent);
-            throw e;
+            // Não propagar: método é @Async — exceção seria perdida silenciosamente de qualquer forma.
+            // O status ERROR no banco é o registro permanente do problema.
         }
     }
 

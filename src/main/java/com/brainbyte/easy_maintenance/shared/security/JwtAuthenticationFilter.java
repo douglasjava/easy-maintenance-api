@@ -15,7 +15,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import jakarta.servlet.http.Cookie;
+
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -31,14 +34,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
           throws ServletException, IOException {
 
+    // 1) Authorization header (API clients, admin area)
+    String token = null;
     String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
     log.debug("authHeader: {}", authHeader);
-    if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+    if (authHeader != null && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    }
+
+    // 2) HttpOnly cookie (browser clients)
+    if (token == null && request.getCookies() != null) {
+      token = Arrays.stream(request.getCookies())
+              .filter(c -> "accessToken".equals(c.getName()))
+              .map(Cookie::getValue)
+              .findFirst()
+              .orElse(null);
+    }
+
+    if (token == null) {
       filterChain.doFilter(request, response);
       return;
     }
-
-    String token = authHeader.substring(7);
     try {
       Jws<Claims> jws = jwtService.parse(token);
       Claims claims = jws.getBody();
@@ -51,11 +67,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
               ? List.of(new SimpleGrantedAuthority("ROLE_" + role))
               : Collections.emptyList();
 
-      log.debug("JWT filter - subject: {}, role: {}, authorities: {}",
-                subject, role, authorities);
+      @SuppressWarnings("unchecked")
+      List<String> orgCodes = Optional.ofNullable(claims.get("orgs"))
+              .filter(v -> v instanceof List)
+              .map(v -> (List<String>) v)
+              .orElse(Collections.emptyList());
+
+      log.debug("JWT filter - subject: {}, role: {}, orgs: {}, authorities: {}",
+                subject, role, orgCodes, authorities);
 
       UsernamePasswordAuthenticationToken authentication =
               new UsernamePasswordAuthenticationToken(subject, null, authorities);
+      authentication.setDetails(orgCodes);
 
       SecurityContextHolder.getContext().setAuthentication(authentication);
     } catch (Exception ex) {

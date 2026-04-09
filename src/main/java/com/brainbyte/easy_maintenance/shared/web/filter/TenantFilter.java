@@ -9,11 +9,15 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -83,6 +87,8 @@ public class TenantFilter extends OncePerRequestFilter {
         throw new TenantException(HttpStatus.BAD_REQUEST, "X-Org-Id must be a valid UUID");
       }
 
+      validateOrgMembership(tenant);
+
       TenantContext.set(tenant);
       MDC.put("orgId", tenant);
 
@@ -113,5 +119,25 @@ public class TenantFilter extends OncePerRequestFilter {
     String uri = req.getRequestURI();
     String ctx = req.getContextPath();
     return (ctx != null && !ctx.isEmpty()) ? uri.substring(ctx.length()) : uri;
+  }
+
+  /**
+   * Verifica se o usuário autenticado (via JWT) pertence à organização indicada no header X-Org-Id.
+   * Previne IDOR lateral entre tenants: um usuário da org A não pode acessar dados da org B.
+   */
+  private void validateOrgMembership(String tenant) {
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    if (!(auth instanceof UsernamePasswordAuthenticationToken) || !auth.isAuthenticated()) {
+      return;
+    }
+
+    @SuppressWarnings("unchecked")
+    List<String> orgCodes = auth.getDetails() instanceof List<?>
+            ? (List<String>) auth.getDetails()
+            : List.of();
+
+    if (!orgCodes.contains(tenant)) {
+      throw new TenantException(HttpStatus.FORBIDDEN, "Acesso negado à organização informada");
+    }
   }
 }

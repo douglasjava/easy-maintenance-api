@@ -14,6 +14,8 @@ public enum ProblemType {
     WITHOUT_PERMISSIONS("permissions-invalid", "Permissions invalid"),
     NOT_AUTHENTICATED("not-authenticated", "User not authenticated"),
     SUBSCRIPTION_DENIED("subscription-denied", "Subscription access denied"),
+    RATE_LIMIT_EXCEEDED("rate-limit-exceeded", "Too many requests"),
+    SERVICE_UNAVAILABLE("service-unavailable", "Service temporarily unavailable"),
     UNEXPECTED("unexpected", "Unexpected error");
 
     private static final String BASE = "https://easy-maintenance/api/problems/";

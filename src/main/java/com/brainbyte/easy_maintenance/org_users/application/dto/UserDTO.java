@@ -66,7 +66,8 @@ public final class UserDTO {
             @Schema(example = "usuario@empresa.com")
             @Email @NotBlank String email,
             @Schema(example = "senha123")
-            @NotBlank String password
+            @NotBlank String password,
+            Boolean remember
     ) {
     }
 

@@ -13,6 +13,7 @@ import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.Organ
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -56,6 +57,13 @@ public class FeatureAccessService {
         SubscriptionStatus status = subscriptionItem.map(item -> item.getBillingSubscription().getStatus()).orElse(null);
         BillingPlan plan = subscriptionItem.map(BillingSubscriptionItem::getPlan).orElse(null);
 
+        Instant trialExpiresAt = null;
+        if (status == SubscriptionStatus.TRIAL) {
+            trialExpiresAt = subscriptionItem
+                    .map(item -> item.getBillingSubscription().getCurrentPeriodEnd())
+                    .orElse(null);
+        }
+
         return AccountAccessResponse.builder()
                 .subscriptionStatus(status != null ? status.name() : "NONE")
                 .accessMode(mode)
@@ -63,6 +71,7 @@ public class FeatureAccessService {
                 .plan(mapPlan(plan))
                 .features(billingPlanFeaturesHelper.parse(plan))
                 .permissions(buildAccountPermissions(mode))
+                .trialExpiresAt(trialExpiresAt)
                 .build();
     }
 

@@ -7,14 +7,19 @@ import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO.LoginReq
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO.LoginResponse;
 import com.brainbyte.easy_maintenance.org_users.application.service.PasswordResetService;
 import com.brainbyte.easy_maintenance.org_users.application.service.UsersService;
+import com.brainbyte.easy_maintenance.shared.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.util.List;
 
 @RestController
@@ -27,9 +32,36 @@ public class AuthController {
     private final PasswordResetService passwordResetService;
 
     @PostMapping("/login")
+    @RateLimit("login")
     @Operation(summary = "Realiza a autenticação do usuário")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        return usersService.authenticate(request);
+    public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
+        LoginResponse loginResponse = usersService.authenticate(request);
+
+        boolean remember = Boolean.TRUE.equals(request.remember());
+        ResponseCookie cookie = ResponseCookie.from("accessToken", loginResponse.accessToken())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/")
+                .maxAge(remember ? Duration.ofDays(30) : Duration.ofDays(7))
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        return loginResponse;
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Encerra a sessão do usuário")
+    public void logout(HttpServletResponse response) {
+        ResponseCookie clearCookie = ResponseCookie.from("accessToken", "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/")
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, clearCookie.toString());
     }
 
     @PostMapping("/change-password")
@@ -40,6 +72,7 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
+    @RateLimit("forgot-password")
     @Operation(summary = "Inicia o fluxo de recuperação de senha")
     public UserDTO.AuthMessageResponse forgotPassword(@Valid @RequestBody UserDTO.ForgotPasswordRequest request, HttpServletRequest httpRequest) {
         var clientIp = HttpUtils.getClientIp(httpRequest);

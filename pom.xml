@@ -201,6 +201,32 @@
             <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
+        <!-- Bucket4j — token bucket rate limiting -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j-core</artifactId>
+            <version>8.10.1</version>
+        </dependency>
+
+        <!-- ShedLock — distributed lock for scheduled jobs -->
+        <dependency>
+            <groupId>net.javacrumbs.shedlock</groupId>
+            <artifactId>shedlock-spring</artifactId>
+            <version>5.16.0</version>
+        </dependency>
+        <dependency>
+            <groupId>net.javacrumbs.shedlock</groupId>
+            <artifactId>shedlock-provider-jdbc-template</artifactId>
+            <version>5.16.0</version>
+        </dependency>
+
+        <!-- Resilience4j — circuit breaker, retry, time limiter -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot3</artifactId>
+            <version>2.2.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -267,6 +293,33 @@
                         </exclude>
                     </excludes>
                 </configuration>
+            </plugin>
+
+            <!-- Coverage report -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <configuration>
+                    <excludes>
+                        <!-- Lombok-generated, DTOs, config, mappers -->
+                        <exclude>**/*MapperImpl.class</exclude>
+                        <exclude>**/*DTO*.class</exclude>
+                        <exclude>**/configuration/**</exclude>
+                        <exclude>**/*Application.class</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals><goal>prepare-agent</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals><goal>report</goal></goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

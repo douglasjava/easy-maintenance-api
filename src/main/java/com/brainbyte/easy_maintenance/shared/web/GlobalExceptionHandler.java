@@ -3,7 +3,10 @@ package com.brainbyte.easy_maintenance.shared.web;
 import com.brainbyte.easy_maintenance.commons.exceptions.*;
 import com.brainbyte.easy_maintenance.infrastructure.access.domain.enums.AccessScope;
 import com.brainbyte.easy_maintenance.infrastructure.access.exception.SubscriptionWriteAccessDeniedException;
+import com.brainbyte.easy_maintenance.shared.ratelimit.RateLimitException;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.ValidationException;
 import lombok.extern.slf4j.Slf4j;
@@ -183,6 +186,24 @@ public class GlobalExceptionHandler {
         );
         pd.setTitle(title);
         return pd;
+    }
+
+    @ExceptionHandler(RateLimitException.class)
+    public ProblemDetail handleRateLimit(RateLimitException ex, HttpServletRequest request, HttpServletResponse response) {
+        log.warn("Rate limit exceeded: {} {}", request.getMethod(), request.getRequestURI());
+        response.setHeader("Retry-After", String.valueOf(ex.getRetryAfterSeconds()));
+        return ProblemDetails.of(HttpStatus.TOO_MANY_REQUESTS, ProblemType.RATE_LIMIT_EXCEEDED, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(CallNotPermittedException.class)
+    public ProblemDetail handleCircuitBreaker(CallNotPermittedException ex, HttpServletRequest request) {
+        log.error("Circuit breaker OPEN — service unavailable: {}", ex.getMessage());
+        return ProblemDetails.of(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                ProblemType.SERVICE_UNAVAILABLE,
+                "Service temporarily unavailable. Please try again later.",
+                request
+        );
     }
 
     @ExceptionHandler(Exception.class)

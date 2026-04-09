@@ -4,6 +4,8 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,15 +32,28 @@ import org.springframework.security.oauth2.server.authorization.settings.TokenSe
 import org.springframework.security.web.SecurityFilterChain;
 
 import javax.sql.DataSource;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.UUID;
 
+@Slf4j
 @Configuration
 public class AuthorizationServerConfig {
+
+    @Value("${jwt.rsa.private-key:}")
+    private String rsaPrivateKeyBase64;
+
+    @Value("${jwt.rsa.public-key:}")
+    private String rsaPublicKeyBase64;
 
     @Bean
     @Order(1)
@@ -79,18 +94,72 @@ public class AuthorizationServerConfig {
         return new JdbcOAuth2AuthorizationConsentService(new JdbcTemplate(dataSource), registeredClientRepository);
     }
 
-    // JWK source backed by an ephemeral RSA key pair (replace with a persistent store in production)
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
-        KeyPair keyPair = generateRsaKey();
+        KeyPair keyPair = loadOrGenerateRsaKey();
         RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
         RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+        String keyId = deriveKeyId(publicKey);
         RSAKey rsaKey = new RSAKey.Builder(publicKey)
                 .privateKey(privateKey)
-                .keyID(UUID.randomUUID().toString())
+                .keyID(keyId)
                 .build();
         JWKSet jwkSet = new JWKSet(rsaKey);
         return (jwkSelector, securityContext) -> jwkSelector.select(jwkSet);
+    }
+
+    /**
+     * Loads RSA key pair from environment variables (JWT_RSA_PRIVATE_KEY / JWT_RSA_PUBLIC_KEY).
+     * Falls back to generating an ephemeral key in non-production environments with a loud warning.
+     * Run RsaKeyGenerator once to generate and print the values to configure as env vars.
+     */
+    private KeyPair loadOrGenerateRsaKey() {
+        boolean hasPrivate = rsaPrivateKeyBase64 != null && !rsaPrivateKeyBase64.isBlank();
+        boolean hasPublic = rsaPublicKeyBase64 != null && !rsaPublicKeyBase64.isBlank();
+
+        if (hasPrivate && hasPublic) {
+            try {
+                byte[] privateKeyBytes = Base64.getDecoder().decode(rsaPrivateKeyBase64.trim());
+                byte[] publicKeyBytes = Base64.getDecoder().decode(rsaPublicKeyBase64.trim());
+
+                KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+                RSAPrivateKey privateKey = (RSAPrivateKey) keyFactory.generatePrivate(new PKCS8EncodedKeySpec(privateKeyBytes));
+                RSAPublicKey publicKey = (RSAPublicKey) keyFactory.generatePublic(new X509EncodedKeySpec(publicKeyBytes));
+
+                log.info("JWT RSA key pair loaded from environment variables (kid: {})", deriveKeyId(publicKey));
+                return new KeyPair(publicKey, privateKey);
+            } catch (Exception e) {
+                throw new IllegalStateException(
+                        "Failed to load RSA key pair from environment variables. " +
+                        "Ensure JWT_RSA_PRIVATE_KEY and JWT_RSA_PUBLIC_KEY contain valid Base64-encoded DER keys. " +
+                        "Run com.brainbyte.easy_maintenance.shared.security.RsaKeyGenerator to generate new keys.", e);
+            }
+        }
+
+        log.warn("=================================================================");
+        log.warn("JWT_RSA_PRIVATE_KEY / JWT_RSA_PUBLIC_KEY not configured.");
+        log.warn("Generating EPHEMERAL RSA key pair — tokens will be INVALIDATED on restart.");
+        log.warn("Run RsaKeyGenerator and set env vars before deploying to production.");
+        log.warn("=================================================================");
+        return generateRsaKey();
+    }
+
+    /**
+     * Derives a stable, deterministic key ID from the public key bytes (first 8 bytes of SHA-256).
+     * This ensures the kid header in JWTs remains the same across restarts for the same key.
+     */
+    private static String deriveKeyId(RSAPublicKey publicKey) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(publicKey.getEncoded());
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 8; i++) {
+                sb.append(String.format("%02x", hash[i]));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
+        }
     }
 
     @Bean

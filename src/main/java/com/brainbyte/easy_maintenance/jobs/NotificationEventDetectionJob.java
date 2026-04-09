@@ -5,6 +5,7 @@ import com.brainbyte.easy_maintenance.infrastructure.notification.dto.Notificati
 import com.brainbyte.easy_maintenance.infrastructure.notification.service.NotificationOrchestratorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -19,8 +20,9 @@ public class NotificationEventDetectionJob {
     private final NotificationOrchestratorService orchestratorService;
 
     @Scheduled(cron = "${notification.detection.cron:0 0 5 * * *}") // Padrão: 5h da manhã
+    @SchedulerLock(name = "NotificationEventDetectionJob", lockAtMostFor = "PT30M", lockAtLeastFor = "PT15M")
     public void run() {
-        log.info("[NotificationJob] Iniciando job de detecção de eventos de notificação.");
+        log.info("[NotificationJob] Lock adquirido. Iniciando job de detecção de eventos de notificação.");
         
         try {
             List<NotificationEvent> events = detectionService.detectEvents();

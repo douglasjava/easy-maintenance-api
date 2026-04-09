@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@Profile("!local")
+@Profile("local")
 @RequiredArgsConstructor
 public class MailHogServiceImpl implements MailService {
 

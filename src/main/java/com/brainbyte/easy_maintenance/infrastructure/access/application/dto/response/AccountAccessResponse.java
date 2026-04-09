@@ -5,6 +5,8 @@ import com.brainbyte.easy_maintenance.infrastructure.access.domain.enums.AccessM
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.Instant;
+
 @Data
 @Builder
 public class AccountAccessResponse {
@@ -14,4 +16,6 @@ public class AccountAccessResponse {
     private PlanSummaryResponse plan;
     private AccountPermissionsResponse permissions;
     private BillingPlanFeatures features;
+    /** Preenchido apenas quando subscriptionStatus = TRIAL. Null nos demais casos. */
+    private Instant trialExpiresAt;
 }
