@@ -57,9 +57,14 @@ public class OnboardingService {
 
         log.info("2. Valida e/ou criar usuário gateway de pagamento (ASAAS)");
         if (account.getExternalCustomerId() == null) {
-            var customer = IOnboardingMapper.INSTANCE.toCustomerDTO(account);
-            var externalCustomerId = providerFactory.get(PaymentProvider.ASAAS).createExternalCustomer(customer);
-            account.setExternalCustomerId(externalCustomerId);
+            try {
+                var customer = IOnboardingMapper.INSTANCE.toCustomerDTO(account);
+                var externalCustomerId = providerFactory.get(PaymentProvider.ASAAS).createExternalCustomer(customer);
+                account.setExternalCustomerId(externalCustomerId);
+            } catch (Exception e) {
+                log.warn("Asaas indisponível durante onboarding para userId {}. Continuando sem externalCustomerId. Erro: {}",
+                        user.getId(), e.getMessage());
+            }
         }
 
         BillingAccount savedAccount = billingAccountRepository.save(account);
