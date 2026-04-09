@@ -62,8 +62,8 @@ public class OnboardingService {
                 var externalCustomerId = providerFactory.get(PaymentProvider.ASAAS).createExternalCustomer(customer);
                 account.setExternalCustomerId(externalCustomerId);
             } catch (Exception e) {
-                log.warn("Asaas indisponível durante onboarding para userId {}. Continuando sem externalCustomerId. Erro: {}",
-                        user.getId(), e.getMessage());
+                log.warn("Asaas unavailable during onboarding for userId={}. Continuing without externalCustomerId.",
+                        user.getId(), e);
             }
         }
 
