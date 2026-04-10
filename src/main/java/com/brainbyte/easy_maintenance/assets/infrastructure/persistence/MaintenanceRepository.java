@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.assets.infrastructure.persistence;
 
+import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceExportProjection;
 import com.brainbyte.easy_maintenance.assets.domain.Maintenance;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -26,5 +27,26 @@ public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>,
 
   @Query("SELECT m FROM Maintenance m JOIN com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem i ON i.id = m.itemId WHERE m.nextDueAt IN :dates")
   List<Maintenance> findAllByNextDueAtIn(@Param("dates") java.util.Collection<LocalDate> dates);
+
+  @Query(value =
+      "SELECT m.id AS id, i.item_type AS itemType, m.performed_at AS performedAt, " +
+      "m.type AS maintenanceType, m.performed_by AS performedBy, m.cost_cents AS costCents, " +
+      "m.next_due_at AS nextDueAt, n.authority AS normAuthority " +
+      "FROM maintenances m " +
+      "JOIN maintenance_items i ON i.id = m.item_id " +
+      "LEFT JOIN norms n ON n.id = i.norm_id " +
+      "WHERE i.organization_code = :orgCode " +
+      "AND (:itemId IS NULL OR m.item_id = :itemId) " +
+      "AND (:startDate IS NULL OR m.performed_at >= :startDate) " +
+      "AND (:endDate IS NULL OR m.performed_at <= :endDate) " +
+      "ORDER BY m.performed_at DESC " +
+      "LIMIT 5000",
+      nativeQuery = true)
+  List<MaintenanceExportProjection> findForExport(
+      @Param("orgCode") String orgCode,
+      @Param("itemId") Long itemId,
+      @Param("startDate") LocalDate startDate,
+      @Param("endDate") LocalDate endDate
+  );
 
 }

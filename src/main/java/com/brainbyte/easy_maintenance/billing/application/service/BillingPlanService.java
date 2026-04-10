@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.billing.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.BillingPlanDTO;
+import com.brainbyte.easy_maintenance.billing.domain.enums.BillingStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingPlanRepository;
 import com.brainbyte.easy_maintenance.billing.mapper.IBillingMapper;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
@@ -18,10 +19,23 @@ import java.util.List;
 public class BillingPlanService {
 
     private final BillingPlanRepository repository;
+    private final BillingPlanFeaturesHelper featuresHelper;
 
     public List<BillingPlanDTO.BillingPlanResponse> listAll() {
         return repository.findAll().stream()
                 .map(IBillingMapper.INSTANCE::toBillingPlanResponse)
+                .toList();
+    }
+
+    public List<BillingPlanDTO.PublicPlanResponse> listPublicPlans() {
+        return repository.findAllByStatus(BillingStatus.ACTIVE).stream()
+                .map(plan -> new BillingPlanDTO.PublicPlanResponse(
+                        plan.getCode(),
+                        plan.getName(),
+                        plan.getPriceCents(),
+                        plan.getBillingCycle(),
+                        featuresHelper.parse(plan)
+                ))
                 .toList();
     }
 

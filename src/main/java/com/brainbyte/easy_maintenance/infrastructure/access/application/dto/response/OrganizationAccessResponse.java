@@ -16,4 +16,6 @@ public class OrganizationAccessResponse {
     private PlanSummaryResponse plan;
     private OrganizationPermissionsResponse permissions;
     private BillingPlanFeatures features;
+    /** Present only for the organization matching the current X-Org-Id tenant. Null for others. */
+    private OrganizationUsageResponse currentUsage;
 }

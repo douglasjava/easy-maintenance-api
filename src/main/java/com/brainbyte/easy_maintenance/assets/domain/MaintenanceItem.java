@@ -8,10 +8,18 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 
 import java.time.Instant;
 import java.time.LocalDate;
 
+@FilterDef(
+    name = "tenantFilter",
+    parameters = @ParamDef(name = "org_code", type = String.class)
+)
+@Filter(name = "tenantFilter", condition = "organization_code = :org_code")
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

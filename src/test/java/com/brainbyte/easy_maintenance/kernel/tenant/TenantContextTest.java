@@ -44,6 +44,32 @@ class TenantContextTest {
     }
 
     @Test
+    void shouldSetAndReturnTrueForSystemContext() {
+        TenantContext.setSystemContext();
+        assertTrue(TenantContext.isSystemContext());
+    }
+
+    @Test
+    void shouldReturnFalseForSystemContextWhenNotSet() {
+        assertFalse(TenantContext.isSystemContext());
+    }
+
+    @Test
+    void shouldClearSystemContextOnClear() {
+        TenantContext.setSystemContext();
+        TenantContext.clear();
+        assertFalse(TenantContext.isSystemContext());
+    }
+
+    @Test
+    void shouldAllowBothTenantAndSystemContextIndependently() {
+        TenantContext.set("org-abc");
+        TenantContext.setSystemContext();
+        assertTrue(TenantContext.get().isPresent());
+        assertTrue(TenantContext.isSystemContext());
+    }
+
+    @Test
     void shouldIsolateTenantByThread() throws InterruptedException {
         TenantContext.set("main-thread-org");
 

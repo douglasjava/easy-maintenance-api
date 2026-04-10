@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.billing.application.dto;
 
+import com.brainbyte.easy_maintenance.billing.domain.BillingPlanFeatures;
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingCycle;
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingStatus;
 import jakarta.validation.constraints.NotBlank;
@@ -19,6 +20,15 @@ public class BillingPlanDTO {
             BillingStatus status,
             Instant createdAt,
             Instant updatedAt
+    ) {}
+
+    /** Public-facing plan summary with parsed features (no admin required). */
+    public record PublicPlanResponse(
+            String code,
+            String name,
+            Integer priceCents,
+            BillingCycle billingCycle,
+            BillingPlanFeatures features
     ) {}
 
     public record CreateBillingPlanRequest(

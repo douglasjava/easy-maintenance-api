@@ -1,12 +1,14 @@
 package com.brainbyte.easy_maintenance.billing.infrastructure.web;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.BillingAccountDTO;
+import com.brainbyte.easy_maintenance.billing.application.dto.BillingPlanDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.InvoiceDetailResponse;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.InvoiceHistoryResponse;
 import com.brainbyte.easy_maintenance.billing.application.dto.dashboard.DashboardResponseDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSummaryResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingAccountService;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingDashboardService;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanService;
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingStatus;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
@@ -18,6 +20,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/easy-maintenance/api/v1/me/billing")
@@ -28,6 +32,13 @@ public class BillingController {
     private final InvoiceService invoiceService;
     private final AuthenticationService authenticationService;
     private final BillingAccountService billingAccountService;
+    private final BillingPlanService planService;
+
+    @GetMapping("/plans")
+    @Operation(summary = "Lista planos disponíveis com features para exibição pública")
+    public List<BillingPlanDTO.PublicPlanResponse> listPublicPlans() {
+        return planService.listPublicPlans();
+    }
 
     @GetMapping("accounts")
     @Operation(summary = "Lista as contas de faturamento com filtros")

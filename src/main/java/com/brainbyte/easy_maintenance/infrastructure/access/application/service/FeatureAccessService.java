@@ -1,15 +1,18 @@
 package com.brainbyte.easy_maintenance.infrastructure.access.application.service;
 
+import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceItemRepository;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.infrastructure.access.application.dto.response.*;
 import com.brainbyte.easy_maintenance.infrastructure.access.domain.enums.AccessMode;
+import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +33,8 @@ public class FeatureAccessService {
     private final AuthenticationService authenticationService;
     private final OrganizationRepository organizationRepository;
     private final BillingPlanFeaturesHelper billingPlanFeaturesHelper;
+    private final MaintenanceItemRepository maintenanceItemRepository;
+    private final UserOrganizationRepository userOrganizationRepository;
 
     public AccessContextResponse getAccessContext() {
         User user = authenticationService.getCurrentUser();
@@ -90,6 +95,16 @@ public class FeatureAccessService {
         SubscriptionStatus status = subscriptionItem.map(item -> item.getBillingSubscription().getStatus()).orElse(null);
         BillingPlan plan = subscriptionItem.map(BillingSubscriptionItem::getPlan).orElse(null);
 
+        // Usage counts are only computed for the current tenant (TenantContext must match this org).
+        // This prevents incorrect results from the TenantFilterAspect when iterating multiple orgs.
+        OrganizationUsageResponse usage = TenantContext.get()
+                .filter(tenant -> tenant.equals(org.getCode()))
+                .map(tenant -> OrganizationUsageResponse.builder()
+                        .currentItems(maintenanceItemRepository.countByOrganizationCode(org.getCode()))
+                        .currentUsers(userOrganizationRepository.countByOrganizationCode(org.getCode()))
+                        .build())
+                .orElse(null);
+
         return OrganizationAccessResponse.builder()
                 .organizationCode(org.getCode())
                 .organizationName(org.getName())
@@ -99,6 +114,7 @@ public class FeatureAccessService {
                 .plan(mapPlan(plan))
                 .features(billingPlanFeaturesHelper.parse(plan))
                 .permissions(buildOrganizationPermissions(mode))
+                .currentUsage(usage)
                 .build();
     }
 

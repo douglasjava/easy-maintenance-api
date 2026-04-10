@@ -3,6 +3,7 @@ package com.brainbyte.easy_maintenance.jobs;
 import com.brainbyte.easy_maintenance.infrastructure.notification.service.NotificationEventDetectionService;
 import com.brainbyte.easy_maintenance.infrastructure.notification.dto.NotificationEvent;
 import com.brainbyte.easy_maintenance.infrastructure.notification.service.NotificationOrchestratorService;
+import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -23,7 +24,9 @@ public class NotificationEventDetectionJob {
     @SchedulerLock(name = "NotificationEventDetectionJob", lockAtMostFor = "PT30M", lockAtLeastFor = "PT15M")
     public void run() {
         log.info("[NotificationJob] Lock adquirido. Iniciando job de detecção de eventos de notificação.");
-        
+        // Background job queries across all tenants — mark as system context so that
+        // TenantFilterAspect bypasses per-tenant enforcement for these cross-tenant reads.
+        TenantContext.setSystemContext();
         try {
             List<NotificationEvent> events = detectionService.detectEvents();
             
@@ -51,6 +54,8 @@ public class NotificationEventDetectionJob {
             
         } catch (Exception e) {
             log.error("[NotificationJob] Erro inesperado durante execução do job: {}", e.getMessage(), e);
+        } finally {
+            TenantContext.clear();
         }
     }
 }
