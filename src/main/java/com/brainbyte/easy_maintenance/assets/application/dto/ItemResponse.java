@@ -17,5 +17,7 @@ public record ItemResponse(
         LocalDate lastPerformedAt,
         LocalDate nextDueAt,
         ItemStatus status,
-        String normName
+        String normName,
+        boolean canUpdate,
+        String reason
 ) {}

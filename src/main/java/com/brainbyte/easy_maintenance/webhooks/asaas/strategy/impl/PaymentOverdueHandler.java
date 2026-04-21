@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.webhooks.asaas.strategy.impl;
 
+import com.brainbyte.easy_maintenance.billing.application.service.BillingNotificationService;
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
 import com.brainbyte.easy_maintenance.billing.domain.Invoice;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
@@ -7,6 +8,7 @@ import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.payment.domain.Payment;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentGatewayEventRepository;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
@@ -19,6 +21,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class PaymentOverdueHandler extends AbstractAsaasWebhookStrategy {
 
+    private final BillingNotificationService billingNotificationService;
+
     public PaymentOverdueHandler(InvoiceService invoiceService, PaymentRepository paymentRepository,
                                  PaymentGatewayEventRepository paymentGatewayEventRepository,
                                  InvoiceRepository invoiceRepository, BillingAccountRepository billingAccountRepository,
@@ -26,12 +30,14 @@ public class PaymentOverdueHandler extends AbstractAsaasWebhookStrategy {
                                  BillingSubscriptionItemRepository billingSubscriptionItemRepository,
                                  InvoiceItemRepository invoiceItemRepository,
                                  OrganizationRepository organizationRepository,
-                                 ObjectMapper objectMapper) {
+                                 ObjectMapper objectMapper,
+                                 BillingNotificationService billingNotificationService) {
 
         super(invoiceService, paymentRepository, paymentGatewayEventRepository, invoiceRepository, billingAccountRepository,
                 billingSubscriptionRepository, billingSubscriptionItemRepository, invoiceItemRepository,
                 organizationRepository, objectMapper);
 
+        this.billingNotificationService = billingNotificationService;
     }
 
     @Override
@@ -77,6 +83,10 @@ public class PaymentOverdueHandler extends AbstractAsaasWebhookStrategy {
         invoiceRepository.save(invoice);
 
         log.info("[AsaasWebhook] Payment {} marked as OVERDUE and Invoice {} as OVERDUE", payment.getId(), invoice.getId());
+
+        if (payment.getMethodType() == PaymentMethodType.PIX) {
+            billingNotificationService.sendPixOverdueEmail(payment);
+        }
 
         log.info("[AsaasWebhook] Event {}/{} finished.", event.id(), event.event());
     }

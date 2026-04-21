@@ -25,7 +25,17 @@ public interface IMaintenanceItemMapper {
 
   }
 
+  // Used by single-item endpoints (create, update, findById) where canUpdate
+  // is not relevant to the caller. Defaults to false / null so the record
+  // compiles; callers that need the permission value use the overload below.
   default ItemResponse toItemResponse(MaintenanceItem maintenanceItem, String normName) {
+    return toItemResponse(maintenanceItem, normName, false, null);
+  }
+
+  // Used by the list endpoint (findAll) where canUpdate is batch-resolved
+  // by the service before mapping, avoiding N+1 queries.
+  default ItemResponse toItemResponse(MaintenanceItem maintenanceItem, String normName,
+                                      boolean canUpdate, String reason) {
     return new ItemResponse(
             maintenanceItem.getId(),
             maintenanceItem.getOrganizationCode(),
@@ -37,7 +47,9 @@ public interface IMaintenanceItemMapper {
             maintenanceItem.getLastPerformedAt(),
             maintenanceItem.getNextDueAt(),
             maintenanceItem.getStatus(),
-            normName
+            normName,
+            canUpdate,
+            reason
     );
   }
 

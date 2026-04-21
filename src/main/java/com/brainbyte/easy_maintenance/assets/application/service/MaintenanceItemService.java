@@ -12,6 +12,11 @@ import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.Maintena
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceRepository;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.specification.MaintenanceItemSpecs;
 import com.brainbyte.easy_maintenance.assets.mapper.IMaintenanceItemMapper;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
+import com.brainbyte.easy_maintenance.billing.domain.BillingPlanFeatures;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.catalog_norms.application.service.NormService;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
@@ -35,6 +40,7 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.isNull;
@@ -49,6 +55,8 @@ public class MaintenanceItemService {
     private final ServiceBase serviceBase;
     private final NormService normService;
     private final AuditService auditService;
+    private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
+    private final BillingPlanFeaturesHelper billingPlanFeaturesHelper;
 
     public MaintenanceItem findById(Long itemId) {
         log.info("findById: {}", itemId);
@@ -64,6 +72,7 @@ public class MaintenanceItemService {
     @Transactional
     public ItemResponse create(String orgId, CreateItemRequest request) {
 
+        validateItemLimit(orgId);
         validateCreate(request);
 
         MaintenanceItem maintenanceItem = IMaintenanceItemMapper.INSTANCE.toMaintenanceItem(orgId, request);
@@ -114,9 +123,22 @@ public class MaintenanceItemService {
                                       Pageable pageable) {
 
         Specification<MaintenanceItem> spec = MaintenanceItemSpecs.filter(orgId, status, itemType, categoria);
+        Page<MaintenanceItem> page = repository.findAll(spec, pageable);
 
-        return repository.findAll(spec, pageable)
-                .map(item -> IMaintenanceItemMapper.INSTANCE.toItemResponse(item, resolveNormName(item.getNormId())));
+        // Batch-resolve canUpdate for the entire page in a single query instead of
+        // one query per item. This eliminates the N+1 pattern on the frontend.
+        Set<Long> pageIds = page.stream()
+                .map(MaintenanceItem::getId)
+                .collect(Collectors.toSet());
+        Set<Long> idsWithMaintenance = pageIds.isEmpty()
+                ? Set.of()
+                : maintenanceRepository.findItemIdsWithMaintenances(pageIds);
+
+        return page.map(item -> {
+            boolean canUpdate = !idsWithMaintenance.contains(item.getId());
+            String reason = canUpdate ? null : "ITEM_ALREADY_USED_IN_MAINTENANCE";
+            return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, resolveNormName(item.getNormId()), canUpdate, reason);
+        });
     }
 
     public void remove(String orgId, Long itemId) {
@@ -166,6 +188,32 @@ public class MaintenanceItemService {
     public ItemPermissionResponse isEditable(Long itemId) {
         var existsItemToMaintenance = maintenanceRepository.existsByItemId(itemId);
         return new ItemPermissionResponse(!existsItemToMaintenance, "ITEM_ALREADY_USED_IN_MAINTENANCE");
+    }
+
+    private void validateItemLimit(String orgId) {
+        List<BillingSubscriptionItem> subscriptionItems = billingSubscriptionItemRepository
+                .findAllBySourceTypeAndSourceIdIn(
+                        BillingSubscriptionItemSourceType.ORGANIZATION, List.of(orgId));
+
+        if (subscriptionItems.isEmpty()) {
+            log.warn("[ItemLimit] Nenhuma assinatura encontrada para organização {}", orgId);
+            throw new RuleException("Sua organização não possui uma assinatura ativa. Acesse o painel de cobrança para assinar um plano.");
+        }
+
+        BillingPlanFeatures features = billingPlanFeaturesHelper.parse(subscriptionItems.getFirst().getPlan());
+        int maxItems = features.getMaxItems();
+
+        if (maxItems <= 0) {
+            return; // sem limite configurado — não bloquear
+        }
+
+        long currentItems = repository.countByOrganizationCode(orgId);
+
+        if (currentItems >= maxItems) {
+            throw new RuleException(String.format(
+                    "Limite de itens atingido (%d/%d). Faça upgrade do seu plano para cadastrar mais itens.",
+                    currentItems, maxItems));
+        }
     }
 
     private void validateCreate(CreateItemRequest request) {

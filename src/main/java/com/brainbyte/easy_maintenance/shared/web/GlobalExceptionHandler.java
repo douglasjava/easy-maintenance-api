@@ -5,6 +5,7 @@ import com.brainbyte.easy_maintenance.infrastructure.access.domain.enums.AccessS
 import com.brainbyte.easy_maintenance.infrastructure.access.exception.SubscriptionWriteAccessDeniedException;
 import com.brainbyte.easy_maintenance.shared.ratelimit.RateLimitException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.sentry.Sentry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolationException;
@@ -198,6 +199,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CallNotPermittedException.class)
     public ProblemDetail handleCircuitBreaker(CallNotPermittedException ex, HttpServletRequest request) {
         log.error("Circuit breaker OPEN — service unavailable: {}", ex.getMessage());
+        Sentry.captureException(ex);
         return ProblemDetails.of(
                 HttpStatus.SERVICE_UNAVAILABLE,
                 ProblemType.SERVICE_UNAVAILABLE,
@@ -209,40 +211,37 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex, HttpServletRequest request) {
         log.error("Unexpected error", ex);
-
+        Sentry.captureException(ex);
         return ProblemDetails.of(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 ProblemType.UNEXPECTED,
                 "Unexpected internal error",
                 request
         );
-
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrityViolationException(DataIntegrityViolationException ex, HttpServletRequest request) {
         log.error("Data integrity violation: {}", ex.getMessage());
-
+        Sentry.captureException(ex);
         return ProblemDetails.of(
                 HttpStatus.CONFLICT,
                 ProblemType.CONFLICT,
                 "The operation could not be completed due to a conflict with existing data.",
                 request
         );
-
     }
 
     @ExceptionHandler(S3Exception.class)
     public ProblemDetail handleS3Exception(S3Exception ex, HttpServletRequest request) {
         log.error("Failed upload or download S3: {}", ex.getMessage());
-
+        Sentry.captureException(ex);
         return ProblemDetails.of(
                 HttpStatus.BAD_GATEWAY,
                 ProblemType.UNEXPECTED,
                 ex.getMessage(),
                 request
         );
-
     }
 
     public record FieldViolation(String field, String message) {

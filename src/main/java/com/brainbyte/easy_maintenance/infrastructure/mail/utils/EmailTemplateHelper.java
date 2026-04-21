@@ -238,6 +238,44 @@ public class EmailTemplateHelper {
             """.formatted(userName, organizationName);
     }
 
+    public String generatePixOverdueHtml(String userName, String amountFormatted, String paymentLink) {
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { width: 80%%; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+                    .header { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #d9534f; }
+                    .button { display: inline-block; padding: 12px 22px; font-size: 16px; color: #fff; background-color: #28a745; text-decoration: none; border-radius: 5px; }
+                    .warning { background-color: #fff3cd; padding: 10px; border-radius: 5px; margin: 15px 0; }
+                    .footer { margin-top: 30px; font-size: 12px; color: #777; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">Pagamento PIX em Atraso</div>
+                    <p>Olá, %s,</p>
+                    <p>Identificamos que seu pagamento via PIX referente à assinatura do <strong>Easy Maintenance</strong> está em atraso.</p>
+                    <div class="warning">
+                        <strong>Valor pendente:</strong> %s
+                    </div>
+                    <p>Para evitar o bloqueio do seu acesso, realize o pagamento o quanto antes usando o link abaixo.</p>
+                    <p>
+                        <a href="%s" class="button">Pagar com PIX</a>
+                    </p>
+                    <p>Se você já realizou o pagamento, por favor desconsidere esta mensagem.</p>
+                    <div class="footer">
+                        Este é um e-mail automático, por favor não responda.<br>
+                        © %d Easy Maintenance. Todos os direitos reservados.
+                    </div>
+                </div>
+            </body>
+            </html>
+            """.formatted(userName, amountFormatted, paymentLink, java.time.Year.now().getValue());
+    }
+
     public static String generateNotificationEventHtml(String userName, String title, String description) {
         return """
             <!DOCTYPE html>

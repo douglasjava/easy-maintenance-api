@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class AsaasDTO {
@@ -154,7 +155,21 @@ public class AsaasDTO {
             LocalDate confirmedDate,
             LocalDate paymentDate,
             String installment,
-            DiscountObject discount
+            DiscountObject discount,
+            @JsonProperty("pixTransaction") PixTransaction pixTransaction
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record PixTransaction(
+            String id,
+            @JsonProperty("qrCode") PixQrCode qrCode
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record PixQrCode(
+            @JsonProperty("encodedImage") String encodedImage,
+            @JsonProperty("payload") String payload,
+            @JsonProperty("expirationDate") LocalDateTime expirationDate
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)

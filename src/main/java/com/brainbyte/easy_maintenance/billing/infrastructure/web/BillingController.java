@@ -4,6 +4,7 @@ import com.brainbyte.easy_maintenance.billing.application.dto.BillingAccountDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.BillingPlanDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.InvoiceDetailResponse;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.InvoiceHistoryResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.PendingPaymentResponse;
 import com.brainbyte.easy_maintenance.billing.application.dto.dashboard.DashboardResponseDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSummaryResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingAccountService;
@@ -18,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -78,6 +80,16 @@ public class BillingController {
     public InvoiceDetailResponse getInvoiceDetail(@PathVariable Long id) {
         var user = authenticationService.getCurrentUser();
         return invoiceService.getInvoiceDetail(user.getId(), id);
+    }
+
+    @GetMapping("/pending-payment")
+    @Operation(summary = "Retorna o pagamento pendente da assinatura ativa do usuário, se houver",
+            description = "Para usuários PIX, inclui pixQrCode, pixQrCodeBase64 e pixExpiresAt. "
+                    + "Retorna 204 No Content quando não há pagamento pendente.")
+    public ResponseEntity<PendingPaymentResponse> getPendingPayment() {
+        var user = authenticationService.getCurrentUser();
+        var response = dashboardService.getPendingPayment(user.getId());
+        return response != null ? ResponseEntity.ok(response) : ResponseEntity.noContent().build();
     }
 
 }

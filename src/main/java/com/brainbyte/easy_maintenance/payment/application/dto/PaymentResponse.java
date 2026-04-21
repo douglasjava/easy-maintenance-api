@@ -21,6 +21,7 @@ public record PaymentResponse(
         String externalReference,
         String pixQrCode,
         String pixQrCodeBase64,
+        Instant pixExpiresAt,
         String paymentLink,
         String failureReason,
         Instant paidAt,

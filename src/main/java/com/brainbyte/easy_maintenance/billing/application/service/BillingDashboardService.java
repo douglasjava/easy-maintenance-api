@@ -2,6 +2,7 @@ package com.brainbyte.easy_maintenance.billing.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.dashboard.DashboardResponseDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSummaryResponse;
+import com.brainbyte.easy_maintenance.billing.application.dto.response.PendingPaymentResponse;
 import com.brainbyte.easy_maintenance.billing.domain.*;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
@@ -253,6 +254,46 @@ public class BillingDashboardService {
 
         return organizationRepository.findAllByCodeIn(orgCodes).stream()
                 .collect(Collectors.toMap(Organization::getCode, Organization::getName));
+    }
+
+    /**
+     * Returns the most recent PENDING payment for the user's active subscription, or null if none.
+     *
+     * <p>Used by the billing page to display a pending PIX QR Code (or any other pending method).
+     * Returns null (not 404) when there is no pending payment — this is a normal state for
+     * credit card users whose payments are charged automatically.
+     */
+    @Transactional(readOnly = true)
+    public PendingPaymentResponse getPendingPayment(Long userId) {
+        var subscriptionOpt = billingSubscriptionRepository.findByBillingAccountUserId(userId);
+        if (subscriptionOpt.isEmpty()) {
+            return null;
+        }
+
+        var subscription = subscriptionOpt.get();
+        var paymentOpt = paymentRepository
+                .findFirstByBillingSubscriptionIdAndStatusOrderByCreatedAtDesc(
+                        subscription.getId(), PaymentStatus.PENDING);
+
+        if (paymentOpt.isEmpty()) {
+            // Also check OVERDUE — user may have missed the payment window
+            paymentOpt = paymentRepository
+                    .findFirstByBillingSubscriptionIdAndStatusOrderByCreatedAtDesc(
+                            subscription.getId(), PaymentStatus.OVERDUE);
+        }
+
+        return paymentOpt.map(payment -> PendingPaymentResponse.builder()
+                .paymentId(payment.getId())
+                .methodType(payment.getMethodType())
+                .status(payment.getStatus())
+                .amountCents(payment.getAmountCents())
+                .currency(payment.getCurrency())
+                .paymentLink(payment.getPaymentLink())
+                .pixQrCode(payment.getPixQrCode())
+                .pixQrCodeBase64(payment.getPixQrCodeBase64())
+                .pixExpiresAt(payment.getPixExpiresAt())
+                .build()
+        ).orElse(null);
     }
 
     private List<BillingSubscriptionItem> getBillingSubscriptionItemActive(Long idSubscription) {

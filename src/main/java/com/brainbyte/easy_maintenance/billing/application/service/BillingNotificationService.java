@@ -8,6 +8,7 @@ import com.brainbyte.easy_maintenance.infrastructure.notification.service.InAppN
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
+import com.brainbyte.easy_maintenance.payment.domain.Payment;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -91,6 +92,54 @@ public class BillingNotificationService {
             );
         } catch (Exception e) {
             log.error("[BillingNotification] Falha ao salvar notificação in-app de bloqueio para usuário {}: {}", user.getId(), e.getMessage());
+        }
+    }
+
+    public void sendPixOverdueEmail(Payment payment) {
+        User user = payment.getPayer();
+        String recipientEmail = null;
+
+        var subscription = payment.getBillingSubscription();
+        if (subscription != null && subscription.getBillingAccount() != null) {
+            recipientEmail = subscription.getBillingAccount().getBillingEmail();
+        }
+        if (recipientEmail == null || recipientEmail.isBlank()) {
+            recipientEmail = user.getEmail();
+        }
+
+        if (recipientEmail == null || recipientEmail.isBlank()) {
+            log.warn("[BillingNotification] Destinatário sem e-mail válido para PIX overdue. Payment ID: {}", payment.getId());
+            return;
+        }
+
+        try {
+            log.info("[BillingNotification] Enviando e-mail de PIX em atraso para {}", recipientEmail);
+
+            String userName = user.getName() != null ? user.getName() : "Usuário";
+            String amountFormatted = payment.getAmountCents() != null
+                    ? "R$ " + String.format("%.2f", payment.getAmountCents() / 100.0)
+                    : "valor pendente";
+            String paymentLink = payment.getPaymentLink() != null ? payment.getPaymentLink() : "";
+
+            String subject = "Pagamento PIX em atraso — Easy Maintenance";
+            String htmlContent = emailTemplateHelper.generatePixOverdueHtml(userName, amountFormatted, paymentLink);
+
+            mailService.sendEmail(recipientEmail, userName, subject, subject, htmlContent);
+            log.info("[BillingNotification] E-mail de PIX em atraso enviado com sucesso para {}", recipientEmail);
+        } catch (Exception e) {
+            log.error("[BillingNotification] Falha ao enviar e-mail de PIX em atraso para {}: {}", recipientEmail, e.getMessage());
+        }
+
+        try {
+            inAppNotificationService.saveForUser(
+                    user.getId(),
+                    "Pagamento PIX em atraso",
+                    "Seu pagamento via PIX está em atraso. Acesse o billing para regularizar e evitar o bloqueio do seu acesso.",
+                    InAppNotificationType.SUBSCRIPTION_BLOCKED,
+                    null
+            );
+        } catch (Exception e) {
+            log.error("[BillingNotification] Falha ao salvar notificação in-app de PIX overdue para usuário {}: {}", user.getId(), e.getMessage());
         }
     }
 

@@ -22,6 +22,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
 
     Optional<Payment> findFirstByInvoiceIdAndStatusOrderByCreatedAtDesc(Long invoiceId, PaymentStatus status);
 
+    Optional<Payment> findFirstByBillingSubscriptionIdAndStatusOrderByCreatedAtDesc(Long billingSubscriptionId, PaymentStatus status);
+
     Optional<Payment> findFirstByInvoiceIdOrderByCreatedAtDesc(Long invoiceId);
 
     List<Payment> findByPayerIdOrderByCreatedAtDesc(Long payerId, Pageable pageable);

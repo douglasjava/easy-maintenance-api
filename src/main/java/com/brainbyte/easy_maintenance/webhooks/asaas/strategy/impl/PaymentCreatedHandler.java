@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType.PIX;
+
 @Slf4j
 @Component
 public class PaymentCreatedHandler extends AbstractAsaasWebhookStrategy {
@@ -88,6 +90,8 @@ public class PaymentCreatedHandler extends AbstractAsaasWebhookStrategy {
             payment.setReceiptUrl(paymentObj.transactionReceiptUrl());
             payment.setInvoiceNumber(paymentObj.invoiceNumber());
 
+            populatePixFields(payment, paymentObj);
+
             if (paymentObj.netValue() != null) {
                 payment.setNetAmountCents(paymentObj.netValue().movePointRight(2).intValueExact());
                 if (paymentObj.value() != null) {
@@ -112,6 +116,37 @@ public class PaymentCreatedHandler extends AbstractAsaasWebhookStrategy {
         }
 
         log.info("[AsaasWebhook] Event {}/{} finished.", event.id(), event.event());
+    }
+
+    /**
+     * Populates PIX-specific fields from the Asaas webhook payload.
+     * Only executes when billingType is PIX and pixTransaction data is present.
+     * Does not overwrite already-populated QR Code fields (idempotent for re-deliveries).
+     */
+    private void populatePixFields(Payment payment, AsaasDTO.PaymentObject paymentObj) {
+        if (!"PIX".equalsIgnoreCase(paymentObj.billingType())) {
+            return;
+        }
+
+        var pixTransaction = paymentObj.pixTransaction();
+        if (pixTransaction == null || pixTransaction.qrCode() == null) {
+            return;
+        }
+
+        var qrCode = pixTransaction.qrCode();
+
+        if (qrCode.payload() != null) {
+            payment.setPixQrCode(qrCode.payload());
+        }
+        if (qrCode.encodedImage() != null && !qrCode.encodedImage().isBlank()) {
+            payment.setPixQrCodeBase64(qrCode.encodedImage());
+        }
+        if (qrCode.expirationDate() != null) {
+            payment.setPixExpiresAt(qrCode.expirationDate().atZone(ZoneId.systemDefault()).toInstant());
+        } else if (paymentObj.dueDate() != null) {
+            // Fallback: use dueDate (end of day) as expiration when expirationDate is absent
+            payment.setPixExpiresAt(paymentObj.dueDate().atStartOfDay(ZoneId.systemDefault()).toInstant());
+        }
     }
 
     private PaymentStatus mapAsaasStatusToPaymentStatus(String asaasStatus) {

@@ -6,10 +6,14 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.Instant;
 import java.time.LocalDate;
 
+@SQLDelete(sql = "UPDATE maintenances SET deleted_at = now() WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 @Builder
 @Data
 @Entity
@@ -43,5 +47,8 @@ public class Maintenance {
 
   @Column(name = "created_at")
   private Instant createdAt;
+
+  @Column(name = "deleted_at")
+  private Instant deletedAt;
 
 }

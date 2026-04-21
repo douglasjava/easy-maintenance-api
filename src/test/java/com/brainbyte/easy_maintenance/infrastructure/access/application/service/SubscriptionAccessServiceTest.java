@@ -13,6 +13,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,8 +43,22 @@ class SubscriptionAccessServiceTest {
     }
 
     @Test
-    void shouldReturnFullAccessForTrialUser() {
-        mockUserSubscription(1L, SubscriptionStatus.TRIAL);
+    void shouldReturnFullAccessForActiveTrialUser() {
+        Instant futureDate = Instant.now().plus(7, ChronoUnit.DAYS);
+        mockUserSubscription(1L, SubscriptionStatus.TRIAL, futureDate);
+        assertEquals(AccessMode.FULL_ACCESS, service.resolveUserAccessMode(1L));
+    }
+
+    @Test
+    void shouldReturnReadOnlyForExpiredTrialUser() {
+        Instant pastDate = Instant.now().minus(1, ChronoUnit.DAYS);
+        mockUserSubscription(1L, SubscriptionStatus.TRIAL, pastDate);
+        assertEquals(AccessMode.READ_ONLY, service.resolveUserAccessMode(1L));
+    }
+
+    @Test
+    void shouldReturnFullAccessForTrialUserWithNullPeriodEnd() {
+        mockUserSubscription(1L, SubscriptionStatus.TRIAL, null);
         assertEquals(AccessMode.FULL_ACCESS, service.resolveUserAccessMode(1L));
     }
 
@@ -123,6 +139,46 @@ class SubscriptionAccessServiceTest {
     }
 
     // -----------------------------------------------------------------------
+    // resolveEffectiveStatus — static helper
+    // -----------------------------------------------------------------------
+
+    @Test
+    void shouldReturnTrialExpiredWhenTrialPeriodHasPassed() {
+        Instant pastDate = Instant.now().minus(1, ChronoUnit.DAYS);
+        SubscriptionStatus result = SubscriptionAccessService.resolveEffectiveStatus(SubscriptionStatus.TRIAL, pastDate);
+        assertEquals(SubscriptionStatus.TRIAL_EXPIRED, result);
+    }
+
+    @Test
+    void shouldReturnTrialWhenTrialPeriodIsInFuture() {
+        Instant futureDate = Instant.now().plus(7, ChronoUnit.DAYS);
+        SubscriptionStatus result = SubscriptionAccessService.resolveEffectiveStatus(SubscriptionStatus.TRIAL, futureDate);
+        assertEquals(SubscriptionStatus.TRIAL, result);
+    }
+
+    @Test
+    void shouldReturnTrialWhenPeriodEndIsNull() {
+        SubscriptionStatus result = SubscriptionAccessService.resolveEffectiveStatus(SubscriptionStatus.TRIAL, null);
+        assertEquals(SubscriptionStatus.TRIAL, result);
+    }
+
+    @Test
+    void shouldNotAffectNonTrialStatuses() {
+        Instant pastDate = Instant.now().minus(1, ChronoUnit.DAYS);
+        assertEquals(SubscriptionStatus.ACTIVE,
+                SubscriptionAccessService.resolveEffectiveStatus(SubscriptionStatus.ACTIVE, pastDate));
+        assertEquals(SubscriptionStatus.BLOCKED,
+                SubscriptionAccessService.resolveEffectiveStatus(SubscriptionStatus.BLOCKED, pastDate));
+        assertEquals(SubscriptionStatus.CANCELED,
+                SubscriptionAccessService.resolveEffectiveStatus(SubscriptionStatus.CANCELED, pastDate));
+    }
+
+    @Test
+    void shouldHandleNullStatus() {
+        assertNull(SubscriptionAccessService.resolveEffectiveStatus(null, Instant.now()));
+    }
+
+    // -----------------------------------------------------------------------
     // getUserSubscriptionStatus / getOrganizationSubscriptionStatus
     // -----------------------------------------------------------------------
 
@@ -149,8 +205,14 @@ class SubscriptionAccessServiceTest {
     // -----------------------------------------------------------------------
 
     private void mockUserSubscription(Long userId, SubscriptionStatus status) {
+        mockUserSubscription(userId, status, null);
+    }
+
+    private void mockUserSubscription(Long userId, SubscriptionStatus status, Instant periodEnd) {
         BillingSubscription subscription = mock(BillingSubscription.class);
         when(subscription.getStatus()).thenReturn(status);
+        // Use lenient to avoid UnnecessaryStubbingException in tests that don't call getCurrentPeriodEnd()
+        lenient().when(subscription.getCurrentPeriodEnd()).thenReturn(periodEnd);
 
         BillingSubscriptionItem item = mock(BillingSubscriptionItem.class);
         when(item.getBillingSubscription()).thenReturn(subscription);
@@ -163,6 +225,7 @@ class SubscriptionAccessServiceTest {
     private void mockOrgSubscription(String orgCode, SubscriptionStatus status) {
         BillingSubscription subscription = mock(BillingSubscription.class);
         when(subscription.getStatus()).thenReturn(status);
+        lenient().when(subscription.getCurrentPeriodEnd()).thenReturn(null);
 
         BillingSubscriptionItem item = mock(BillingSubscriptionItem.class);
         when(item.getBillingSubscription()).thenReturn(subscription);

@@ -3,16 +3,13 @@ package com.brainbyte.easy_maintenance.org_users.application.service;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSubscriptionResponse;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
-import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
-import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
-import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Plan;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
@@ -36,7 +33,6 @@ import java.util.Optional;
 public class OrganizationsService {
 
     private final OrganizationRepository repository;
-    private final BillingSubscriptionRepository billingSubscriptionRepository;
     private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
 
     public boolean existsByCode(String code) {
@@ -187,24 +183,6 @@ public class OrganizationsService {
                 .toList();
     }
 
-    public void validateSubscriptions(User user) {
-        log.info("Validating subscriptions for user {}", user.getEmail());
-
-        var subscription = billingSubscriptionRepository.findByBillingAccountUserId(user.getId())
-                .orElseThrow(() -> new RuleException("Assinatura não encontrada para o usuário " + user.getEmail()));
-
-        // Simplificando validação baseada no novo modelo
-        if (SubscriptionStatus.TRIAL == subscription.getStatus() &&
-                subscription.getCurrentPeriodEnd() != null &&
-                subscription.getCurrentPeriodEnd().isBefore(Instant.now())) {
-            throw new RuleException("O período de teste (TRIAL) expirou para o usuário " + user.getEmail());
-        }
-
-        if (SubscriptionStatus.BLOCKED == subscription.getStatus() || SubscriptionStatus.PAST_DUE == subscription.getStatus()) {
-            throw new RuleException(String.format("Usuário %s com pendência financeira, favor validar pagamento", user.getEmail()));
-        }
-
-    }
 
 
 }

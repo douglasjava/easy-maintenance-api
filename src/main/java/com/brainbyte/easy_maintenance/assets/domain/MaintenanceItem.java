@@ -11,6 +11,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.FilterDef;
 import org.hibernate.annotations.ParamDef;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -20,6 +22,8 @@ import java.time.LocalDate;
     parameters = @ParamDef(name = "org_code", type = String.class)
 )
 @Filter(name = "tenantFilter", condition = "organization_code = :org_code")
+@SQLDelete(sql = "UPDATE maintenance_items SET deleted_at = now() WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -69,5 +73,8 @@ public class MaintenanceItem {
 
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 
 }

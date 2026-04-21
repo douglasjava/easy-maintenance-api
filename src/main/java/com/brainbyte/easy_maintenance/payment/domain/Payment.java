@@ -68,6 +68,9 @@ public class Payment {
     @Column(name = "pix_qr_code_base64", columnDefinition = "MEDIUMTEXT")
     private String pixQrCodeBase64;
 
+    @Column(name = "pix_expires_at")
+    private Instant pixExpiresAt;
+
     @Column(name = "payment_link", length = 600)
     private String paymentLink;
 

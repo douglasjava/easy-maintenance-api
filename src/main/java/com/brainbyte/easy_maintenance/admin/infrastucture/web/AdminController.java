@@ -130,4 +130,9 @@ public class AdminController {
         return adminService.updateById(id, request);
     }
 
+    @GetMapping("/test-sentry")
+    public String test() {
+        throw new RuntimeException("Erro teste Sentry 🚀");
+    }
+
 }

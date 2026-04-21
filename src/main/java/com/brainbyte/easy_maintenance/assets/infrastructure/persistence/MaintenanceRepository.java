@@ -10,7 +10,9 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 @Repository
 public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>, JpaSpecificationExecutor<Maintenance> {
@@ -24,6 +26,11 @@ public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>,
   boolean existsByItemIdAndPerformedAt(Long itemId, LocalDate performedAt);
 
   boolean existsByItemId(Long itemId);
+
+  // Batch check: returns the subset of the given IDs that have at least one maintenance record.
+  // Used by the list endpoint to resolve canUpdate for an entire page in a single query.
+  @Query("SELECT DISTINCT m.itemId FROM Maintenance m WHERE m.itemId IN :ids")
+  Set<Long> findItemIdsWithMaintenances(@Param("ids") Collection<Long> ids);
 
   @Query("SELECT m FROM Maintenance m JOIN com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem i ON i.id = m.itemId WHERE m.nextDueAt IN :dates")
   List<Maintenance> findAllByNextDueAtIn(@Param("dates") java.util.Collection<LocalDate> dates);

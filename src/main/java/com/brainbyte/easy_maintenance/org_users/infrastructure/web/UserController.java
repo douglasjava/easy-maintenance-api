@@ -2,7 +2,6 @@ package com.brainbyte.easy_maintenance.org_users.infrastructure.web;
 
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO;
 import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
-import com.brainbyte.easy_maintenance.org_users.application.service.OrganizationsService;
 import com.brainbyte.easy_maintenance.org_users.application.service.UsersService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UsersService service;
-    private final OrganizationsService organizationsService;
     private final AuthenticationService authenticationService;
 
     @GetMapping("/{id}")
@@ -35,13 +33,6 @@ public class UserController {
 
         return service.updateUser(id, req);
 
-    }
-
-    @GetMapping("/subscription/guard")
-    @Operation(summary = "Valida se o usuário possui assinatura válida (TRIAL dentro do prazo ou não TRIAL)")
-    public void validateSubscriptions() {
-        var user = authenticationService.getCurrentUser();
-        organizationsService.validateSubscriptions(user);
     }
 
 }
