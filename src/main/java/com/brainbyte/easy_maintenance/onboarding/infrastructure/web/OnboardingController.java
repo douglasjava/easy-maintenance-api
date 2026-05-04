@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
 
+import static com.brainbyte.easy_maintenance.org_users.infrastructure.web.AuthController.DOMAIN_NAME;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/easy-maintenance/api/v1/me/onboarding")
@@ -48,7 +50,8 @@ public class OnboardingController {
         ResponseCookie cookie = ResponseCookie.from("accessToken", refreshedToken)
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("None")
+                .domain(DOMAIN_NAME)
+                .sameSite("Lax")
                 .path("/")
                 .maxAge(Duration.ofDays(7))
                 .build();

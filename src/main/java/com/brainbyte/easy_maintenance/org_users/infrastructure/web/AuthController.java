@@ -27,6 +27,9 @@ import java.time.Duration;
 @Tag(name = "Autenticação", description = "Endpoints para login e gerenciamento de senha")
 public class AuthController {
 
+    public static final String DOMAIN_NAME = "easymaintenance.com.br";
+    public static final String ACCESS_TOKEN_COOKIE = "accessToken";
+
     private final UsersService usersService;
     private final PasswordResetService passwordResetService;
     private final TwoFactorService twoFactorService;
@@ -40,10 +43,11 @@ public class AuthController {
         // Only set cookie when 2FA is NOT required (full token issued immediately)
         if (!loginResponse.requiresTwoFactor() && loginResponse.accessToken() != null) {
             boolean remember = Boolean.TRUE.equals(request.remember());
-            ResponseCookie cookie = ResponseCookie.from("accessToken", loginResponse.accessToken())
+            ResponseCookie cookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, loginResponse.accessToken())
                     .httpOnly(true)
                     .secure(true)
-                    .sameSite("None")
+                    .domain(DOMAIN_NAME)
+                    .sameSite("Lax")
                     .path("/")
                     .maxAge(remember ? Duration.ofDays(30) : Duration.ofDays(7))
                     .build();
@@ -62,10 +66,11 @@ public class AuthController {
         LoginResponse loginResponse = usersService.verifyTwoFactor(request);
 
         boolean remember = Boolean.TRUE.equals(request.remember());
-        ResponseCookie cookie = ResponseCookie.from("accessToken", loginResponse.accessToken())
+        ResponseCookie cookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, loginResponse.accessToken())
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("None")
+                .domain(DOMAIN_NAME)
+                .sameSite("Lax")
                 .path("/")
                 .maxAge(remember ? Duration.ofDays(30) : Duration.ofDays(7))
                 .build();
@@ -95,10 +100,11 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Encerra a sessão do usuário")
     public void logout(HttpServletResponse response) {
-        ResponseCookie clearCookie = ResponseCookie.from("accessToken", "")
+        ResponseCookie clearCookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, "")
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("None")
+                .domain(DOMAIN_NAME)
+                .sameSite("Lax")
                 .path("/")
                 .maxAge(0)
                 .build();
