@@ -48,7 +48,7 @@ public class OnboardingController {
         ResponseCookie cookie = ResponseCookie.from("accessToken", refreshedToken)
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("Strict")
+                .sameSite("None")
                 .path("/")
                 .maxAge(Duration.ofDays(7))
                 .build();
