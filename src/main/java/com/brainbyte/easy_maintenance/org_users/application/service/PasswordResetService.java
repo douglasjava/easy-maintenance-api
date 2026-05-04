@@ -3,8 +3,9 @@ package com.brainbyte.easy_maintenance.org_users.application.service;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.InternalErrorException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
-import com.brainbyte.easy_maintenance.infrastructure.mail.MailService;
 import com.brainbyte.easy_maintenance.infrastructure.mail.utils.EmailTemplateHelper;
+import com.brainbyte.easy_maintenance.infrastructure.notification.enums.NotificationEventType;
+import com.brainbyte.easy_maintenance.infrastructure.notification.service.CriticalEmailDispatchService;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO;
 import com.brainbyte.easy_maintenance.org_users.domain.PasswordResetToken;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.PasswordResetTokenRepository;
@@ -31,7 +32,7 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository tokenRepository;
     private final UserRepository userRepository;
     private final UsersService usersService;
-    private final MailService mailerSendService;
+    private final CriticalEmailDispatchService criticalEmailDispatchService;
     private final EmailTemplateHelper emailTemplateHelper;
 
     @Value("${frontend.reset-password-url}")
@@ -57,13 +58,15 @@ public class PasswordResetService {
 
             String resetLink = resetPasswordUrl + "?token=" + token;
             String htmlContent = emailTemplateHelper.generatePasswordResetHtml(user.getName(), resetLink);
-
-            mailerSendService.sendEmail(
+            // retryable=false: the reset link expires in 30 min, making job-based retry pointless
+            criticalEmailDispatchService.send(
                     user.getEmail(),
                     user.getName(),
+                    null,
+                    NotificationEventType.PASSWORD_RESET,
                     "Recuperação de Senha - Easy Maintenance",
-                    "Clique no link para redefinir sua senha: " + resetLink,
-                    htmlContent
+                    htmlContent,
+                    false
             );
         });
     }

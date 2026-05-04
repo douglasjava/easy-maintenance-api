@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: easy_maintenance_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run unit tests
+        run: ./mvnw test --no-transfer-progress
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/easy_maintenance_test?createDatabaseIfNotExist=true
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: root
+          SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+          JWT_SECRET: ci-test-secret-key-minimum-32-characters-long
+          ASAAS_API_KEY: test-key
+          ASAAS_BASE_URL: https://sandbox.asaas.com
+          AWS_S3_BUCKET: test-bucket
+          AWS_S3_REGION: us-east-1
+          AWS_ACCESS_KEY: test-access-key
+          AWS_SECRET_KEY: test-secret-key
+          OPENAI_API_KEY: test-openai-key
+          DEEPSEEK_API_KEY: test-deepseek-key
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: target/surefire-reports/
+          retention-days: 7

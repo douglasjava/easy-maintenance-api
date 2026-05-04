@@ -65,6 +65,8 @@ public class NotificationOrchestratorService {
         return switch (eventType) {
             case ITEM_NEAR_DUE, ITEM_OVERDUE -> InAppNotificationType.ITEM_DUE;
             case MAINTENANCE_NEAR_DUE, MAINTENANCE_OVERDUE -> InAppNotificationType.MAINTENANCE_DUE;
+            default -> throw new IllegalArgumentException(
+                    "Tipo de evento não suportado pelo orquestrador in-app: " + eventType);
         };
     }
 
@@ -74,6 +76,8 @@ public class NotificationOrchestratorService {
             case ITEM_OVERDUE -> "Item vencido";
             case MAINTENANCE_NEAR_DUE -> "Manutenção próxima do vencimento";
             case MAINTENANCE_OVERDUE -> "Manutenção vencida";
+            default -> throw new IllegalArgumentException(
+                    "Tipo de evento não suportado pelo orquestrador in-app: " + event.getEventType());
         };
     }
 

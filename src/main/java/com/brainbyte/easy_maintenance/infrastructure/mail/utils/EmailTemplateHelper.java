@@ -276,6 +276,43 @@ public class EmailTemplateHelper {
             """.formatted(userName, amountFormatted, paymentLink, java.time.Year.now().getValue());
     }
 
+    public String generateTwoFactorRecoveryHtml(String userName, String recoveryLink) {
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { width: 80%%; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+                    .header { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #0056b3; }
+                    .button { display: inline-block; padding: 10px 20px; font-size: 16px; color: #fff; background-color: #dc3545; text-decoration: none; border-radius: 5px; }
+                    .warning { background-color: #fff3cd; padding: 10px; border-radius: 5px; margin: 15px 0; }
+                    .footer { margin-top: 30px; font-size: 12px; color: #777; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">Recuperação de Acesso - Autenticação em Dois Fatores</div>
+                    <p>Olá, %s,</p>
+                    <p>Recebemos uma solicitação para desabilitar o 2FA da sua conta no Easy Maintenance.</p>
+                    <div class="warning">
+                        <strong>Atenção:</strong> Se você não solicitou isso, ignore este e-mail. Sua conta permanece segura.
+                    </div>
+                    <p>Para desabilitar o 2FA e recuperar o acesso à sua conta, clique no botão abaixo. Este link expira em 1 hora.</p>
+                    <p>
+                        <a href="%s" class="button">Desabilitar 2FA e Recuperar Acesso</a>
+                    </p>
+                    <div class="footer">
+                        Este é um e-mail automático, por favor não responda.<br>
+                        © Easy Maintenance. Todos os direitos reservados.
+                    </div>
+                </div>
+            </body>
+            </html>
+            """.formatted(userName, recoveryLink);
+    }
+
     public static String generateNotificationEventHtml(String userName, String title, String description) {
         return """
             <!DOCTYPE html>

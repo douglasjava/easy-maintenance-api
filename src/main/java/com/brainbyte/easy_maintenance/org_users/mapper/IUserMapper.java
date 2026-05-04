@@ -21,6 +21,11 @@ public interface IUserMapper {
   UserDTO.UserSummaryResponse toUserSummaryResponse(User user);
 
   @Mapping(target = "organizationCodes", source = "organizations")
+  @Mapping(target = "accessToken", ignore = true)
+  @Mapping(target = "tokenType", ignore = true)
+  @Mapping(target = "firstAccess", constant = "false")
+  @Mapping(target = "requiresTwoFactor", constant = "false")
+  @Mapping(target = "pendingToken", ignore = true)
   UserDTO.LoginResponse toLoginResponse(User user);
 
   default List<String> mapOrganizations(List<UserOrganization> value) {

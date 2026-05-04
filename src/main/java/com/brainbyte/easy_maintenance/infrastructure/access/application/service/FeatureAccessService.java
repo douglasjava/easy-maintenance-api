@@ -15,12 +15,14 @@ import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FeatureAccessService {
@@ -42,12 +44,15 @@ public class FeatureAccessService {
     public AccessContextResponse getAccessContext() {
         User user = authenticationService.getCurrentUser();
 
+        log.info("user: {}", user.getName());
+
         AccountAccessResponse accountAccess = buildAccountAccess(user.getId());
 
         List<OrganizationAccessResponse> organizationsAccess = organizationRepository.findAllByUserId(user.getId())
                 .stream()
                 .map(this::buildOrganizationAccess)
                 .toList();
+
 
         return AccessContextResponse.builder()
                 .user(AccessContextResponse.UserInfo.builder()

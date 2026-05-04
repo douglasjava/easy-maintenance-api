@@ -36,10 +36,14 @@ public class UsersService {
 
     public static final String USER_NOT_FOUND_MESSAGE = "Usuário com id %s não encontrado";
 
+    private static final String SCOPE_2FA_PENDING = "2fa_pending";
+    private static final long PENDING_TOKEN_TTL_SECONDS = 300; // 5 minutes
+
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final FirstAccessTokenService firstAccessTokenService;
+    private final TwoFactorService twoFactorService;
 
     public UserDTO.UserResponse createUser(UserDTO.CreateUserRequest request) {
         log.info("Creating user {} ", request.email());
@@ -180,29 +184,79 @@ public class UsersService {
                 .map(UserOrganization::getOrganizationCode)
                 .collect(Collectors.toList());
 
-        var claims = new java.util.HashMap<String, Object>();
-        claims.put("uid", user.getId());
-        claims.put("orgs", orgCodes); // Passando lista de organizações
-        if (!orgCodes.isEmpty()) {
-            claims.put("org", orgCodes.getFirst()); // Mantendo compatibilidade com o que espera um único org
+        // 2FA check: if enabled, return pending challenge instead of full JWT
+        if (twoFactorService.isEnabled(user.getId())) {
+            var pendingClaims = new java.util.HashMap<String, Object>();
+            pendingClaims.put("uid", user.getId());
+            pendingClaims.put("scope", SCOPE_2FA_PENDING);
+            String pendingToken = jwtService.generateWithTtl(user.getEmail(), pendingClaims, PENDING_TOKEN_TTL_SECONDS);
+            log.info("2FA challenge issued for user {}", user.getId());
+            return new UserDTO.LoginResponse(
+                    user.getId(), orgCodes, user.getEmail(), user.getName(),
+                    user.getRole(), user.getStatus(),
+                    null, null, false, true, pendingToken);
         }
-        claims.put("role", user.getRole().name());
-        String token = jwtService.generate(user.getEmail(), claims);
 
         boolean firstAccess = firstAccessTokenService.existsByUserIdAndUsedAtIsNull(user.getId());
-
-        UserDTO.LoginResponse response = IUserMapper.INSTANCE.toLoginResponse(user);
+        String token = buildFullToken(user, orgCodes);
         return new UserDTO.LoginResponse(
-                response.id(),
-                response.organizationCodes(),
-                response.email(),
-                response.name(),
-                response.role(),
-                response.status(),
-                token,
-                "Bearer",
-                firstAccess
-        );
+                user.getId(), orgCodes, user.getEmail(), user.getName(),
+                user.getRole(), user.getStatus(),
+                token, "Bearer", firstAccess, false, null);
+    }
+
+    public UserDTO.LoginResponse verifyTwoFactor(UserDTO.TwoFactorVerifyRequest request) {
+        io.jsonwebtoken.Jws<io.jsonwebtoken.Claims> parsed;
+        try {
+            parsed = jwtService.parse(request.pendingToken());
+        } catch (io.jsonwebtoken.JwtException e) {
+            throw new ErrorResponseException(HttpStatus.UNAUTHORIZED);
+        }
+
+        io.jsonwebtoken.Claims claims = parsed.getBody();
+        if (!SCOPE_2FA_PENDING.equals(claims.get("scope", String.class))) {
+            throw new ErrorResponseException(HttpStatus.UNAUTHORIZED);
+        }
+
+        String email = claims.getSubject();
+        var user = repository.findByEmail(email)
+                .orElseThrow(() -> new ErrorResponseException(HttpStatus.UNAUTHORIZED));
+
+        if (!twoFactorService.verifyForLogin(user.getId(), request.code())) {
+            throw new ErrorResponseException(HttpStatus.UNAUTHORIZED);
+        }
+
+        List<String> orgCodes = user.getOrganizations().stream()
+                .map(UserOrganization::getOrganizationCode)
+                .collect(Collectors.toList());
+
+        boolean firstAccess = firstAccessTokenService.existsByUserIdAndUsedAtIsNull(user.getId());
+        String token = buildFullToken(user, orgCodes);
+        log.info("2FA verified and full token issued for user {}", user.getId());
+        return new UserDTO.LoginResponse(
+                user.getId(), orgCodes, user.getEmail(), user.getName(),
+                user.getRole(), user.getStatus(),
+                token, "Bearer", firstAccess, false, null);
+    }
+
+    private String buildFullToken(User user, List<String> orgCodes) {
+        var claims = new java.util.HashMap<String, Object>();
+        claims.put("uid", user.getId());
+        claims.put("orgs", orgCodes);
+        if (!orgCodes.isEmpty()) {
+            claims.put("org", orgCodes.getFirst());
+        }
+        claims.put("role", user.getRole().name());
+        return jwtService.generate(user.getEmail(), claims);
+    }
+
+    public String issueRefreshedToken(Long userId) {
+        var user = repository.findByIdFetchOrganization(userId)
+                .orElseThrow(() -> new NotFoundException(String.format(USER_NOT_FOUND_MESSAGE, userId)));
+        List<String> orgCodes = user.getOrganizations().stream()
+                .map(UserOrganization::getOrganizationCode)
+                .collect(Collectors.toList());
+        return buildFullToken(user, orgCodes);
     }
 
     @Transactional

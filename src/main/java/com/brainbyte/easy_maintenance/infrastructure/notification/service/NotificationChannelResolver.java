@@ -17,6 +17,8 @@ public class NotificationChannelResolver {
         return switch (type) {
             case ITEM_NEAR_DUE, MAINTENANCE_NEAR_DUE -> EnumSet.of(NotificationChannel.PUSH);
             case ITEM_OVERDUE, MAINTENANCE_OVERDUE -> EnumSet.of(NotificationChannel.PUSH, NotificationChannel.EMAIL);
+            // Critical transactional emails are dispatched via CriticalEmailDispatchService, not this resolver
+            default -> EnumSet.noneOf(NotificationChannel.class);
         };
     }
 

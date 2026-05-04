@@ -64,6 +64,9 @@ public class Organization {
     @Column(name = "company_type", nullable = false)
     private CompanyType companyType;
 
+    @Column(name = "require_2fa", nullable = false)
+    private boolean require2fa;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

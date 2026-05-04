@@ -44,6 +44,7 @@ public class TenantFilter extends OncePerRequestFilter {
   // endpoints fixos (ex.: auth, org register)
   private static final Set<String> BYPASS_EXACT = Set.of(
           "POST /api/v1/auth/login",
+          "POST /easy-maintenance/api/v1/auth/2fa/verify",
           "POST /easy-maintenance/api/v1/organizations",
           "POST /easy-maintenance/api/v1/push/tokens",
           "PATH /easy-maintenance/api/v1/push/tokens/disable",

@@ -18,6 +18,7 @@ import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.catalog_norms.application.service.NormService;
+import com.brainbyte.easy_maintenance.commons.dto.CursorPageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
@@ -30,7 +31,9 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -139,6 +142,86 @@ public class MaintenanceItemService {
             String reason = canUpdate ? null : "ITEM_ALREADY_USED_IN_MAINTENANCE";
             return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, resolveNormName(item.getNormId()), canUpdate, reason);
         });
+    }
+
+    public CursorPageResponse<ItemResponse> findAllCursor(String orgId,
+                                                           ItemStatus status,
+                                                           String itemType,
+                                                           ItemCategory categoria,
+                                                           Long cursor,
+                                                           Long prevCursor,
+                                                           int size) {
+        Specification<MaintenanceItem> baseSpec = MaintenanceItemSpecs.filter(orgId, status, itemType, categoria);
+
+        if (cursor == null && prevCursor == null) {
+            // OFFSET fallback — first page with no cursor supplied
+            Page<MaintenanceItem> page = repository.findAll(
+                    baseSpec, PageRequest.of(0, size, Sort.by("id").ascending()));
+            return buildOffsetResponse(page, size, orgId);
+        }
+
+        if (prevCursor != null) {
+            // Backward: fetch items before prevCursor
+            Specification<MaintenanceItem> backSpec = baseSpec.and(
+                    (root, query, cb) -> cb.lessThan(root.get("id"), prevCursor));
+            Page<MaintenanceItem> raw = repository.findAll(
+                    backSpec, PageRequest.of(0, size + 1, Sort.by("id").descending()));
+            boolean hasPrev = raw.getContent().size() > size;
+            List<MaintenanceItem> items = hasPrev ? raw.getContent().subList(0, size) : raw.getContent();
+            // Reverse so results come back in ascending id order
+            List<MaintenanceItem> ascending = new java.util.ArrayList<>(items);
+            java.util.Collections.reverse(ascending);
+            return buildCursorResponse(ascending, hasPrev, size, true);
+        }
+
+        // Forward: fetch items after cursor
+        Specification<MaintenanceItem> fwdSpec = baseSpec.and(
+                (root, query, cb) -> cb.greaterThan(root.get("id"), cursor));
+        Page<MaintenanceItem> raw = repository.findAll(
+                fwdSpec, PageRequest.of(0, size + 1, Sort.by("id").ascending()));
+        boolean hasMore = raw.getContent().size() > size;
+        List<MaintenanceItem> items = hasMore ? raw.getContent().subList(0, size) : raw.getContent();
+        return buildCursorResponse(items, hasMore, size, false);
+    }
+
+    private CursorPageResponse<ItemResponse> buildOffsetResponse(Page<MaintenanceItem> page, int size, String orgId) {
+        Set<Long> pageIds = page.stream().map(MaintenanceItem::getId).collect(Collectors.toSet());
+        Set<Long> idsWithMaintenance = pageIds.isEmpty()
+                ? Set.of()
+                : maintenanceRepository.findItemIdsWithMaintenances(pageIds);
+        List<ItemResponse> content = page.getContent().stream()
+                .map(item -> {
+                    boolean canUpdate = !idsWithMaintenance.contains(item.getId());
+                    String reason = canUpdate ? null : "ITEM_ALREADY_USED_IN_MAINTENANCE";
+                    return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, resolveNormName(item.getNormId()), canUpdate, reason);
+                }).toList();
+        Long nextCursor = page.hasNext() && !content.isEmpty()
+                ? page.getContent().get(page.getContent().size() - 1).getId()
+                : null;
+        return new CursorPageResponse<>(content, nextCursor, null, page.hasNext(),
+                size, page.getTotalElements(), page.getTotalPages(), page.getNumber());
+    }
+
+    private CursorPageResponse<ItemResponse> buildCursorResponse(List<MaintenanceItem> items,
+                                                                  boolean hasMore, int size,
+                                                                  boolean backward) {
+        Set<Long> ids = items.stream().map(MaintenanceItem::getId).collect(Collectors.toSet());
+        Set<Long> idsWithMaintenance = ids.isEmpty()
+                ? Set.of()
+                : maintenanceRepository.findItemIdsWithMaintenances(ids);
+        List<ItemResponse> content = items.stream()
+                .map(item -> {
+                    boolean canUpdate = !idsWithMaintenance.contains(item.getId());
+                    String reason = canUpdate ? null : "ITEM_ALREADY_USED_IN_MAINTENANCE";
+                    return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, resolveNormName(item.getNormId()), canUpdate, reason);
+                }).toList();
+
+        Long nextCursor = (!backward && hasMore && !content.isEmpty())
+                ? items.get(items.size() - 1).getId() : null;
+        Long prevCursor = (backward && hasMore && !content.isEmpty())
+                ? items.get(0).getId() : null;
+
+        return CursorPageResponse.ofCursor(content, nextCursor, prevCursor, hasMore, size);
     }
 
     public void remove(String orgId, Long itemId) {

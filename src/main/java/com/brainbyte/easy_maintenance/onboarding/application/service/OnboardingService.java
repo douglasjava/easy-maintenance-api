@@ -16,8 +16,9 @@ import com.brainbyte.easy_maintenance.org_users.application.service.UsersService
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.payment.application.factory.PaymentProviderFactory;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
-import com.brainbyte.easy_maintenance.infrastructure.mail.MailService;
 import com.brainbyte.easy_maintenance.infrastructure.mail.utils.EmailTemplateHelper;
+import com.brainbyte.easy_maintenance.infrastructure.notification.enums.NotificationEventType;
+import com.brainbyte.easy_maintenance.infrastructure.notification.service.CriticalEmailDispatchService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +40,7 @@ public class OnboardingService {
     private final UsersService usersService;
     private final BillingSubscriptionService billingSubscriptionService;
     private final BillingPlanRepository billingPlanRepository;
-    private final MailService mailService;
+    private final CriticalEmailDispatchService criticalEmailDispatchService;
     private final EmailTemplateHelper emailTemplateHelper;
 
     @Value("${frontend.login-url}")
@@ -122,23 +123,17 @@ public class OnboardingService {
     }
 
     private void sendTrialActivatedEmail(User user, BillingSubscription subscription) {
-        try {
-            var dataFimTrial = "";
-            if (subscription.getCurrentPeriodEnd() != null) {
-                dataFimTrial = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-                        .withZone(ZoneId.systemDefault())
-                        .format(subscription.getCurrentPeriodEnd());
-            }
-
-            String htmlContent = emailTemplateHelper.generateTrialActivatedHtml(user.getName(), dataFimTrial, loginUrl);
-            String subject = "Seu acesso completo ao Easy Maintenance foi liberado";
-            String textContent = "Olá, " + user.getName() + "! Seu acesso ao Easy Maintenance foi liberado até " + dataFimTrial + ". Acesse em: " + loginUrl;
-
-            mailService.sendEmail(user.getEmail(), user.getName(), subject, textContent, htmlContent);
-            log.info("E-mail de ativação do trial enviado para {}", user.getEmail());
-        } catch (Exception e) {
-            log.error("Erro ao enviar e-mail de ativação do trial para {}: {}", user.getEmail(), e.getMessage());
+        var dataFimTrial = "";
+        if (subscription.getCurrentPeriodEnd() != null) {
+            dataFimTrial = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                    .withZone(ZoneId.systemDefault())
+                    .format(subscription.getCurrentPeriodEnd());
         }
+
+        String htmlContent = emailTemplateHelper.generateTrialActivatedHtml(user.getName(), dataFimTrial, loginUrl);
+        String subject = "Seu acesso completo ao Easy Maintenance foi liberado";
+        criticalEmailDispatchService.send(user.getEmail(), user.getName(), null,
+                NotificationEventType.TRIAL_ACTIVATED, subject, htmlContent, true);
     }
 
     private static void mergeBillingAccountChanges(OnboardingDTO.AccountUserRequest request, BillingAccount account) {

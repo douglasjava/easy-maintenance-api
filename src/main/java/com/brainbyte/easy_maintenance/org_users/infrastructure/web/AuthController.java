@@ -1,11 +1,11 @@
 package com.brainbyte.easy_maintenance.org_users.infrastructure.web;
 
 import com.brainbyte.easy_maintenance.commons.helper.HttpUtils;
-import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO.LoginRequest;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO.LoginResponse;
 import com.brainbyte.easy_maintenance.org_users.application.service.PasswordResetService;
+import com.brainbyte.easy_maintenance.org_users.application.service.TwoFactorService;
 import com.brainbyte.easy_maintenance.org_users.application.service.UsersService;
 import com.brainbyte.easy_maintenance.shared.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,7 +20,6 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -30,12 +29,37 @@ public class AuthController {
 
     private final UsersService usersService;
     private final PasswordResetService passwordResetService;
+    private final TwoFactorService twoFactorService;
 
     @PostMapping("/login")
     @RateLimit("login")
     @Operation(summary = "Realiza a autenticação do usuário")
     public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         LoginResponse loginResponse = usersService.authenticate(request);
+
+        // Only set cookie when 2FA is NOT required (full token issued immediately)
+        if (!loginResponse.requiresTwoFactor() && loginResponse.accessToken() != null) {
+            boolean remember = Boolean.TRUE.equals(request.remember());
+            ResponseCookie cookie = ResponseCookie.from("accessToken", loginResponse.accessToken())
+                    .httpOnly(true)
+                    .secure(true)
+                    .sameSite("Strict")
+                    .path("/")
+                    .maxAge(remember ? Duration.ofDays(30) : Duration.ofDays(7))
+                    .build();
+            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        }
+
+        return loginResponse;
+    }
+
+    @PostMapping("/2fa/verify")
+    @RateLimit("login")
+    @Operation(summary = "Verifica o código 2FA e emite o token completo de acesso")
+    public LoginResponse verifyTwoFactor(
+            @Valid @RequestBody UserDTO.TwoFactorVerifyRequest request,
+            HttpServletResponse response) {
+        LoginResponse loginResponse = usersService.verifyTwoFactor(request);
 
         boolean remember = Boolean.TRUE.equals(request.remember());
         ResponseCookie cookie = ResponseCookie.from("accessToken", loginResponse.accessToken())
@@ -48,6 +72,23 @@ public class AuthController {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
         return loginResponse;
+    }
+
+    @PostMapping("/2fa/request-recovery")
+    @RateLimit("forgot-password")
+    @Operation(summary = "Solicita recuperação de 2FA via e-mail")
+    public UserDTO.AuthMessageResponse requestTwoFactorRecovery(
+            @Valid @RequestBody UserDTO.TwoFactorRecoveryRequest request) {
+        twoFactorService.requestEmailRecovery(request.email());
+        return new UserDTO.AuthMessageResponse(
+                "Se houver um 2FA ativo para este e-mail, enviaremos as instruções de recuperação.");
+    }
+
+    @PostMapping("/2fa/apply-recovery")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Desabilita o 2FA usando o token de recuperação enviado por e-mail")
+    public void applyTwoFactorRecovery(@Valid @RequestBody UserDTO.TwoFactorRecoveryApplyRequest request) {
+        twoFactorService.applyEmailRecovery(request.email(), request.recoveryToken());
     }
 
     @PostMapping("/logout")
@@ -88,5 +129,4 @@ public class AuthController {
     public void resetPassword(@Valid @RequestBody UserDTO.ResetPasswordRequest request) {
         passwordResetService.resetPassword(request);
     }
-
 }

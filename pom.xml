@@ -203,6 +203,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- TOTP 2FA (Google Authenticator / RFC 6238) -->
+        <dependency>
+            <groupId>dev.samstevens.totp</groupId>
+            <artifactId>totp</artifactId>
+            <version>1.7.1</version>
+        </dependency>
+
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>

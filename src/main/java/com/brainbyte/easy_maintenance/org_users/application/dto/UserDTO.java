@@ -80,7 +80,9 @@ public final class UserDTO {
             Status status,
             String accessToken,
             String tokenType,
-            boolean firstAccess
+            boolean firstAccess,
+            boolean requiresTwoFactor,
+            String pendingToken
     ) {
     }
 
@@ -106,6 +108,59 @@ public final class UserDTO {
 
     public record AuthMessageResponse(
             String message
+    ) {
+    }
+
+    // ─── 2FA DTOs ────────────────────────────────────────────────────────────
+
+    public record TwoFactorSetupResponse(
+            String secret,
+            String qrCodeDataUri,
+            String otpAuthUri
+    ) {
+    }
+
+    public record TwoFactorConfirmRequest(
+            @NotBlank String code
+    ) {
+    }
+
+    public record TwoFactorConfirmResponse(
+            List<String> backupCodes
+    ) {
+    }
+
+    public record TwoFactorDisableRequest(
+            @NotBlank String code
+    ) {
+    }
+
+    public record TwoFactorStatusResponse(
+            boolean enabled,
+            int backupCodesRemaining
+    ) {
+    }
+
+    public record TwoFactorVerifyRequest(
+            @NotBlank String pendingToken,
+            @NotBlank String code,
+            Boolean remember
+    ) {
+    }
+
+    public record TwoFactorRecoveryRequest(
+            @Email @NotBlank String email
+    ) {
+    }
+
+    public record TwoFactorRecoveryApplyRequest(
+            @NotBlank String recoveryToken,
+            @Email @NotBlank String email
+    ) {
+    }
+
+    public record TwoFactorRegenerateCodesRequest(
+            @NotBlank String code
     ) {
     }
 

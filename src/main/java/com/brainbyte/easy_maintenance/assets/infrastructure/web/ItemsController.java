@@ -6,17 +6,15 @@ import com.brainbyte.easy_maintenance.assets.application.dto.ItemResponse;
 import com.brainbyte.easy_maintenance.assets.application.service.MaintenanceItemService;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
+import com.brainbyte.easy_maintenance.commons.dto.CursorPageResponse;
 import com.brainbyte.easy_maintenance.infrastructure.access.infrastructure.security.RequiresFullAccess;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
 import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
-import com.brainbyte.easy_maintenance.shared.web.openapi.PageableAsQueryParam;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -51,14 +49,16 @@ public class ItemsController {
 
     @GetMapping
     @RequireTenant
-    @PageableAsQueryParam
-    @Operation(summary = "Lista itens de manutenção da organização")
-    public Page<ItemResponse> list(@RequestParam(required = false) ItemStatus status,
-                                   @RequestParam(required = false) String itemType,
-                                   @RequestParam(required = false) ItemCategory categoria,
-                                   @Parameter(hidden = true) Pageable pageable) {
+    @Operation(summary = "Lista itens de manutenção da organização. Suporta cursor pagination (cursor/prevCursor) e OFFSET (page/size).")
+    public CursorPageResponse<ItemResponse> list(
+            @RequestParam(required = false) ItemStatus status,
+            @RequestParam(required = false) String itemType,
+            @RequestParam(required = false) ItemCategory categoria,
+            @Parameter(description = "Cursor para paginação forward (ID do último item visto)") @RequestParam(required = false) Long cursor,
+            @Parameter(description = "Cursor para paginação backward (ID do primeiro item da página atual)") @RequestParam(required = false) Long prevCursor,
+            @RequestParam(defaultValue = "20") int size) {
         String orgId = TenantContext.get().orElseThrow();
-        return service.findAll(orgId, status, itemType, categoria, pageable);
+        return service.findAllCursor(orgId, status, itemType, categoria, cursor, prevCursor, size);
     }
 
     @GetMapping("/{id}")

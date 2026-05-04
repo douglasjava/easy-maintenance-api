@@ -70,6 +70,8 @@ public class BusinessPushNotificationService {
             case ITEM_OVERDUE -> "Item Vencido";
             case MAINTENANCE_NEAR_DUE -> "Manutenção Próxima do Vencimento";
             case MAINTENANCE_OVERDUE -> "Manutenção Vencida";
+            default -> throw new IllegalArgumentException(
+                    "Tipo de evento não suportado pelo serviço de push: " + event.getEventType());
         };
     }
 

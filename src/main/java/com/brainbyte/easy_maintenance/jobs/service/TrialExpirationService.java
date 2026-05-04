@@ -11,8 +11,9 @@ import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
 import com.brainbyte.easy_maintenance.commons.exceptions.AsaasException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
-import com.brainbyte.easy_maintenance.infrastructure.mail.MailService;
 import com.brainbyte.easy_maintenance.infrastructure.mail.utils.EmailTemplateHelper;
+import com.brainbyte.easy_maintenance.infrastructure.notification.enums.NotificationEventType;
+import com.brainbyte.easy_maintenance.infrastructure.notification.service.CriticalEmailDispatchService;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
 import com.brainbyte.easy_maintenance.infrastructure.saas.properties.AsaasProperties;
@@ -43,7 +44,7 @@ public class TrialExpirationService {
     private final PaymentRepository paymentRepository;
     private final AsaasClient asaasClient;
     private final AsaasProperties asaasProperties;
-    private final MailService mailerSendService;
+    private final CriticalEmailDispatchService criticalEmailDispatchService;
     private final EmailTemplateHelper emailTemplateHelper;
     private final BillingSubscriptionService billingSubscriptionService;
 
@@ -191,15 +192,11 @@ public class TrialExpirationService {
     }
 
     private void sendTrialExpirationEmail(User payer, BillingAccount account, String paymentLink, Invoice invoice) {
-        try {
-            String toEmail = account.getBillingEmail() != null ? account.getBillingEmail() : payer.getEmail();
-            String toName = account.getName() != null ? account.getName() : payer.getName();
-            String subject = "Renove sua assinatura - Easy Maintenance";
-            String html = emailTemplateHelper.generateSubscriptionExpirationHtml(payer.getName(), paymentLink, invoice.getDueDate().toString());
-            mailerSendService.sendEmail(toEmail, toName, subject, html, html);
-        } catch (Exception e) {
-            log.error("Failed to send email for invoice {}: {}", invoice.getId(), e.getMessage());
-        }
+        String toEmail = account.getBillingEmail() != null ? account.getBillingEmail() : payer.getEmail();
+        String toName = account.getName() != null ? account.getName() : payer.getName();
+        String subject = "Renove sua assinatura - Easy Maintenance";
+        String html = emailTemplateHelper.generateSubscriptionExpirationHtml(payer.getName(), paymentLink, invoice.getDueDate().toString());
+        criticalEmailDispatchService.send(toEmail, toName, null, NotificationEventType.TRIAL_EXPIRING, subject, html, true);
     }
 
     private static AsaasDTO.Cycle mapCycle(BillingCycle cycle) {

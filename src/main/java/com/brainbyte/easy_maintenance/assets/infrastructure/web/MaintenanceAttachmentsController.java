@@ -1,9 +1,13 @@
 package com.brainbyte.easy_maintenance.assets.infrastructure.web;
 
+import com.brainbyte.easy_maintenance.assets.application.dto.ConfirmUploadRequest;
 import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceAttachmentResponse;
+import com.brainbyte.easy_maintenance.assets.application.dto.PresignedUploadUrlRequest;
+import com.brainbyte.easy_maintenance.assets.application.dto.PresignedUploadUrlResponse;
 import com.brainbyte.easy_maintenance.assets.application.service.MaintenanceAttachmentService;
 import com.brainbyte.easy_maintenance.assets.domain.enums.AttachmentType;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
+import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -82,5 +86,38 @@ public class MaintenanceAttachmentsController {
     )
     public void delete(@PathVariable Long attachmentId) {
         service.delete(attachmentId);
+    }
+
+    @PostMapping("/{maintenanceId}/attachments/upload-url")
+    @RequireTenant
+    @Operation(
+            summary = "Gera uma URL pré-assinada para upload direto ao S3",
+            description = "Retorna uma URL temporária (15 min) para o browser fazer PUT do arquivo diretamente ao S3, sem passar pelo backend.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "URL pré-assinada gerada com sucesso"),
+                    @ApiResponse(responseCode = "400", description = "Arquivo inválido ou tamanho excede o limite configurado")
+            }
+    )
+    public PresignedUploadUrlResponse generateUploadUrl(
+            @Parameter(description = "ID da manutenção") @PathVariable Long maintenanceId,
+            @Valid @RequestBody PresignedUploadUrlRequest request) {
+        return service.generatePresignedUploadUrl(maintenanceId, request);
+    }
+
+    @PostMapping("/{maintenanceId}/attachments/confirm")
+    @RequireTenant
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(
+            summary = "Confirma o upload e registra o anexo",
+            description = "Deve ser chamado após o PUT direto ao S3. Persiste os metadados do arquivo no banco de dados.",
+            responses = {
+                    @ApiResponse(responseCode = "201", description = "Anexo registrado com sucesso"),
+                    @ApiResponse(responseCode = "400", description = "Chave S3 inválida ou tamanho excede o limite")
+            }
+    )
+    public MaintenanceAttachmentResponse confirmUpload(
+            @Parameter(description = "ID da manutenção") @PathVariable Long maintenanceId,
+            @Valid @RequestBody ConfirmUploadRequest request) {
+        return service.confirmUpload(maintenanceId, request);
     }
 }

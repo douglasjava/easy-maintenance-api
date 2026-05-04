@@ -69,5 +69,6 @@ public class MailerSendServiceImpl implements MailService {
     public void sendEmailFallback(String toEmail, String toName, String subject, String text, String html, Exception ex) {
         log.error("MailerSend failed after all retries: to={} subject='{}' — {}", toEmail, subject, ex.getMessage());
         businessMetricsService.counter("email.failed");
+        throw new InternalErrorException("E-mail não pôde ser entregue após todas as tentativas: " + ex.getMessage(), ex);
     }
 }

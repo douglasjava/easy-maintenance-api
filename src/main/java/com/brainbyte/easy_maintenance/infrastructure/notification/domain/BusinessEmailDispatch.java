@@ -24,7 +24,7 @@ public class BusinessEmailDispatch {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_code", nullable = false)
+    @Column(name = "organization_code")
     private String organizationCode;
 
     @Enumerated(EnumType.STRING)
@@ -32,10 +32,10 @@ public class BusinessEmailDispatch {
     private NotificationEventType eventType;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "reference_type", nullable = false)
+    @Column(name = "reference_type")
     private NotificationReferenceType referenceType;
 
-    @Column(name = "reference_id", nullable = false)
+    @Column(name = "reference_id")
     private Long referenceId;
 
     @Column(name = "recipient_email")
@@ -50,6 +50,23 @@ public class BusinessEmailDispatch {
 
     @Column(name = "sent_at")
     private Instant sentAt;
+
+    @Builder.Default
+    @Column(name = "retry_count", nullable = false)
+    private int retryCount = 0;
+
+    @Column(name = "last_retry_at")
+    private Instant lastRetryAt;
+
+    @Column(name = "subject", length = 500)
+    private String subject;
+
+    @Column(name = "html_content", columnDefinition = "MEDIUMTEXT")
+    private String htmlContent;
+
+    @Builder.Default
+    @Column(name = "retryable", nullable = false)
+    private boolean retryable = true;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

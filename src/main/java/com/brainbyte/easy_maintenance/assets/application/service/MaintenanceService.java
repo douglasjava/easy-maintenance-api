@@ -3,6 +3,7 @@ package com.brainbyte.easy_maintenance.assets.application.service;
 import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceAttachmentSimpleResponse;
 import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceResponse;
 import com.brainbyte.easy_maintenance.assets.application.dto.RegisterMaintenanceRequest;
+import com.brainbyte.easy_maintenance.commons.dto.CursorPageResponse;
 import com.brainbyte.easy_maintenance.assets.component.ServiceBase;
 import com.brainbyte.easy_maintenance.assets.domain.Maintenance;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceAttachment;
@@ -21,7 +22,9 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,6 +32,8 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -83,6 +88,63 @@ public class MaintenanceService {
         return maintenanceRepository.findAll(spec, pageable)
                 .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse);
 
+    }
+
+    public CursorPageResponse<MaintenanceResponse> listByItemCursor(String orgId, Long itemId,
+                                                                     LocalDate performedAt,
+                                                                     MaintenanceType type,
+                                                                     String performedBy,
+                                                                     Long cursor,
+                                                                     Long prevCursor,
+                                                                     int size) {
+        if (itemId != null) {
+            MaintenanceItem item = maintenanceItemService.findById(itemId);
+            validateOrganization(orgId, item);
+        }
+
+        Specification<Maintenance> baseSpec = MaintenanceSpecs.filter(orgId, itemId, performedAt, type, performedBy);
+
+        if (cursor == null && prevCursor == null) {
+            // OFFSET fallback — first page
+            Page<Maintenance> page = maintenanceRepository.findAll(
+                    baseSpec, PageRequest.of(0, size, Sort.by("id").ascending()));
+            Long nextCursor = page.hasNext() && !page.getContent().isEmpty()
+                    ? page.getContent().get(page.getContent().size() - 1).getId()
+                    : null;
+            List<MaintenanceResponse> content = page.getContent().stream()
+                    .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse).toList();
+            return new CursorPageResponse<>(content, nextCursor, null, page.hasNext(),
+                    size, page.getTotalElements(), page.getTotalPages(), page.getNumber());
+        }
+
+        if (prevCursor != null) {
+            // Backward: fetch items before prevCursor
+            Specification<Maintenance> backSpec = baseSpec.and(
+                    (root, query, cb) -> cb.lessThan(root.get("id"), prevCursor));
+            Page<Maintenance> raw = maintenanceRepository.findAll(
+                    backSpec, PageRequest.of(0, size + 1, Sort.by("id").descending()));
+            boolean hasPrev = raw.getContent().size() > size;
+            List<Maintenance> items = hasPrev ? raw.getContent().subList(0, size) : raw.getContent();
+            java.util.ArrayList<Maintenance> ascending = new java.util.ArrayList<>(items);
+            java.util.Collections.reverse(ascending);
+            List<MaintenanceResponse> content = ascending.stream()
+                    .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse).toList();
+            Long pc = (hasPrev && !content.isEmpty())
+                    ? ascending.get(0).getId() : null;
+            return CursorPageResponse.ofCursor(content, null, pc, hasPrev, size);
+        }
+
+        // Forward: fetch items after cursor
+        Specification<Maintenance> fwdSpec = baseSpec.and(
+                (root, query, cb) -> cb.greaterThan(root.get("id"), cursor));
+        Page<Maintenance> raw = maintenanceRepository.findAll(
+                fwdSpec, PageRequest.of(0, size + 1, Sort.by("id").ascending()));
+        boolean hasMore = raw.getContent().size() > size;
+        List<Maintenance> items = hasMore ? raw.getContent().subList(0, size) : raw.getContent();
+        List<MaintenanceResponse> content = items.stream()
+                .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse).toList();
+        Long nc = (hasMore && !content.isEmpty()) ? items.get(items.size() - 1).getId() : null;
+        return CursorPageResponse.ofCursor(content, nc, null, hasMore, size);
     }
 
     public MaintenanceResponse findById(String orgId, Long maintenanceId) {

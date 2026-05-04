@@ -36,8 +36,12 @@ public class JwtService {
   }
 
   public String generate(String subject, Map<String, Object> claims) {
+    return generateWithTtl(subject, claims, expirationSeconds);
+  }
+
+  public String generateWithTtl(String subject, Map<String, Object> claims, long ttlSeconds) {
     Instant now = Instant.now();
-    Instant exp = now.plusSeconds(expirationSeconds);
+    Instant exp = now.plusSeconds(ttlSeconds);
 
     return Jwts.builder()
             .setSubject(subject)
