@@ -46,6 +46,7 @@ public class OnboardingController {
         // JWT emitido no login não continha orgs (usuário sem empresa ainda).
         // Após criar a organização, reemitir o cookie com JWT atualizado para que
         // TenantFilter.validateOrgMembership() passe na próxima chamada ao /me/access-context.
+
         String refreshedToken = usersService.issueRefreshedToken(user.getId());
         ResponseCookie cookie = ResponseCookie.from("accessToken", refreshedToken)
                 .httpOnly(true)
