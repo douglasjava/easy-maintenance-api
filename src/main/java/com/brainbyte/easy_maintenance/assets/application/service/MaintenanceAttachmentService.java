@@ -13,6 +13,7 @@ import com.brainbyte.easy_maintenance.commons.exceptions.S3Exception;
 import com.brainbyte.easy_maintenance.infrastructure.audit.AuditAction;
 import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
 import com.brainbyte.easy_maintenance.infrastructure.storage.S3FileStorageService;
+import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +35,7 @@ public class MaintenanceAttachmentService {
     private final MaintenanceAttachmentRepository repository;
     private final S3FileStorageService fileStorageService;
     private final AuditService auditService;
+    private final AuthenticationService authenticationService;
 
     @Value("${aws.s3.upload.max-file-size-mb:10}")
     private long maxFileSizeMb;
@@ -60,6 +62,7 @@ public class MaintenanceAttachmentService {
                     .contentType(file.getContentType())
                     .sizeBytes(file.getSize())
                     .uploadedAt(java.time.Instant.now())
+                    .uploadedByUserId(authenticationService.getCurrentUser().getId())
                     .build();
 
             MaintenanceAttachment saved = repository.save(attachment);
@@ -127,6 +130,14 @@ public class MaintenanceAttachmentService {
 
         String fileUrl = fileStorageService.buildFileUrl(request.s3Key());
 
+        if (repository.existsByFileUrl(fileUrl)) {
+            throw new RuleException("Este arquivo já foi confirmado anteriormente");
+        }
+
+        if (!fileStorageService.objectExists(request.s3Key())) {
+            throw new RuleException("Arquivo não encontrado no S3. O upload não foi concluído.");
+        }
+
         MaintenanceAttachment attachment = MaintenanceAttachment.builder()
                 .maintenanceId(maintenanceId)
                 .attachmentType(request.attachmentType())
@@ -135,6 +146,7 @@ public class MaintenanceAttachmentService {
                 .contentType(request.contentType())
                 .sizeBytes(request.sizeBytes())
                 .uploadedAt(Instant.now())
+                .uploadedByUserId(authenticationService.getCurrentUser().getId())
                 .build();
 
         MaintenanceAttachment saved = repository.save(attachment);

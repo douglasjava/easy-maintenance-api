@@ -9,6 +9,8 @@ import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.Maintena
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
 import com.brainbyte.easy_maintenance.infrastructure.storage.S3FileStorageService;
+import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
+import com.brainbyte.easy_maintenance.org_users.domain.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +36,9 @@ class MaintenanceAttachmentServiceTest {
 
     @Mock
     private AuditService auditService;
+
+    @Mock
+    private AuthenticationService authenticationService;
 
     @InjectMocks
     private MaintenanceAttachmentService service;
@@ -93,17 +98,25 @@ class MaintenanceAttachmentServiceTest {
     @Test
     void shouldConfirmUpload_andPersistAttachment() {
         String s3Key = "maintenances/42/some-uuid/foto.jpg";
-        when(fileStorageService.buildFileUrl(s3Key))
-                .thenReturn("https://bucket.s3.amazonaws.com/" + s3Key);
+        String fileUrl = "https://bucket.s3.us-east-1.amazonaws.com/" + s3Key;
+
+        when(fileStorageService.buildFileUrl(s3Key)).thenReturn(fileUrl);
+        when(repository.existsByFileUrl(fileUrl)).thenReturn(false);
+        when(fileStorageService.objectExists(s3Key)).thenReturn(true);
+
+        User user = new User();
+        user.setId(99L);
+        when(authenticationService.getCurrentUser()).thenReturn(user);
 
         MaintenanceAttachment saved = MaintenanceAttachment.builder()
                 .id(10L)
                 .maintenanceId(42L)
                 .attachmentType(AttachmentType.PHOTO)
-                .fileUrl("https://bucket.s3.amazonaws.com/" + s3Key)
+                .fileUrl(fileUrl)
                 .fileName("foto.jpg")
                 .contentType("image/jpeg")
                 .sizeBytes(204800L)
+                .uploadedByUserId(99L)
                 .build();
         when(repository.save(any())).thenReturn(saved);
 
@@ -116,6 +129,45 @@ class MaintenanceAttachmentServiceTest {
         assertThat(response.fileUrl()).contains(s3Key);
         verify(repository).save(any());
         verify(auditService).log(eq("MAINTENANCE_ATTACHMENT"), eq("10"), any(), any());
+    }
+
+    @Test
+    void shouldThrowRuleException_whenS3KeyAlreadyConfirmed() {
+        String s3Key = "maintenances/42/some-uuid/foto.jpg";
+        String fileUrl = "https://bucket.s3.us-east-1.amazonaws.com/" + s3Key;
+
+        when(fileStorageService.buildFileUrl(s3Key)).thenReturn(fileUrl);
+        when(repository.existsByFileUrl(fileUrl)).thenReturn(true);
+
+        ConfirmUploadRequest request = new ConfirmUploadRequest(
+                s3Key, "foto.jpg", "image/jpeg", 204800L, AttachmentType.PHOTO);
+
+        assertThatThrownBy(() -> service.confirmUpload(42L, request))
+                .isInstanceOf(RuleException.class)
+                .hasMessageContaining("já foi confirmado");
+
+        verify(fileStorageService, never()).objectExists(any());
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
+    void shouldThrowRuleException_whenFileNotYetUploadedToS3() {
+        String s3Key = "maintenances/42/some-uuid/foto.jpg";
+        String fileUrl = "https://bucket.s3.us-east-1.amazonaws.com/" + s3Key;
+
+        when(fileStorageService.buildFileUrl(s3Key)).thenReturn(fileUrl);
+        when(repository.existsByFileUrl(fileUrl)).thenReturn(false);
+        when(fileStorageService.objectExists(s3Key)).thenReturn(false);
+
+        ConfirmUploadRequest request = new ConfirmUploadRequest(
+                s3Key, "foto.jpg", "image/jpeg", 204800L, AttachmentType.PHOTO);
+
+        assertThatThrownBy(() -> service.confirmUpload(42L, request))
+                .isInstanceOf(RuleException.class)
+                .hasMessageContaining("não foi concluído");
+
+        verifyNoInteractions(auditService);
+        verify(repository, never()).save(any());
     }
 
     @Test

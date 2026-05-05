@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface MaintenanceAttachmentRepository extends JpaRepository<MaintenanceAttachment, Long> {
     List<MaintenanceAttachment> findByMaintenanceId(Long maintenanceId);
+
+    boolean existsByFileUrl(String fileUrl);
 }

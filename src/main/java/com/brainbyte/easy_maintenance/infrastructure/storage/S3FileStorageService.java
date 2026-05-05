@@ -13,6 +13,9 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+
 import java.io.InputStream;
 import java.time.Duration;
 
@@ -23,12 +26,15 @@ public class S3FileStorageService {
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
     private final String bucketName;
+    private final String region;
 
     public S3FileStorageService(S3Client s3Client, S3Presigner s3Presigner,
-                                @Value("${aws.s3.bucket}") String bucketName) {
+                                @Value("${aws.s3.bucket}") String bucketName,
+                                @Value("${aws.region:us-east-1}") String region) {
         this.s3Client = s3Client;
         this.s3Presigner = s3Presigner;
         this.bucketName = bucketName;
+        this.region = region;
     }
 
     public String upload(String path, String fileName, String contentType, InputStream inputStream, long size) {
@@ -106,12 +112,23 @@ public class S3FileStorageService {
         }
     }
 
+    public boolean objectExists(String key) {
+        try {
+            s3Client.headObject(HeadObjectRequest.builder().bucket(bucketName).key(key).build());
+            return true;
+        } catch (NoSuchKeyException e) {
+            return false;
+        } catch (Exception e) {
+            log.error("Error checking object existence in S3: {}", key, e);
+            throw new S3Exception("Failed to verify file existence in S3", e);
+        }
+    }
+
     public String buildFileUrl(String key) {
-        return String.format("https://%s.s3.amazonaws.com/%s", bucketName, key);
+        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, key);
     }
 
     private String extractKeyFromUrl(String fileUrl) {
-        // Exemplo: https://bucket.s3.amazonaws.com/path/file.jpg -> path/file.jpg
         return fileUrl.substring(fileUrl.indexOf(".com/") + 5);
     }
 }
