@@ -14,8 +14,9 @@ import com.brainbyte.easy_maintenance.org_users.domain.enums.Plan;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Status;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
-import com.brainbyte.easy_maintenance.infrastructure.mail.MailService;
 import com.brainbyte.easy_maintenance.infrastructure.mail.utils.EmailTemplateHelper;
+import com.brainbyte.easy_maintenance.infrastructure.notification.enums.NotificationEventType;
+import com.brainbyte.easy_maintenance.infrastructure.notification.service.CriticalEmailDispatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,7 +44,7 @@ public class AdminService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
-    private final MailService mailService;
+    private final CriticalEmailDispatchService criticalEmailDispatchService;
     private final EmailTemplateHelper emailTemplateHelper;
 
     public OrganizationDTO.OrganizationResponse createOrganization(OrganizationDTO.CreateOrganizationRequest request) {
@@ -65,7 +66,7 @@ public class AdminService {
 
         var userResponse = usersService.createUser(createUserRequest);
 
-        return initializeUserAccess(userResponse, password);
+        return initializeUserAccess(userResponse, password, null);
 
     }
 
@@ -73,7 +74,7 @@ public class AdminService {
 
         var userResponse = usersService.createUserWithOrganization(request, orgCode);
 
-        return initializeUserAccess(userResponse, request.password());
+        return initializeUserAccess(userResponse, request.password(), orgCode);
 
     }
 
@@ -136,19 +137,23 @@ public class AdminService {
         usersService.removeOrganization(userId, orgCode);
     }
 
-    private UserDTO.UserResponse initializeUserAccess(UserDTO.UserResponse userResponse, String password) {
+    private UserDTO.UserResponse initializeUserAccess(UserDTO.UserResponse userResponse, String password, String orgCode) {
         var firstAccess = firstAccessService.createForUser(userResponse.id());
 
         log.info("Usuário criado com sucesso - Token criado para primeiro acesso {}", firstAccess.getToken());
 
-        try {
-            String subject = "Conclua seu cadastro na Easy Maintenance";
-            String htmlContent = emailTemplateHelper.generateAdminInvitationHtml(userResponse.name(), userResponse.email(), password, loginUrl);
-            mailService.sendEmail(userResponse.email(), userResponse.name(), subject, subject, htmlContent);
-            log.info("E-mail de convite enviado para {}", userResponse.email());
-        } catch (Exception e) {
-            log.error("Erro ao enviar e-mail de convite para {}: {}", userResponse.email(), e.getMessage());
-        }
+        String subject = "Conclua seu cadastro na Easy Maintenance";
+        String htmlContent = emailTemplateHelper.generateAdminInvitationHtml(userResponse.name(), userResponse.email(), password, loginUrl);
+
+        criticalEmailDispatchService.send(
+                userResponse.email(),
+                userResponse.name(),
+                orgCode,
+                NotificationEventType.ADMIN_INVITATION,
+                subject,
+                htmlContent,
+                true
+        );
 
         return userResponse;
     }
