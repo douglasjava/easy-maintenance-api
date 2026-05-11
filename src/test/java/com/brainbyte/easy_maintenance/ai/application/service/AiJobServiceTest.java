@@ -8,6 +8,7 @@ import com.brainbyte.easy_maintenance.ai.domain.enums.AiJobType;
 import com.brainbyte.easy_maintenance.ai.infrastructure.persistence.AiJobRepository;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotAuthorizedException;
+import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,10 +35,15 @@ class AiJobServiceTest {
     private AiJobProcessor aiJobProcessor;
 
     @Mock
+    private AiCreditService aiCreditService;
+
+    @Mock
     private ObjectMapper objectMapper;
 
     @InjectMocks
     private AiJobService service;
+
+    private static final Long USER_ID = 1L;
 
     @Test
     void shouldSubmitJob_saveRecord_andTriggerAsyncProcessing() throws Exception {
@@ -45,16 +51,29 @@ class AiJobServiceTest {
         when(objectMapper.writeValueAsString(req)).thenReturn("{\"question\":\"Quais itens vencem?\"}");
         when(jobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        String jobId = service.submitJob("org-A", AiJobType.ASSISTANT, req);
+        String jobId = service.submitJob("org-A", USER_ID, AiJobType.ASSISTANT, req);
 
         assertThat(jobId).isNotBlank();
         ArgumentCaptor<AiJob> captor = ArgumentCaptor.forClass(AiJob.class);
         verify(jobRepository).save(captor.capture());
         AiJob saved = captor.getValue();
         assertThat(saved.getOrganizationCode()).isEqualTo("org-A");
+        assertThat(saved.getUserId()).isEqualTo(USER_ID);
         assertThat(saved.getJobType()).isEqualTo(AiJobType.ASSISTANT);
         assertThat(saved.getStatus()).isEqualTo(AiJobStatus.PENDING);
         verify(aiJobProcessor).processAsync(jobId, "org-A");
+    }
+
+    @Test
+    void shouldValidateCreditsBefore_submittingJob() throws Exception {
+        doThrow(new RuleException("Cota de IA atingida")).when(aiCreditService).validateHasCredits(USER_ID);
+        AiAssistantRequest req = AiAssistantRequest.builder().question("Quais itens vencem?").build();
+
+        assertThatThrownBy(() -> service.submitJob("org-A", USER_ID, AiJobType.ASSISTANT, req))
+                .isInstanceOf(RuleException.class)
+                .hasMessageContaining("Cota de IA atingida");
+
+        verifyNoInteractions(jobRepository, aiJobProcessor);
     }
 
     @Test

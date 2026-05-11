@@ -4,6 +4,7 @@ import com.brainbyte.easy_maintenance.commons.exceptions.IAException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.util.StringUtils;
 
 @Slf4j
@@ -13,35 +14,41 @@ public class DeepSeekAiProvider implements AiProvider {
     private final ChatClient chatClient;
 
     @Override
-    public String chat(String systemPrompt, String userPrompt) {
+    public AiChatResult chat(String systemPrompt, String userPrompt) {
         log.info("Using DeepSeek Provider");
         try {
             var spec = chatClient.prompt();
             if (systemPrompt != null) {
                 spec.system(systemPrompt);
             }
-            String content = spec.user(userPrompt)
-                    .call()
-                    .content();
+            var chatResponse = spec.user(userPrompt).call().chatResponse();
+            String rawContent = chatResponse.getResult().getOutput().getContent();
+            int tokens = extractTokens(chatResponse.getMetadata().getUsage());
 
-            if (!StringUtils.hasText(content)) {
+            if (!StringUtils.hasText(rawContent)) {
                 throw new IAException("DeepSeek returned empty response");
             }
 
-            String cleaned = stripMarkdownCodeFence(content);
+            String cleaned = stripMarkdownCodeFence(rawContent);
             String jsonOnly = extractJsonObject(cleaned);
 
-            // Check if JSON is expected and valid
             if (userPrompt.toLowerCase().contains("json") && !isValidJson(jsonOnly)) {
                 throw new IAException("DeepSeek returned invalid JSON");
             }
 
-            return expectsJson(userPrompt) ? jsonOnly : content;
+            String content = expectsJson(userPrompt) ? jsonOnly : rawContent;
+            log.debug("DeepSeek tokens used: {}", tokens);
+            return AiChatResult.of(content, tokens);
 
         } catch (Exception e) {
             log.error("DeepSeek call failed: {}", e.getMessage());
             throw new IAException("DeepSeek provider error", e);
         }
+    }
+
+    private static int extractTokens(Usage usage) {
+        if (usage == null || usage.getTotalTokens() == null) return 0;
+        return (int) Math.min(usage.getTotalTokens(), Integer.MAX_VALUE);
     }
 
     private boolean isValidJson(String content) {
@@ -79,5 +86,4 @@ public class DeepSeekAiProvider implements AiProvider {
         if (start >= 0 && end > start) return s.substring(start, end + 1).trim();
         return s.trim();
     }
-
 }

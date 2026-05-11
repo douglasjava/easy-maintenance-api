@@ -22,6 +22,9 @@ public class AiJob {
     @Column(name = "organization_code", nullable = false)
     private String organizationCode;
 
+    @Column(name = "user_id")
+    private Long userId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "job_type", nullable = false)
     private AiJobType jobType;

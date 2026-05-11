@@ -18,4 +18,6 @@ public class AccountAccessResponse {
     private BillingPlanFeatures features;
     /** Preenchido apenas quando subscriptionStatus = TRIAL. Null nos demais casos. */
     private Instant trialExpiresAt;
+    private int aiCreditsUsed;
+    private int aiCreditsLimit;
 }

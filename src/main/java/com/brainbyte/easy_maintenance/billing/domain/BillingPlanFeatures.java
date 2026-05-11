@@ -13,14 +13,16 @@ import lombok.NoArgsConstructor;
  * <h3>Schema</h3>
  * <pre>
  * {
- *   "maxOrganizations"  : int     — organizations the tenant may manage        (default: 1)
- *   "maxUsers"          : int     — max active users per organization           (default: 1)
- *   "maxItems"          : int     — max maintenance items per organization      (default: 30)
- *   "aiEnabled"         : boolean — AI features available                       (default: false)
- *   "aiMonthlyCredits"  : int     — monthly AI token/credit budget              (default: 0)
- *   "emailMonthlyLimit" : int     — max outbound e-mails per calendar month     (default: 100)
- *   "reportsEnabled"    : boolean — PDF/Excel report export available           (default: false)
- *   "supportLevel"      : string  — COMMUNITY | EMAIL | PRIORITY_EMAIL | DEDICATED (default: "COMMUNITY")
+ *   "maxOrganizations"    : int     — organizations the tenant may manage        (default: 1)
+ *   "maxUsers"            : int     — max active users per organization           (default: 1)
+ *   "maxItems"            : int     — max maintenance items per organization      (default: 30)
+ *   "aiEnabled"           : boolean — AI features available                       (default: false)
+ *   "aiMonthlyCredits"    : int     — monthly AI token/credit budget              (default: 0)
+ *   "emailMonthlyLimit"   : int     — max outbound e-mails per calendar month     (default: 100)
+ *   "reportsEnabled"      : boolean — PDF/Excel report export available           (default: false)
+ *   "supportLevel"        : string  — COMMUNITY | EMAIL | PRIORITY_EMAIL | DEDICATED (default: "COMMUNITY")
+ *   "maxFileSizeMb"       : int     — max size per uploaded file in MB            (default: 5)
+ *   "maxMonthlyUploadsMb" : int     — monthly upload quota per org in MB          (default: 500)
  * }
  * </pre>
  *
@@ -82,4 +84,14 @@ public class BillingPlanFeatures {
     @JsonProperty("supportLevel")
     @Builder.Default
     private String supportLevel = "COMMUNITY";
+
+    /** Maximum file size per individual upload, in megabytes. */
+    @JsonProperty("maxFileSizeMb")
+    @Builder.Default
+    private int maxFileSizeMb = 5;
+
+    /** Monthly upload quota per organization, in megabytes. Enforced at presigned-URL generation time. */
+    @JsonProperty("maxMonthlyUploadsMb")
+    @Builder.Default
+    private int maxMonthlyUploadsMb = 500;
 }

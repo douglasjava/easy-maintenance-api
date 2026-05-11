@@ -70,14 +70,15 @@ public class AiBootstrapService {
 
         try {
 
-            String jsonResponse = aiProvider.chat(template.getSystemPrompt(), userPrompt);
+            var aiResult = aiProvider.chat(template.getSystemPrompt(), userPrompt);
 
             // 2) Higieniza/extrai só o JSON
-            String jsonOnly = extractJsonObject(jsonResponse);
+            String jsonOnly = extractJsonObject(aiResult.content());
 
             AiBootstrapPreviewResponse response = objectMapper.readValue(jsonOnly, AiBootstrapPreviewResponse.class);
             response.setUsedAi(true);
             response.setCompanyType(dbCompanyType);
+            response.setTokensUsed(aiResult.tokensUsed());
 
             log.info("AiBootstrapPreviewResponse {}", response);
 

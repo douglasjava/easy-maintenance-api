@@ -70,14 +70,14 @@ public class OnboardingService {
 
         BillingAccount savedAccount = billingAccountRepository.save(account);
 
-        log.info("3. Buscar ou criar BillingSubscription (Trial de 7 dias padrão)");
+        log.info("3. Buscar ou criar BillingSubscription (Trial de 7 dias — plano BUSINESS)");
         var billingSubscription = billingSubscriptionService.findByUser(user.getId())
                 .orElseGet(() -> billingSubscriptionService.createTrial(savedAccount, Duration.ofDays(7)));
 
-        var userPlan = getBillingPlanByCode(request.planCode());
+        var trialPlan = getBillingPlanByCode("BUSINESS");
 
-        log.info("5. Adicionar item USER à assinatura");
-        billingSubscriptionService.addItem(billingSubscription, BillingSubscriptionItemSourceType.USER, user.getId().toString(), userPlan);
+        log.info("5. Adicionar item USER à assinatura (trial BUSINESS)");
+        billingSubscriptionService.addItem(billingSubscription, BillingSubscriptionItemSourceType.USER, user.getId().toString(), trialPlan);
 
         var billingAccountResponse = IBillingMapper.INSTANCE.toBillingAccountResponse(savedAccount);
 
@@ -105,10 +105,10 @@ public class OnboardingService {
         log.info("3. Vincular User X Organization (Permissões de domínio)");
         usersService.addOrganization(user.getId(), createdOrganization.code());
 
-        var orgPlan = getBillingPlanByCode(request.planCode());
+        var trialPlan = getBillingPlanByCode("BUSINESS");
 
-        log.info("5. Adicionar item ORGANIZATION à BillingSubscription");
-        billingSubscriptionService.addItem(billingSubscription, BillingSubscriptionItemSourceType.ORGANIZATION, createdOrganization.code(), orgPlan);
+        log.info("5. Adicionar item ORGANIZATION à BillingSubscription (trial BUSINESS)");
+        billingSubscriptionService.addItem(billingSubscription, BillingSubscriptionItemSourceType.ORGANIZATION, createdOrganization.code(), trialPlan);
 
         log.info("6. Enviar e-mail de ativação do trial");
         sendTrialActivatedEmail(user, billingSubscription);

@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class AiAssistantResponse {
     private String answer;
     private boolean usedAi;
+    private int tokensUsed;
 }

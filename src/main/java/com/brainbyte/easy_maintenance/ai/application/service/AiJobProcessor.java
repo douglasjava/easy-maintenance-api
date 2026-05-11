@@ -27,6 +27,7 @@ public class AiJobProcessor {
     private final AiJobRepository jobRepository;
     private final AiService aiService;
     private final AiBootstrapService bootstrapService;
+    private final AiCreditService aiCreditService;
     private final ObjectMapper objectMapper;
 
     @Async("aiJobExecutor")
@@ -60,6 +61,14 @@ public class AiJobProcessor {
             job.setStatus(AiJobStatus.DONE);
             job.setCompletedAt(Instant.now());
             jobRepository.save(job);
+
+            if (job.getUserId() != null) {
+                int tokens = extractTokensUsed(result);
+                if (tokens > 0) {
+                    aiCreditService.deductCredits(job.getUserId(), tokens);
+                }
+            }
+
             log.info("AI job {} completed — type={} org={}", jobId, job.getJobType(), orgCode);
 
         } catch (Exception e) {
@@ -73,5 +82,17 @@ public class AiJobProcessor {
         } finally {
             TenantContext.clear();
         }
+    }
+
+    private int extractTokensUsed(Object result) {
+        try {
+            var node = objectMapper.valueToTree(result);
+            if (node.has("tokensUsed")) {
+                return node.get("tokensUsed").asInt(0);
+            }
+        } catch (Exception e) {
+            log.warn("Could not extract tokensUsed from AI job result", e);
+        }
+        return 0;
     }
 }

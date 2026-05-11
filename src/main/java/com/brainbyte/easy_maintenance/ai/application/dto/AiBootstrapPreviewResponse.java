@@ -18,6 +18,9 @@ public class AiBootstrapPreviewResponse {
     @Schema(description = "Indica se a IA foi utilizada com sucesso para gerar o preview")
     private boolean usedAi;
 
+    @Schema(description = "Tokens consumidos nesta chamada (0 quando usedAi=false)")
+    private int tokensUsed;
+
     @Schema(description = "Tipo de empresa processado", example = "CONDOMINIO")
     private String companyType;
 

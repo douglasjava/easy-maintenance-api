@@ -8,4 +8,6 @@ import lombok.Data;
 public class OrganizationUsageResponse {
     private long currentItems;
     private long currentUsers;
+    private long uploadUsedMb;
+    private int uploadLimitMb;
 }

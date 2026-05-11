@@ -6,26 +6,38 @@ import com.brainbyte.easy_maintenance.assets.application.dto.PresignedUploadUrlR
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceAttachment;
 import com.brainbyte.easy_maintenance.assets.domain.enums.AttachmentType;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceAttachmentRepository;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
+import com.brainbyte.easy_maintenance.billing.domain.BillingPlanFeatures;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
 import com.brainbyte.easy_maintenance.infrastructure.storage.S3FileStorageService;
+import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class MaintenanceAttachmentServiceTest {
 
     @Mock
@@ -40,12 +52,37 @@ class MaintenanceAttachmentServiceTest {
     @Mock
     private AuthenticationService authenticationService;
 
+    @Mock
+    private BillingSubscriptionItemRepository subscriptionItemRepository;
+
+    @Mock
+    private BillingPlanFeaturesHelper featuresHelper;
+
     @InjectMocks
     private MaintenanceAttachmentService service;
 
+    private static final String ORG_CODE = "org-A";
+    private static final BillingSubscriptionItem STUB_ITEM = mock(BillingSubscriptionItem.class);
+
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(service, "maxFileSizeMb", 10L);
+        ReflectionTestUtils.setField(service, "hardMaxFileSizeMb", 50L);
+        TenantContext.set(ORG_CODE);
+
+        BillingPlanFeatures defaultFeatures = BillingPlanFeatures.builder()
+                .maxFileSizeMb(20)
+                .maxMonthlyUploadsMb(2048)
+                .build();
+        when(subscriptionItemRepository.findAllBySourceTypeAndSourceIdIn(
+                eq(BillingSubscriptionItemSourceType.ORGANIZATION), any()))
+                .thenReturn(List.of(STUB_ITEM));
+        when(featuresHelper.parse(any())).thenReturn(defaultFeatures);
+        when(repository.sumSizeBytesByOrgSince(eq(ORG_CODE), any(Instant.class))).thenReturn(0L);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     // --- generatePresignedUploadUrl ---
@@ -82,15 +119,45 @@ class MaintenanceAttachmentServiceTest {
     }
 
     @Test
-    void shouldThrowRuleException_whenFileSizeExceedsLimit() {
+    void shouldThrowRuleException_whenFileSizeExceedsPlanLimit() {
+        // Plan allows 20 MB max
         PresignedUploadUrlRequest request = new PresignedUploadUrlRequest(
-                "grande.zip", "application/zip", AttachmentType.OTHER, 11 * 1024 * 1024L);
+                "grande.zip", "application/zip", AttachmentType.OTHER, 25 * 1024 * 1024L);
 
         assertThatThrownBy(() -> service.generatePresignedUploadUrl(1L, request))
                 .isInstanceOf(RuleException.class)
-                .hasMessageContaining("10 MB");
+                .hasMessageContaining("20 MB");
 
         verifyNoInteractions(fileStorageService);
+    }
+
+    @Test
+    void shouldThrowRuleException_whenMonthlyQuotaWouldBeExceeded() {
+        // Already used 2040 MB of 2048 MB quota
+        when(repository.sumSizeBytesByOrgSince(eq(ORG_CODE), any(Instant.class)))
+                .thenReturn(2040L * 1024L * 1024L);
+
+        // Request 10 MB (within per-file limit of 20 MB) — would push total to 2050 MB > 2048 MB
+        PresignedUploadUrlRequest request = new PresignedUploadUrlRequest(
+                "file.pdf", "application/pdf", AttachmentType.OTHER, 10 * 1024 * 1024L);
+
+        assertThatThrownBy(() -> service.generatePresignedUploadUrl(1L, request))
+                .isInstanceOf(RuleException.class)
+                .hasMessageContaining("Cota mensal");
+
+        verifyNoInteractions(fileStorageService);
+    }
+
+    @Test
+    void shouldThrowRuleException_whenNoTenantContext() {
+        TenantContext.clear();
+
+        PresignedUploadUrlRequest request = new PresignedUploadUrlRequest(
+                "arquivo.pdf", "application/pdf", AttachmentType.REPORT, 1024L);
+
+        assertThatThrownBy(() -> service.generatePresignedUploadUrl(1L, request))
+                .isInstanceOf(RuleException.class)
+                .hasMessageContaining("organização");
     }
 
     // --- confirmUpload ---
@@ -184,14 +251,14 @@ class MaintenanceAttachmentServiceTest {
     }
 
     @Test
-    void shouldThrowRuleException_onConfirm_whenFileSizeExceedsLimit() {
+    void shouldThrowRuleException_onConfirm_whenFileSizeExceedsHardLimit() {
         ConfirmUploadRequest request = new ConfirmUploadRequest(
                 "maintenances/1/uuid/grande.zip", "grande.zip", "application/zip",
-                20 * 1024 * 1024L, AttachmentType.OTHER);
+                60 * 1024 * 1024L, AttachmentType.OTHER);
 
         assertThatThrownBy(() -> service.confirmUpload(1L, request))
                 .isInstanceOf(RuleException.class)
-                .hasMessageContaining("10 MB");
+                .hasMessageContaining("50 MB");
 
         verifyNoInteractions(repository, auditService);
     }

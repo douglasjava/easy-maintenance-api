@@ -16,4 +16,5 @@ public class AiSummaryResponse {
     private long overdue;
     private String prettyText; // opcional, preenchido quando pretty=true
     private boolean usedAi;
+    private int tokensUsed;
 }

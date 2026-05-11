@@ -1,5 +1,7 @@
 package com.brainbyte.easy_maintenance.infrastructure.access.application.service;
 
+import com.brainbyte.easy_maintenance.ai.application.service.AiCreditService;
+import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceAttachmentRepository;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceItemRepository;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
@@ -19,6 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,6 +44,8 @@ public class FeatureAccessService {
     private final BillingPlanFeaturesHelper billingPlanFeaturesHelper;
     private final MaintenanceItemRepository maintenanceItemRepository;
     private final UserOrganizationRepository userOrganizationRepository;
+    private final AiCreditService aiCreditService;
+    private final MaintenanceAttachmentRepository maintenanceAttachmentRepository;
 
     public AccessContextResponse getAccessContext() {
         User user = authenticationService.getCurrentUser();
@@ -76,14 +82,18 @@ public class FeatureAccessService {
         // Populate trialExpiresAt whenever the underlying status is TRIAL (active or expired)
         Instant trialExpiresAt = (rawStatus == SubscriptionStatus.TRIAL) ? periodEnd : null;
 
+        BillingPlanFeatures accountFeatures = billingPlanFeaturesHelper.parse(plan);
+
         return AccountAccessResponse.builder()
                 .subscriptionStatus(effectiveStatus != null ? effectiveStatus.name() : "NONE")
                 .accessMode(mode)
                 .message(resolveAccountMessage(effectiveStatus, mode))
                 .plan(mapPlan(plan))
-                .features(billingPlanFeaturesHelper.parse(plan))
+                .features(accountFeatures)
                 .permissions(buildAccountPermissions(mode))
                 .trialExpiresAt(trialExpiresAt)
+                .aiCreditsUsed(aiCreditService.getCreditsUsedThisMonth(userId))
+                .aiCreditsLimit(accountFeatures.getAiMonthlyCredits())
                 .build();
     }
 
@@ -110,17 +120,24 @@ public class FeatureAccessService {
         SubscriptionStatus effectiveStatus = SubscriptionAccessService.resolveEffectiveStatus(rawStatus, periodEnd);
         AccessMode mode = subscriptionAccessService.resolveOrganizationAccessMode(org.getCode());
 
+        BillingPlanFeatures features = billingPlanFeaturesHelper.parse(plan);
+
         // Usage counts are only computed for the current tenant (TenantContext must match this org).
         // This prevents incorrect results from the TenantFilterAspect when iterating multiple orgs.
         OrganizationUsageResponse usage = TenantContext.get()
                 .filter(tenant -> tenant.equals(org.getCode()))
-                .map(tenant -> OrganizationUsageResponse.builder()
-                        .currentItems(maintenanceItemRepository.countByOrganizationCode(org.getCode()))
-                        .currentUsers(userOrganizationRepository.countByOrganizationCode(org.getCode()))
-                        .build())
+                .map(tenant -> {
+                    Instant startOfMonth = LocalDate.now().withDayOfMonth(1)
+                            .atStartOfDay(ZoneId.systemDefault()).toInstant();
+                    long uploadUsedBytes = maintenanceAttachmentRepository.sumSizeBytesByOrgSince(org.getCode(), startOfMonth);
+                    return OrganizationUsageResponse.builder()
+                            .currentItems(maintenanceItemRepository.countByOrganizationCode(org.getCode()))
+                            .currentUsers(userOrganizationRepository.countByOrganizationCode(org.getCode()))
+                            .uploadUsedMb(uploadUsedBytes / (1024L * 1024L))
+                            .uploadLimitMb(features.getMaxMonthlyUploadsMb())
+                            .build();
+                })
                 .orElse(null);
-
-        BillingPlanFeatures features = billingPlanFeaturesHelper.parse(plan);
         boolean itemLimitReached = usage != null
                 && features.getMaxItems() > 0
                 && usage.getCurrentItems() >= features.getMaxItems();

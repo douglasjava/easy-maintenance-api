@@ -12,7 +12,7 @@ public class FallbackAiProvider implements AiProvider {
     private final AiProvider fallback;
 
     @Override
-    public String chat(String systemPrompt, String userPrompt) {
+    public AiChatResult chat(String systemPrompt, String userPrompt) {
         try {
             return primary.chat(systemPrompt, userPrompt);
         } catch (Exception e) {

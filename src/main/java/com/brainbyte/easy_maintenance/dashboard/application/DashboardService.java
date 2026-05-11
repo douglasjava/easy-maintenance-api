@@ -193,7 +193,7 @@ public class DashboardService {
         var resp = aiProvider.get().chat(null, prompt + "\n\n" + ctx);
 
         // Simple post-process: split lines; take first 3 for highlights and last one for next action if possible
-        List<String> lines = Arrays.stream(resp.split("\n"))
+        List<String> lines = Arrays.stream(resp.content().split("\n"))
                 .map(String::trim)
                 .filter(s -> !s.isBlank())
                 .toList();

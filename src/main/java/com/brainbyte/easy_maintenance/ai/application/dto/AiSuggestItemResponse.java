@@ -20,4 +20,5 @@ public class AiSuggestItemResponse {
     private Integer customPeriodQty; // ex: 6
     private List<String> tags; // ex: ["calibracao", "extintor"]
     private boolean usedAi;
+    private int tokensUsed;
 }

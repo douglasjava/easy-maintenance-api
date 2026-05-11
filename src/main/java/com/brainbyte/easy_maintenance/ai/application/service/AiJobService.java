@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -27,14 +28,18 @@ public class AiJobService {
 
     private final AiJobRepository jobRepository;
     private final AiJobProcessor aiJobProcessor;
+    private final AiCreditService aiCreditService;
     private final ObjectMapper objectMapper;
 
-    public String submitJob(String orgCode, AiJobType jobType, Object inputDto) {
+    public String submitJob(String orgCode, Long userId, AiJobType jobType, Object inputDto) {
+        Objects.requireNonNull(userId, "userId is required for AI job submission");
+        aiCreditService.validateHasCredits(userId);
         try {
             String inputJson = objectMapper.writeValueAsString(inputDto);
             AiJob job = AiJob.builder()
                     .id(UUID.randomUUID().toString())
                     .organizationCode(orgCode)
+                    .userId(userId)
                     .jobType(jobType)
                     .inputJson(inputJson)
                     .status(AiJobStatus.PENDING)
@@ -43,7 +48,7 @@ public class AiJobService {
             jobRepository.save(job);
             // processAsync is on a different bean — Spring proxy applies @Async correctly
             aiJobProcessor.processAsync(job.getId(), orgCode);
-            log.info("AI job submitted — id={} type={} org={}", job.getId(), jobType, orgCode);
+            log.info("AI job submitted — id={} type={} org={} userId={}", job.getId(), jobType, orgCode, userId);
             return job.getId();
         } catch (JsonProcessingException e) {
             throw new InternalErrorException("Falha ao serializar input do job de IA", e);

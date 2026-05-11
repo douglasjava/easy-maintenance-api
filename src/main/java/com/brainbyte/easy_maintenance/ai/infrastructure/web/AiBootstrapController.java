@@ -9,6 +9,7 @@ import com.brainbyte.easy_maintenance.ai.application.service.AiJobService;
 import com.brainbyte.easy_maintenance.ai.domain.enums.AiJobType;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
 import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
+import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import com.brainbyte.easy_maintenance.shared.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,6 +27,7 @@ public class AiBootstrapController {
 
     private final AiBootstrapService bootstrapService;
     private final AiJobService aiJobService;
+    private final AuthenticationService authenticationService;
 
     @PostMapping("/preview")
     @RateLimit("ai")
@@ -37,7 +39,8 @@ public class AiBootstrapController {
     )
     public AiJobAcceptedResponse preview(@Validated @RequestBody AiBootstrapPreviewRequest request) {
         String orgCode = TenantContext.get().orElseThrow();
-        String jobId = aiJobService.submitJob(orgCode, AiJobType.BOOTSTRAP_PREVIEW, request);
+        Long userId = authenticationService.getCurrentUser().getId();
+        String jobId = aiJobService.submitJob(orgCode, userId, AiJobType.BOOTSTRAP_PREVIEW, request);
         return new AiJobAcceptedResponse(jobId);
     }
 

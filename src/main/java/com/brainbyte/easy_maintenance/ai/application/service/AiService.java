@@ -55,9 +55,10 @@ public class AiService {
         if (pretty) {
             try {
                 String prompt = PromptBuilder.beautifySummaryPrompt(total, ok, near, over);
-                String content = aiProvider.chat(null, prompt);
-                builder.prettyText(Optional.ofNullable(content).orElse(""));
+                var result = aiProvider.chat(null, prompt);
+                builder.prettyText(Optional.ofNullable(result.content()).orElse(""));
                 builder.usedAi(true);
+                builder.tokensUsed(result.tokensUsed());
             } catch (Exception e) {
                 log.warn("AI pretty summary failed, falling back without pretty text", e);
                 builder.prettyText(null);
@@ -70,24 +71,24 @@ public class AiService {
     @CircuitBreaker(name = "ai")
     public AiAssistantResponse assistant(AiAssistantRequest req) {
         String orgId = TenantContext.get().orElseThrow();
-        // Build minimal context: counts + next due items + norms for optional itemType
         String context = buildContext(orgId, req.getItemType());
         String prompt = PromptBuilder.assistantPrompt(req.getQuestion(), context);
-        String answer = aiProvider.chat(null, prompt);
+        var result = aiProvider.chat(null, prompt);
         return AiAssistantResponse.builder()
-                .answer(answer)
+                .answer(result.content())
                 .usedAi(true)
+                .tokensUsed(result.tokensUsed())
                 .build();
     }
 
     @CircuitBreaker(name = "ai")
     public AiSuggestItemResponse suggestItem(AiSuggestItemRequest req) {
-        // orgId is not strictly needed for suggestion, but keep for future context if provided
         String prompt = PromptBuilder.suggestItemPrompt(req.getDescription(), req.getContextItemType());
-        String json = aiProvider.chat(null, prompt);
+        var result = aiProvider.chat(null, prompt);
         try {
-            AiSuggestItemResponse parsed = objectMapper.readValue(json, AiSuggestItemResponse.class);
+            AiSuggestItemResponse parsed = objectMapper.readValue(result.content(), AiSuggestItemResponse.class);
             parsed.setUsedAi(true);
+            parsed.setTokensUsed(result.tokensUsed());
             return parsed;
         } catch (Exception e) {
             log.warn("Failed to parse AI JSON for suggest-item. Returning minimal response.");

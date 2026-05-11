@@ -10,6 +10,7 @@ import com.brainbyte.easy_maintenance.ai.application.service.AiService;
 import com.brainbyte.easy_maintenance.ai.domain.enums.AiJobType;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
 import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
+import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import com.brainbyte.easy_maintenance.shared.ratelimit.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,6 +28,7 @@ public class AiController {
 
     private final AiService aiService;
     private final AiJobService aiJobService;
+    private final AuthenticationService authenticationService;
 
     @GetMapping("/summary")
     @RateLimit("ai")
@@ -47,7 +49,8 @@ public class AiController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public AiJobAcceptedResponse assistant(@Validated @RequestBody AiAssistantRequest req) {
         String orgCode = TenantContext.get().orElseThrow();
-        String jobId = aiJobService.submitJob(orgCode, AiJobType.ASSISTANT, req);
+        Long userId = authenticationService.getCurrentUser().getId();
+        String jobId = aiJobService.submitJob(orgCode, userId, AiJobType.ASSISTANT, req);
         return new AiJobAcceptedResponse(jobId);
     }
 
@@ -61,7 +64,8 @@ public class AiController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public AiJobAcceptedResponse suggestItem(@Validated @RequestBody AiSuggestItemRequest req) {
         String orgCode = TenantContext.get().orElseThrow();
-        String jobId = aiJobService.submitJob(orgCode, AiJobType.SUGGEST_ITEM, req);
+        Long userId = authenticationService.getCurrentUser().getId();
+        String jobId = aiJobService.submitJob(orgCode, userId, AiJobType.SUGGEST_ITEM, req);
         return new AiJobAcceptedResponse(jobId);
     }
 
