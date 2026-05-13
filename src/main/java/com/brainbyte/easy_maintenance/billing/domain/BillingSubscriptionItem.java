@@ -53,6 +53,9 @@ public class BillingSubscriptionItem {
     @Column(name = "canceled_at")
     private Instant canceledAt;
 
+    @Column(name = "activated_at")
+    private Instant activatedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

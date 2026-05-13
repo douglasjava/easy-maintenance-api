@@ -26,6 +26,12 @@ public record BillingSubscriptionResponse(
             Instant planChangeEffectiveAt,
             SubscriptionStatus status,
             Instant currentPeriodStart,
-            Instant currentPeriodEnd
+            Instant currentPeriodEnd,
+            Instant activatedAt
+    ) {}
+
+    public record SubscriptionItemRequest(
+            Long payerUserId,
+            String planCode
     ) {}
 }

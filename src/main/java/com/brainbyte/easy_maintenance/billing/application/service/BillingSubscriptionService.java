@@ -329,6 +329,7 @@ public class BillingSubscriptionService {
                 .sourceId(sourceId)
                 .plan(plan)
                 .valueCents(plan.getPriceCents().longValue())
+                .activatedAt(Instant.now())
                 .build();
         
         itemRepository.save(item);

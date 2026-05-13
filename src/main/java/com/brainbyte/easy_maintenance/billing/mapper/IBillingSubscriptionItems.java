@@ -17,6 +17,7 @@ public interface IBillingSubscriptionItems {
     @Mapping(source = "billingSubscription.status", target = "status")
     @Mapping(source = "billingSubscription.currentPeriodStart", target = "currentPeriodStart")
     @Mapping(source = "billingSubscription.currentPeriodEnd", target = "currentPeriodEnd")
+    @Mapping(source = "activatedAt", target = "activatedAt")
     BillingSubscriptionResponse.SubscriptionItemResponse toResponse(BillingSubscriptionItem item);
 
 }

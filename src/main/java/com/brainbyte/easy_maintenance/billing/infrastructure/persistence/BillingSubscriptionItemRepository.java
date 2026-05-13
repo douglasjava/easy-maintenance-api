@@ -40,6 +40,15 @@ public interface BillingSubscriptionItemRepository extends JpaRepository<Billing
             @Param("sourceType") BillingSubscriptionItemSourceType sourceType,
             @Param("sourceIds") Collection<String> sourceIds);
 
+    @Query("SELECT i FROM BillingSubscriptionItem i " +
+            "JOIN FETCH i.billingSubscription " +
+            "JOIN FETCH i.plan " +
+            "LEFT JOIN FETCH i.nextPlan " +
+            "WHERE i.sourceType = :sourceType AND i.sourceId = :sourceId")
+    Optional<BillingSubscriptionItem> findBySourceTypeAndSourceId(
+            @Param("sourceType") BillingSubscriptionItemSourceType sourceType,
+            @Param("sourceId") String sourceId);
+
     @Query("SELECT bsi FROM BillingSubscriptionItem bsi " +
             "JOIN bsi.billingSubscription bs " +
             "WHERE bsi.cancelAtPeriodEnd = true " +

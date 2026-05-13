@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.org_users.infrastructure.web;
 
+import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSubscriptionResponse;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.infrastructure.access.domain.enums.AccessScope;
 import com.brainbyte.easy_maintenance.infrastructure.access.infrastructure.security.RequiresFullAccess;
@@ -15,12 +16,18 @@ import com.brainbyte.easy_maintenance.shared.web.openapi.PageableAsQueryParam;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.util.List;
+
+import static com.brainbyte.easy_maintenance.org_users.infrastructure.web.AuthController.DOMAIN_NAME;
 
 @RestController
 @RequiredArgsConstructor
@@ -80,6 +87,35 @@ public class OrganizationsController {
     @Operation(summary = "Lista todas as organizações associadas ao usuário")
     public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listAllOrganizationsByMe(@PathVariable Long userId) {
         return service.listUserOrganizations(userId);
+    }
+
+    @GetMapping("/{orgCode}/subscription")
+    @Operation(summary = "Retorna dados de assinatura de uma organização")
+    public BillingSubscriptionResponse.SubscriptionItemResponse getOrganizationSubscription(@PathVariable String orgCode) {
+        return service.getOrganizationSubscription(orgCode);
+    }
+
+    @PutMapping("/{orgCode}/subscription")
+    @Operation(summary = "Adicionar nova organização para usuário")
+    public BillingSubscriptionResponse.SubscriptionItemResponse addOrganizationSubscription(@PathVariable String orgCode,
+                                                                                            @RequestBody BillingSubscriptionResponse.SubscriptionItemRequest request,
+                                                                                            HttpServletResponse response) {
+
+        BillingSubscriptionResponse.SubscriptionItemResponse subscription = service.addOrganizationSubscription(orgCode, request);
+
+        String refreshedToken = usersService.issueRefreshedToken(request.payerUserId());
+        ResponseCookie cookie = ResponseCookie.from("accessToken", refreshedToken)
+                .httpOnly(true)
+                //.secure(true)
+                //.domain(DOMAIN_NAME)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(Duration.ofDays(7))
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        return subscription;
+
     }
 
 }

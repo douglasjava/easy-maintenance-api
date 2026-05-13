@@ -1,8 +1,12 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSubscriptionResponse;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanService;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
+import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingPlanRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
@@ -34,6 +38,8 @@ public class OrganizationsService {
 
     private final OrganizationRepository repository;
     private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
+    private final BillingSubscriptionService billingSubscriptionService;
+    private final BillingPlanRepository billingPlanRepository;
 
     public boolean existsByCode(String code) {
         log.info("Checking if organization with id {} exists", code);
@@ -144,6 +150,29 @@ public class OrganizationsService {
     }
 
     @Transactional(readOnly = true)
+    public BillingSubscriptionResponse.SubscriptionItemResponse getOrganizationSubscription(String orgCode) {
+        log.info("Getting subscription for organization: {}", orgCode);
+        BillingSubscriptionItem item = billingSubscriptionItemRepository
+                .findBySourceTypeAndSourceId(BillingSubscriptionItemSourceType.ORGANIZATION, orgCode)
+                .orElseThrow(() -> new NotFoundException("Assinatura não encontrada para organização: " + orgCode));
+
+        return new BillingSubscriptionResponse.SubscriptionItemResponse(
+                item.getId(),
+                item.getSourceId(),
+                item.getSourceType().name(),
+                item.getPlan().getCode(),
+                item.getPlan().getName(),
+                item.getValueCents(),
+                item.getNextPlan() != null ? item.getNextPlan().getCode() : null,
+                item.getPlanChangeEffectiveAt(),
+                item.getBillingSubscription().getStatus(),
+                item.getBillingSubscription().getCurrentPeriodStart(),
+                item.getBillingSubscription().getCurrentPeriodEnd(),
+                item.getActivatedAt()
+        );
+    }
+
+    @Transactional(readOnly = true)
     public List<OrganizationDTO.OrganizationWithSubscriptionResponse> listUserOrganizations(Long userId) {
         log.info("Listing all organizations for user id: {}", userId);
 
@@ -174,7 +203,8 @@ public class OrganizationsService {
                                 item.getPlanChangeEffectiveAt(),
                                 item.getBillingSubscription().getStatus(),
                                 item.getBillingSubscription().getCurrentPeriodStart(),
-                                item.getBillingSubscription().getCurrentPeriodEnd()
+                                item.getBillingSubscription().getCurrentPeriodEnd(),
+                                item.getActivatedAt()
                         );
                     }
 
@@ -183,6 +213,21 @@ public class OrganizationsService {
                 .toList();
     }
 
+    public BillingSubscriptionResponse.SubscriptionItemResponse addOrganizationSubscription(String orgCode,
+                                                                BillingSubscriptionResponse.SubscriptionItemRequest request) {
 
+        log.info("1. Obter BillingSubscription ativa do usuário");
+        var billingSubscription = billingSubscriptionService.findByUser(request.payerUserId())
+                .orElseThrow(() -> new NotFoundException("Assinatura ativa não encontrada para usuário: " + request.payerUserId()));
+
+        BillingPlan billingPlan = billingPlanRepository.findByCode(request.planCode())
+                .orElseThrow(() -> new NotFoundException(String.format("Não existe plano %s cadastrado", request.planCode())));
+
+        billingSubscriptionService.addItem(billingSubscription,
+                BillingSubscriptionItemSourceType.ORGANIZATION, orgCode, billingPlan);
+
+        return getOrganizationSubscription(orgCode);
+
+    }
 
 }

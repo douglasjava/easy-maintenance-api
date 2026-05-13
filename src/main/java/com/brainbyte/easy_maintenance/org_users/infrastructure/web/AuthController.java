@@ -45,8 +45,8 @@ public class AuthController {
             boolean remember = Boolean.TRUE.equals(request.remember());
             ResponseCookie cookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, loginResponse.accessToken())
                     .httpOnly(true)
-                    .secure(true)
-                    .domain(DOMAIN_NAME)
+                    //.secure(true)
+                    //.domain(DOMAIN_NAME)
                     .sameSite("Lax")
                     .path("/")
                     .maxAge(remember ? Duration.ofDays(30) : Duration.ofDays(7))

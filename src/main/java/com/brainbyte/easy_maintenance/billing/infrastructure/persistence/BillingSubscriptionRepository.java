@@ -2,6 +2,8 @@ package com.brainbyte.easy_maintenance.billing.infrastructure.persistence;
 
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
+import org.hibernate.annotations.Fetch;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +17,7 @@ import java.util.Optional;
 @Repository
 public interface BillingSubscriptionRepository extends JpaRepository<BillingSubscription, Long> {
 
+    @EntityGraph(attributePaths = {"items"})
     Optional<BillingSubscription> findByBillingAccountUserId(Long userId);
 
     @Query("SELECT s FROM BillingSubscription s " +
