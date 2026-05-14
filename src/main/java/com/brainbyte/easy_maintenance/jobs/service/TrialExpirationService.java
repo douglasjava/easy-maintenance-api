@@ -17,7 +17,9 @@ import com.brainbyte.easy_maintenance.infrastructure.notification.service.Critic
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
 import com.brainbyte.easy_maintenance.infrastructure.saas.properties.AsaasProperties;
+import com.brainbyte.easy_maintenance.onboarding.mapper.IOnboardingMapper;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
+import com.brainbyte.easy_maintenance.payment.application.factory.PaymentProviderFactory;
 import com.brainbyte.easy_maintenance.payment.domain.Payment;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentProvider;
@@ -25,6 +27,7 @@ import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +50,7 @@ public class TrialExpirationService {
     private final CriticalEmailDispatchService criticalEmailDispatchService;
     private final EmailTemplateHelper emailTemplateHelper;
     private final BillingSubscriptionService billingSubscriptionService;
+    private final PaymentProviderFactory paymentProviderFactory;
 
     @Transactional
     public void processTrialsExpiringWithinDays(int daysAhead) {
@@ -92,10 +96,7 @@ public class TrialExpirationService {
             return;
         }
         var account = accountOpt.get();
-        if (account.getExternalCustomerId() == null || account.getExternalCustomerId().isBlank()) {
-            log.warn("externalCustomerId not set for payer {}. Skipping Asaas creation and email.", payer.getId());
-            return;
-        }
+        resolveExternalCustomerId(account, payer);
 
         log.info("Buscando assinatura para usuário {}", payer.getId());
         var billingSubscription = billingSubscriptionService.findByUser(payer.getId())
@@ -109,6 +110,24 @@ public class TrialExpirationService {
         var payment = createAndSavePayment(payer, invoice, account, externalPaymentId, paymentLink, billingSubscription);
 
         sendTrialExpirationEmail(payer, account, payment.getPaymentLink(), invoice);
+    }
+
+    private void resolveExternalCustomerId(BillingAccount account, User payer) {
+        if (StringUtils.isNotBlank(account.getExternalCustomerId())) {
+            return;
+        }
+        log.warn("externalCustomerId ausente para payer {}. Tentando criação just-in-time via Asaas.", payer.getId());
+        try {
+            var customer = IOnboardingMapper.INSTANCE.toCustomerDTO(account);
+            var externalCustomerId = paymentProviderFactory.get(PaymentProvider.ASAAS).createExternalCustomer(customer);
+            account.setExternalCustomerId(externalCustomerId);
+            billingAccountRepository.save(account);
+            log.info("externalCustomerId criado just-in-time para payer {}: {}", payer.getId(), externalCustomerId);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "externalCustomerId ausente e criação Asaas falhou para payerId=" + payer.getId() +
+                    ". E-mail de expiração de trial não será enviado.", e);
+        }
     }
 
     private AsaasDTO.CheckoutResponse createAsaasCheckout(BillingAccount account, Invoice invoice,

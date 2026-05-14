@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -83,8 +82,6 @@ public class AsaasWebhookService {
             webhookEvent.setStatus(WebhookEventStatus.ERROR);
             webhookEvent.setErrorMessage(e.getMessage());
             webhookEventService.save(webhookEvent);
-            // Não propagar: método é @Async — exceção seria perdida silenciosamente de qualquer forma.
-            // O status ERROR no banco é o registro permanente do problema.
         }
     }
 

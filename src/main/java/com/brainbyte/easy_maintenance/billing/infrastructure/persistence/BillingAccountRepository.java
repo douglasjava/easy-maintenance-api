@@ -19,6 +19,8 @@ public interface BillingAccountRepository extends JpaRepository<BillingAccount, 
 
     Optional<BillingAccount> findByExternalCustomerId(String externalCustomerId);
 
+    List<BillingAccount> findByExternalCustomerIdIsNull();
+
     @Query(value = """
             SELECT new com.brainbyte.easy_maintenance.billing.application.dto.response.PayerSummaryResponse(
                 u.id,

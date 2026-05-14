@@ -1,8 +1,6 @@
 package com.brainbyte.easy_maintenance.billing.application.service;
 
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
-import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
-import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;

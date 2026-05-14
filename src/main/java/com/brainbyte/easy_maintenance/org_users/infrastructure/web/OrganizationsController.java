@@ -106,8 +106,8 @@ public class OrganizationsController {
         String refreshedToken = usersService.issueRefreshedToken(request.payerUserId());
         ResponseCookie cookie = ResponseCookie.from("accessToken", refreshedToken)
                 .httpOnly(true)
-                //.secure(true)
-                //.domain(DOMAIN_NAME)
+                .secure(true)
+                .domain(DOMAIN_NAME)
                 .sameSite("Lax")
                 .path("/")
                 .maxAge(Duration.ofDays(7))

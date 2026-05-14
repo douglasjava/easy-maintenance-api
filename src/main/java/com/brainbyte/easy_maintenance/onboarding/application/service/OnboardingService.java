@@ -22,6 +22,7 @@ import com.brainbyte.easy_maintenance.infrastructure.notification.service.Critic
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -57,7 +58,7 @@ public class OnboardingService {
         mergeBillingAccountChanges(request, account);
 
         log.info("2. Valida e/ou criar usuário gateway de pagamento (ASAAS)");
-        if (account.getExternalCustomerId() == null) {
+        if (StringUtils.isBlank(account.getExternalCustomerId())) {
             try {
                 var customer = IOnboardingMapper.INSTANCE.toCustomerDTO(account);
                 var externalCustomerId = providerFactory.get(PaymentProvider.ASAAS).createExternalCustomer(customer);
