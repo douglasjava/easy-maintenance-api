@@ -8,14 +8,20 @@ import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingStatus;
+import com.brainbyte.easy_maintenance.billing.error.RefusalReasonClassifier;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
 import com.brainbyte.easy_maintenance.billing.mapper.IBillingMapper;
+import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
+import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +49,8 @@ public class BillingAccountService {
     private final BillingSubscriptionRepository billingSubscriptionRepository;
     private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
     private final OrganizationRepository organizationRepository;
+    private final PaymentRepository paymentRepository;
+    private final RefusalReasonClassifier refusalReasonClassifier;
 
 
     public PageResponse<BillingAccountDTO.BillingAccountResponse> findAll(
@@ -183,6 +191,40 @@ public class BillingAccountService {
         return PageResponse.of(responsePage);
     }
 
+
+    @Transactional
+    public void updatePaymentMethod(Long userId, PaymentMethodType method) {
+        BillingAccount account = repository.findByUserId(userId)
+                .orElseThrow(() -> new NotFoundException("Billing account not found for user " + userId));
+
+        BillingSubscription subscription = billingSubscriptionRepository.findByBillingAccountUserId(userId)
+                .orElseThrow(() -> new NotFoundException("Subscription not found for user " + userId));
+
+        if (subscription.getStatus() != SubscriptionStatus.TRIAL
+                && subscription.getStatus() != SubscriptionStatus.PAST_DUE) {
+            throw new RuleException("Método de pagamento só pode ser alterado durante o período de TRIAL ou quando há fatura em atraso (PAST_DUE).");
+        }
+
+        account.setPaymentMethod(method);
+        repository.save(account);
+        log.info("[BillingAccount] Payment method updated for user {}: {}", userId, method);
+    }
+
+    @Transactional(readOnly = true)
+    public BillingAccountDTO.PaymentFailureResponse getLastPaymentFailure(Long userId) {
+        var sub = billingSubscriptionRepository.findByBillingAccountUserId(userId).orElse(null);
+        if (sub == null) return new BillingAccountDTO.PaymentFailureResponse(null, null, null);
+
+        var lastFailed = paymentRepository
+                .findFirstByBillingSubscriptionIdAndStatusOrderByCreatedAtDesc(sub.getId(), PaymentStatus.FAILED)
+                .orElse(null);
+        if (lastFailed == null) return new BillingAccountDTO.PaymentFailureResponse(null, null, null);
+
+        String reason = lastFailed.getFailureReason();
+        String bucket = refusalReasonClassifier.classify(reason).name();
+        String failedAt = lastFailed.getUpdatedAt() != null ? lastFailed.getUpdatedAt().toString() : null;
+        return new BillingAccountDTO.PaymentFailureResponse(reason, bucket, failedAt);
+    }
 
     private static void mergeBillingAccountChanges(BillingAccountDTO.UpdateBillingAccountRequest request, BillingAccount account) {
 

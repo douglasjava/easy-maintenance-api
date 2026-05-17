@@ -82,6 +82,33 @@ public class BillingNotificationService {
         }
     }
 
+    public void sendPixRenewalEmail(Payment payment, java.time.LocalDate dueDate) {
+        User user = payment.getPayer();
+        String recipientEmail = null;
+
+        var subscription = payment.getBillingSubscription();
+        if (subscription != null && subscription.getBillingAccount() != null) {
+            recipientEmail = subscription.getBillingAccount().getBillingEmail();
+        }
+        if (recipientEmail == null || recipientEmail.isBlank()) {
+            recipientEmail = user.getEmail();
+        }
+
+        if (recipientEmail == null || recipientEmail.isBlank()) {
+            log.warn("[BillingNotification] Destinatário sem e-mail válido para PIX renovação. Payment ID: {}", payment.getId());
+            return;
+        }
+
+        String userName = user.getName() != null ? user.getName() : "Usuário";
+        String paymentLink = payment.getPaymentLink() != null ? payment.getPaymentLink() : "";
+        String subject = "Nova cobrança PIX disponível — Easy Maintenance";
+        String htmlContent = emailTemplateHelper.generateSubscriptionExpirationHtml(
+                userName, paymentLink, dueDate != null ? dueDate.toString() : "");
+
+        criticalEmailDispatchService.send(recipientEmail, userName, null,
+                NotificationEventType.TRIAL_EXPIRING, subject, htmlContent, true);
+    }
+
     public void sendPixOverdueEmail(Payment payment) {
         User user = payment.getPayer();
         String recipientEmail = null;

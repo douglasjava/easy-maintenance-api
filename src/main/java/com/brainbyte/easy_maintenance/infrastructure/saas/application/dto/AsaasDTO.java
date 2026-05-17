@@ -156,13 +156,8 @@ public class AsaasDTO {
             LocalDate paymentDate,
             String installment,
             DiscountObject discount,
-            @JsonProperty("pixTransaction") PixTransaction pixTransaction
-    ) {}
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record PixTransaction(
-            String id,
-            @JsonProperty("qrCode") PixQrCode qrCode
+            @JsonProperty("pixTransaction") String pixTransaction,
+            @JsonProperty("failureReason") String failureReason
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)

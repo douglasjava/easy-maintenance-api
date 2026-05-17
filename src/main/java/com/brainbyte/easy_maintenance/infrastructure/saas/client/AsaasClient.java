@@ -3,8 +3,10 @@ package com.brainbyte.easy_maintenance.infrastructure.saas.client;
 import com.brainbyte.easy_maintenance.commons.exceptions.AsaasException;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.infrastructure.saas.properties.AsaasProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -19,6 +21,9 @@ import java.time.Duration;
 public class AsaasClient {
 
     private final WebClient webClient;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     public AsaasClient(AsaasProperties props) {
         this.webClient = WebClient.builder()
@@ -92,9 +97,31 @@ public class AsaasClient {
 
     @CircuitBreaker(name = "asaas")
     public AsaasDTO.PaymentResponse createPayment(AsaasDTO.CreatePaymentRequest req) {
+
+        String body = "";
+        try {
+            log.info("ASAAS REQUEST BODY: {}", objectMapper.writeValueAsString(req));
+            body = objectMapper.writeValueAsString(req);
+        } catch (Exception e) {
+            log.error("Erro ao serializar request", e);
+        }
+
         return webClient.post()
                 .uri("/payments")
-                .bodyValue(req)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .bodyValue(body)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, this::mapError)
+                .bodyToMono(AsaasDTO.PaymentResponse.class)
+                .timeout(ASAAS_TIMEOUT)
+                .block();
+    }
+
+    @CircuitBreaker(name = "asaas")
+    public AsaasDTO.PaymentResponse getPayment(String paymentId) {
+        return webClient.get()
+                .uri("/payments/{id}", paymentId)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, this::mapError)
                 .bodyToMono(AsaasDTO.PaymentResponse.class)
@@ -124,18 +151,24 @@ public class AsaasClient {
                 });
     }
 
-    private static ExchangeFilterFunction logRequest() {
-        return ExchangeFilterFunction.ofRequestProcessor(req -> {
-            log.debug("Asaas Request: {} {}", req.method(), req.url());
-            return Mono.just(req);
-        });
-    }
-
     private static ExchangeFilterFunction logResponse() {
         return ExchangeFilterFunction.ofResponseProcessor(res -> {
             log.debug("Asaas Response status: {}", res.statusCode());
             return Mono.just(res);
         });
+    }
+
+    private ExchangeFilterFunction logRequest() {
+        return ExchangeFilterFunction.ofRequestProcessor(request -> {
+
+            log.info("=== ASAAS REQUEST ===");
+            log.info("Method: {}", request.method());
+            log.info("URL: {}", request.url());
+
+            return Mono.just(request);
+
+        });
+
     }
 
 }

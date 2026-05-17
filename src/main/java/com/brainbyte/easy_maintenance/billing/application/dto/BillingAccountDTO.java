@@ -34,6 +34,16 @@ public class BillingAccountDTO {
             Instant updatedAt
     ) {}
 
+    public record UpdatePaymentMethodRequest(
+            @NotNull PaymentMethodType method
+    ) {}
+
+    public record PaymentFailureResponse(
+            String failureReason,
+            String bucket,
+            String failedAt
+    ) {}
+
     public record UpdateBillingAccountRequest(
             @NotEmpty String name,
             @Email String billingEmail,

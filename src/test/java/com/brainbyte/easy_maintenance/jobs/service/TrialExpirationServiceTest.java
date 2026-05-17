@@ -28,6 +28,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import org.mockito.ArgumentCaptor;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -131,12 +133,14 @@ class TrialExpirationServiceTest {
         BillingSubscription subscription = mock(BillingSubscription.class);
         when(subscription.getId()).thenReturn(10L);
 
-        AsaasDTO.CheckoutResponse checkoutResponse =
-                new AsaasDTO.CheckoutResponse("checkout-id-123", "http://pay.link", null, null);
+        AsaasDTO.PaymentResponse paymentResponse = new AsaasDTO.PaymentResponse(
+                "pay-id-123", "cust_abc123", AsaasDTO.BillingType.PIX,
+                new java.math.BigDecimal("99.00"), LocalDate.now(),
+                "PENDING", "http://pay.link/invoice", null);
 
         Payment savedPayment = Payment.builder()
                 .id(99L)
-                .paymentLink("http://pay.link")
+                .paymentLink("http://pay.link/invoice")
                 .payer(payer)
                 .build();
 
@@ -152,11 +156,7 @@ class TrialExpirationServiceTest {
                 .thenReturn(account);
         when(billingSubscriptionService.findByUser(payer.getId()))
                 .thenReturn(Optional.of(subscription));
-        when(asaasProperties.checkoutMinutesToExpire()).thenReturn(60);
-        when(asaasProperties.checkoutSuccessUrl()).thenReturn("http://success");
-        when(asaasProperties.checkoutCancelUrl()).thenReturn("http://cancel");
-        when(asaasProperties.checkoutExpiredUrl()).thenReturn("http://expired");
-        when(asaasClient.createCheckout(any())).thenReturn(checkoutResponse);
+        when(asaasClient.createPayment(any())).thenReturn(paymentResponse);
         when(paymentRepository.save(any())).thenReturn(savedPayment);
         when(emailTemplateHelper.generateSubscriptionExpirationHtml(any(), any(), any()))
                 .thenReturn("<html>expiring</html>");
@@ -165,11 +165,12 @@ class TrialExpirationServiceTest {
 
         assertEquals("cust_abc123", account.getExternalCustomerId());
         verify(billingAccountRepository).save(account);
+        verify(asaasClient, never()).createCheckout(any());
         verify(criticalEmailDispatchService).send(any(), any(), any(), any(), any(), any(), anyBoolean());
     }
 
     @Test
-    void whenExternalCustomerIdPresent_thenJustInTimeCreationNotAttempted() {
+    void whenPaymentMethodPix_thenCreatesDetachedPaymentNotCheckout() {
         BillingAccount account = BillingAccount.builder()
                 .id(1L)
                 .user(payer)
@@ -182,12 +183,67 @@ class TrialExpirationServiceTest {
         BillingSubscription subscription = mock(BillingSubscription.class);
         when(subscription.getId()).thenReturn(10L);
 
-        AsaasDTO.CheckoutResponse checkoutResponse =
-                new AsaasDTO.CheckoutResponse("checkout-id-456", "http://pay.link", null, null);
+        AsaasDTO.PaymentResponse paymentResponse = new AsaasDTO.PaymentResponse(
+                "pay-id-456", "cust_already_set", AsaasDTO.BillingType.PIX,
+                new java.math.BigDecimal("99.00"), LocalDate.now(),
+                "PENDING", "http://pay.link/invoice-456", null);
 
         Payment savedPayment = Payment.builder()
                 .id(100L)
-                .paymentLink("http://pay.link")
+                .paymentLink("http://pay.link/invoice-456")
+                .payer(payer)
+                .build();
+
+        when(invoiceService.generateInvoices(any(), any(), any(), any()))
+                .thenReturn(List.of(invoice));
+        when(billingAccountRepository.findByUserId(payer.getId()))
+                .thenReturn(Optional.of(account));
+        when(billingSubscriptionService.findByUser(payer.getId()))
+                .thenReturn(Optional.of(subscription));
+        when(asaasClient.createPayment(any())).thenReturn(paymentResponse);
+        when(paymentRepository.save(any())).thenReturn(savedPayment);
+        when(emailTemplateHelper.generateSubscriptionExpirationHtml(any(), any(), any()))
+                .thenReturn("<html>expiring</html>");
+
+        assertDoesNotThrow(() -> service.processTrialsExpiringWithinDays(1));
+
+        // Verifies the PIX path bypasses checkout entirely
+        verify(asaasClient, never()).createCheckout(any());
+
+        // Verifies the request to Asaas is a DETACHED PIX charge (no subscription field, billingType=PIX)
+        ArgumentCaptor<AsaasDTO.CreatePaymentRequest> reqCaptor =
+                ArgumentCaptor.forClass(AsaasDTO.CreatePaymentRequest.class);
+        verify(asaasClient).createPayment(reqCaptor.capture());
+        AsaasDTO.CreatePaymentRequest sent = reqCaptor.getValue();
+        assertEquals(AsaasDTO.BillingType.PIX, sent.billingType());
+        assertEquals("cust_already_set", sent.customer());
+        assertEquals("BILLING-10", sent.externalReference());
+        assertEquals(0, sent.value().compareTo(new java.math.BigDecimal("99.00")));
+
+        verify(paymentProviderFactory, never()).get(any());
+        verify(criticalEmailDispatchService).send(any(), any(), any(), any(), any(), any(), anyBoolean());
+    }
+
+    @Test
+    void whenPaymentMethodCard_thenUsesCheckoutWithRecurrent() {
+        BillingAccount account = BillingAccount.builder()
+                .id(1L)
+                .user(payer)
+                .billingEmail("billing@test.com")
+                .name("Test Company")
+                .paymentMethod(PaymentMethodType.CARD)
+                .externalCustomerId("cust_card_set")
+                .build();
+
+        BillingSubscription subscription = mock(BillingSubscription.class);
+        when(subscription.getId()).thenReturn(11L);
+
+        AsaasDTO.CheckoutResponse checkoutResponse =
+                new AsaasDTO.CheckoutResponse("checkout-id-card", "http://pay.checkout.link", null, null);
+
+        Payment savedPayment = Payment.builder()
+                .id(101L)
+                .paymentLink("http://pay.checkout.link")
                 .payer(payer)
                 .build();
 
@@ -208,7 +264,16 @@ class TrialExpirationServiceTest {
 
         assertDoesNotThrow(() -> service.processTrialsExpiringWithinDays(1));
 
-        verify(paymentProviderFactory, never()).get(any());
+        verify(asaasClient, never()).createPayment(any());
+
+        ArgumentCaptor<AsaasDTO.CreateCheckoutRequest> reqCaptor =
+                ArgumentCaptor.forClass(AsaasDTO.CreateCheckoutRequest.class);
+        verify(asaasClient).createCheckout(reqCaptor.capture());
+        AsaasDTO.CreateCheckoutRequest sent = reqCaptor.getValue();
+        assertTrue(sent.billingTypes().contains(AsaasDTO.BillingType.CREDIT_CARD));
+        assertTrue(sent.chargeTypes().contains(AsaasDTO.ChargeTypes.RECURRENT));
+        assertNotNull(sent.subscription());
+
         verify(criticalEmailDispatchService).send(any(), any(), any(), any(), any(), any(), anyBoolean());
     }
 }

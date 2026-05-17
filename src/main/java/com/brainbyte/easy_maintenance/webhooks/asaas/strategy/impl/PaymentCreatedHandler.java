@@ -128,25 +128,25 @@ public class PaymentCreatedHandler extends AbstractAsaasWebhookStrategy {
             return;
         }
 
-        var pixTransaction = paymentObj.pixTransaction();
-        if (pixTransaction == null || pixTransaction.qrCode() == null) {
-            return;
-        }
-
-        var qrCode = pixTransaction.qrCode();
-
-        if (qrCode.payload() != null) {
-            payment.setPixQrCode(qrCode.payload());
-        }
-        if (qrCode.encodedImage() != null && !qrCode.encodedImage().isBlank()) {
-            payment.setPixQrCodeBase64(qrCode.encodedImage());
-        }
-        if (qrCode.expirationDate() != null) {
-            payment.setPixExpiresAt(qrCode.expirationDate().atZone(ZoneId.systemDefault()).toInstant());
-        } else if (paymentObj.dueDate() != null) {
-            // Fallback: use dueDate (end of day) as expiration when expirationDate is absent
-            payment.setPixExpiresAt(paymentObj.dueDate().atStartOfDay(ZoneId.systemDefault()).toInstant());
-        }
+//        var pixTransaction = paymentObj.pixTransaction();
+//        if (pixTransaction == null || pixTransaction.qrCode() == null) {
+//            return;
+//        }
+//
+//        var qrCode = pixTransaction.qrCode();
+//
+//        if (qrCode.payload() != null) {
+//            payment.setPixQrCode(qrCode.payload());
+//        }
+//        if (qrCode.encodedImage() != null && !qrCode.encodedImage().isBlank()) {
+//            payment.setPixQrCodeBase64(qrCode.encodedImage());
+//        }
+//        if (qrCode.expirationDate() != null) {
+//            payment.setPixExpiresAt(qrCode.expirationDate().atZone(ZoneId.systemDefault()).toInstant());
+//        } else if (paymentObj.dueDate() != null) {
+//            // Fallback: use dueDate (end of day) as expiration when expirationDate is absent
+//            payment.setPixExpiresAt(paymentObj.dueDate().atStartOfDay(ZoneId.systemDefault()).toInstant());
+//        }
     }
 
     private PaymentStatus mapAsaasStatusToPaymentStatus(String asaasStatus) {

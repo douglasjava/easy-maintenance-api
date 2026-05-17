@@ -33,6 +33,9 @@ public class Payment {
     @JoinColumn(name = "billing_subscription_id", nullable = false)
     private BillingSubscription billingSubscription;
 
+    @Column(name = "cycle_number")
+    private Integer cycleNumber;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payer_user_id", nullable = false)
     private User payer;

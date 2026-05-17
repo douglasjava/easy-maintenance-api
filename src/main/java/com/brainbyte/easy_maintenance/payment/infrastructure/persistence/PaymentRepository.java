@@ -6,6 +6,8 @@ import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import org.springframework.data.domain.Pageable;
@@ -24,7 +26,14 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
 
     Optional<Payment> findFirstByBillingSubscriptionIdAndStatusOrderByCreatedAtDesc(Long billingSubscriptionId, PaymentStatus status);
 
+    Optional<Payment> findByBillingSubscriptionIdAndCycleNumber(Long billingSubscriptionId, Integer cycleNumber);
+
+    @Query("SELECT COALESCE(MAX(p.cycleNumber), 0) FROM Payment p WHERE p.billingSubscription.id = :subscriptionId")
+    Integer findMaxCycleNumberByBillingSubscriptionId(@Param("subscriptionId") Long subscriptionId);
+
     Optional<Payment> findFirstByInvoiceIdOrderByCreatedAtDesc(Long invoiceId);
+
+    List<Payment> findByBillingSubscriptionIdAndStatus(Long billingSubscriptionId, PaymentStatus status);
 
     List<Payment> findByPayerIdOrderByCreatedAtDesc(Long payerId, Pageable pageable);
 

@@ -4,6 +4,7 @@ import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasD
 import com.brainbyte.easy_maintenance.webhooks.asaas.strategy.AsaasWebhookStrategy;
 import com.brainbyte.easy_maintenance.webhooks.commons.domain.WebhookEvent;
 import com.brainbyte.easy_maintenance.webhooks.commons.domain.enums.WebhookEventStatus;
+import com.brainbyte.easy_maintenance.webhooks.commons.service.WebhookDlqService;
 import com.brainbyte.easy_maintenance.webhooks.commons.service.WebhookEventService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +20,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,6 +28,9 @@ class AsaasWebhookServiceTest {
 
     @Mock
     private WebhookEventService webhookEventService;
+
+    @Mock
+    private WebhookDlqService webhookDlqService;
 
     @Mock
     private AsaasWebhookStrategy strategy;
@@ -37,7 +42,7 @@ class AsaasWebhookServiceTest {
     @BeforeEach
     void setUp() {
         when(strategy.getEventType()).thenReturn("CHECKOUT_COMPLETED");
-        service = new AsaasWebhookService(webhookEventService, new ObjectMapper(), List.of(strategy));
+        service = new AsaasWebhookService(webhookEventService, webhookDlqService, new ObjectMapper(), List.of(strategy));
 
         event = new AsaasDTO.WebhookCheckoutEvent(
                 "evt-001", "CHECKOUT_COMPLETED", "2026-04-07", null, null, null, null
@@ -113,6 +118,8 @@ class AsaasWebhookServiceTest {
         WebhookEvent errorSave = saves.get(saves.size() - 1);
         assertEquals(WebhookEventStatus.ERROR, errorSave.getStatus());
         assertEquals("strategy error", errorSave.getErrorMessage());
+
+        verify(webhookDlqService).enqueue(eq("evt-001"), eq("CHECKOUT_COMPLETED"), any(), eq("strategy error"));
     }
 
     @Test

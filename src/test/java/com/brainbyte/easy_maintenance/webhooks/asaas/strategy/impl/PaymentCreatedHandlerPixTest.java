@@ -118,7 +118,7 @@ class PaymentCreatedHandlerPixTest {
                 "pay-001", "cust-001", "sub-001", "PENDING",
                 BigDecimal.valueOf(99.00), LocalDate.of(2026, 5, 11),
                 null, null, null, "PIX", "BILLING-42",
-                null, null, null, null, null, null, null, null, null, pixTransaction
+                null, null, null, null, null, null, null, null, null, pixTransaction, null
         );
         var event = buildEvent(paymentObj);
 
@@ -197,7 +197,7 @@ class PaymentCreatedHandlerPixTest {
                 "pay-001", "cust-001", "sub-001", "PENDING",
                 BigDecimal.valueOf(99.00), null,
                 null, null, null, "PIX", "BILLING-42",
-                null, null, null, null, null, null, null, null, null, pixTransaction
+                null, null, null, null, null, null, null, null, null, pixTransaction, null
         );
         var event = buildEvent(paymentObj);
 
@@ -285,7 +285,7 @@ class PaymentCreatedHandlerPixTest {
                 "pay-002", "cust-002", "sub-001", "PENDING",
                 BigDecimal.valueOf(49.00), LocalDate.of(2026, 6, 11),
                 null, null, null, "PIX", "BILLING-43",
-                null, null, null, null, null, null, null, null, null, pixTransaction
+                null, null, null, null, null, null, null, null, null, pixTransaction, null
         );
         var eventB = new AsaasDTO.WebhookCheckoutEvent(
                 "evt-002", "PAYMENT_CREATED", "2026-05-02T10:00:00",
@@ -316,7 +316,7 @@ class PaymentCreatedHandlerPixTest {
                 "pay-001", "cust-001", "sub-001", status,
                 BigDecimal.valueOf(99.00), LocalDate.of(2026, 5, 11),
                 null, null, null, billingType, "BILLING-42",
-                null, null, null, null, null, null, null, null, null, pixTransaction
+                null, null, null, null, null, null, null, null, null, pixTransaction, null
         );
     }
 

@@ -2,6 +2,7 @@ package com.brainbyte.easy_maintenance.webhooks.asaas.strategy.impl;
 
 import com.brainbyte.easy_maintenance.billing.application.service.BillingNotificationService;
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
+import com.brainbyte.easy_maintenance.billing.error.RefusalReasonClassifier;
 import com.brainbyte.easy_maintenance.billing.domain.Invoice;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Component;
 public class PaymentOverdueHandler extends AbstractAsaasWebhookStrategy {
 
     private final BillingNotificationService billingNotificationService;
+    private final RefusalReasonClassifier refusalReasonClassifier;
 
     public PaymentOverdueHandler(InvoiceService invoiceService, PaymentRepository paymentRepository,
                                  PaymentGatewayEventRepository paymentGatewayEventRepository,
@@ -31,13 +33,15 @@ public class PaymentOverdueHandler extends AbstractAsaasWebhookStrategy {
                                  InvoiceItemRepository invoiceItemRepository,
                                  OrganizationRepository organizationRepository,
                                  ObjectMapper objectMapper,
-                                 BillingNotificationService billingNotificationService) {
+                                 BillingNotificationService billingNotificationService,
+                                 RefusalReasonClassifier refusalReasonClassifier) {
 
         super(invoiceService, paymentRepository, paymentGatewayEventRepository, invoiceRepository, billingAccountRepository,
                 billingSubscriptionRepository, billingSubscriptionItemRepository, invoiceItemRepository,
                 organizationRepository, objectMapper);
 
         this.billingNotificationService = billingNotificationService;
+        this.refusalReasonClassifier = refusalReasonClassifier;
     }
 
     @Override
@@ -83,6 +87,8 @@ public class PaymentOverdueHandler extends AbstractAsaasWebhookStrategy {
         invoiceRepository.save(invoice);
 
         log.info("[AsaasWebhook] Payment {} marked as OVERDUE and Invoice {} as OVERDUE", payment.getId(), invoice.getId());
+
+        refusalReasonClassifier.classify(payment.getFailureReason());
 
         if (payment.getMethodType() == PaymentMethodType.PIX) {
             billingNotificationService.sendPixOverdueEmail(payment);

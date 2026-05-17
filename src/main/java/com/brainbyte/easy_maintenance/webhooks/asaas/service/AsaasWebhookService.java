@@ -3,6 +3,7 @@ package com.brainbyte.easy_maintenance.webhooks.asaas.service;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.webhooks.commons.domain.WebhookEvent;
 import com.brainbyte.easy_maintenance.webhooks.commons.domain.enums.WebhookEventStatus;
+import com.brainbyte.easy_maintenance.webhooks.commons.service.WebhookDlqService;
 import com.brainbyte.easy_maintenance.webhooks.commons.service.WebhookEventService;
 import com.brainbyte.easy_maintenance.webhooks.asaas.strategy.AsaasWebhookStrategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,11 +25,16 @@ import static com.brainbyte.easy_maintenance.commons.helper.DateUtils.parseEvent
 public class AsaasWebhookService {
 
     private final WebhookEventService webhookEventService;
+    private final WebhookDlqService webhookDlqService;
     private final ObjectMapper objectMapper;
     private final Map<String, AsaasWebhookStrategy> strategies;
 
-    public AsaasWebhookService(WebhookEventService webhookEventService, ObjectMapper objectMapper, List<AsaasWebhookStrategy> strategyList) {
+    public AsaasWebhookService(WebhookEventService webhookEventService,
+                                WebhookDlqService webhookDlqService,
+                                ObjectMapper objectMapper,
+                                List<AsaasWebhookStrategy> strategyList) {
         this.webhookEventService = webhookEventService;
+        this.webhookDlqService = webhookDlqService;
         this.objectMapper = objectMapper;
         this.strategies = strategyList.stream()
                 .collect(Collectors.toMap(AsaasWebhookStrategy::getEventType, s -> s));
@@ -82,6 +88,7 @@ public class AsaasWebhookService {
             webhookEvent.setStatus(WebhookEventStatus.ERROR);
             webhookEvent.setErrorMessage(e.getMessage());
             webhookEventService.save(webhookEvent);
+            webhookDlqService.enqueue(event.id(), event.event(), rawPayload, e.getMessage());
         }
     }
 

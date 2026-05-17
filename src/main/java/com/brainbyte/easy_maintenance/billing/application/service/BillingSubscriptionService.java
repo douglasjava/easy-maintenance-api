@@ -24,8 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
+import com.brainbyte.easy_maintenance.payment.domain.Payment;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -357,6 +359,38 @@ public class BillingSubscriptionService {
     @Transactional(readOnly = true)
     public Optional<BillingSubscription> findByUser(Long userId) {
         return repository.findByBillingAccountUserId(userId);
+    }
+
+    @Transactional
+    public void advanceCycle(BillingSubscription subscription, Payment payment) {
+        if (subscription.getStatus() == SubscriptionStatus.CANCELED) {
+            log.info("[BillingSubscription] advanceCycle skipped — subscription {} is CANCELED. paymentId={}, cycleNumber={}",
+                    subscription.getId(), payment.getId(), payment.getCycleNumber());
+            return;
+        }
+
+        Instant now = Instant.now();
+        Instant oldPeriodEnd = subscription.getCurrentPeriodEnd();
+        Instant newPeriodStart = (oldPeriodEnd != null && oldPeriodEnd.isAfter(now)) ? oldPeriodEnd : now;
+        Instant newPeriodEnd = computeNextPeriodEnd(newPeriodStart, subscription.getCycle());
+
+        SubscriptionStatus previousStatus = subscription.getStatus();
+        subscription.setCurrentPeriodStart(newPeriodStart);
+        subscription.setCurrentPeriodEnd(newPeriodEnd);
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+
+        repository.save(subscription);
+
+        log.info("[BillingSubscription] Cycle advanced. subscriptionId={}, cycleNumber={}, paymentId={}, previousStatus={}, oldPeriodEnd={}, newPeriodEnd={}",
+                subscription.getId(), payment.getCycleNumber(), payment.getId(), previousStatus, oldPeriodEnd, newPeriodEnd);
+    }
+
+    private Instant computeNextPeriodEnd(Instant start, BillingCycle cycle) {
+        var zdt = start.atZone(ZoneOffset.UTC);
+        if (cycle == BillingCycle.YEARLY) {
+            return zdt.plusYears(1).toInstant();
+        }
+        return zdt.plusMonths(1).toInstant();
     }
 
 }

@@ -2,6 +2,7 @@ package com.brainbyte.easy_maintenance.webhooks.asaas.strategy.impl;
 
 import com.brainbyte.easy_maintenance.billing.application.service.BillingNotificationService;
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
+import com.brainbyte.easy_maintenance.billing.error.RefusalReasonClassifier;
 import com.brainbyte.easy_maintenance.billing.domain.Invoice;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
@@ -45,6 +46,7 @@ class PaymentOverdueHandlerPixTest {
     @Mock private OrganizationRepository organizationRepository;
     @Mock private ObjectMapper objectMapper;
     @Mock private BillingNotificationService billingNotificationService;
+    @Mock private RefusalReasonClassifier refusalReasonClassifier;
 
     @InjectMocks
     private PaymentOverdueHandler handler;
@@ -226,7 +228,7 @@ class PaymentOverdueHandlerPixTest {
                 externalPaymentId, "cust-001", "sub-001", "OVERDUE",
                 BigDecimal.valueOf(99.00), LocalDate.of(2026, 5, 11),
                 null, null, null, "PIX", "BILLING-42",
-                null, null, null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null, null, null, null
         );
         return new AsaasDTO.WebhookCheckoutEvent(
                 "evt-001", "PAYMENT_OVERDUE", "2026-05-01T10:00:00",

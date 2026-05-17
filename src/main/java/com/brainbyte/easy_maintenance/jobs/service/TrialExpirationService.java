@@ -102,14 +102,59 @@ public class TrialExpirationService {
         var billingSubscription = billingSubscriptionService.findByUser(payer.getId())
                 .orElseThrow(() -> new NotFoundException("Assinatura não foi encontrado para o usuário " + payer.getId()));
 
-        var asaasResponse = createAsaasCheckout(account, invoice, plan, nextDueDate, billingSubscription.getId());
+        ProviderCharge charge = createProviderCharge(account, invoice, plan, nextDueDate, billingSubscription.getId());
 
-        var paymentLink = asaasResponse.link();
-        var externalPaymentId = asaasResponse.id();
+        var payment = createAndSavePayment(payer, invoice, account, charge.externalId(), charge.paymentLink(), billingSubscription);
 
-        var payment = createAndSavePayment(payer, invoice, account, externalPaymentId, paymentLink, billingSubscription);
+        log.info("Trial expiration charge created: subscriptionId={}, payerId={}, paymentMethod={}, asaasPaymentId={}",
+                billingSubscription.getId(),
+                payer.getId(),
+                account.getPaymentMethod(),
+                charge.externalId());
 
         sendTrialExpirationEmail(payer, account, payment.getPaymentLink(), invoice);
+    }
+
+    private ProviderCharge createProviderCharge(BillingAccount account, Invoice invoice,
+                                                BillingPlan plan, LocalDate nextDueDate,
+                                                Long billingSubscriptionId) {
+
+        if (account.getPaymentMethod() == PaymentMethodType.PIX) {
+            return createPixDetachedCharge(account, invoice, plan, nextDueDate, billingSubscriptionId);
+        }
+
+        var checkout = createAsaasCheckout(account, invoice, plan, nextDueDate, billingSubscriptionId);
+
+        return new ProviderCharge(checkout.id(), checkout.link());
+
+    }
+
+    private ProviderCharge createPixDetachedCharge(BillingAccount account, Invoice invoice,
+                                                   BillingPlan plan, LocalDate nextDueDate,
+                                                   Long billingSubscriptionId) {
+        try {
+
+            AsaasDTO.CreatePaymentRequest req = new AsaasDTO.CreatePaymentRequest(
+                    account.getExternalCustomerId(),
+                    AsaasDTO.BillingType.PIX,
+                    BigDecimal.valueOf(invoice.getTotalCents(), 2),
+                    nextDueDate,
+                    plan.getName(),
+                    "BILLING-" + billingSubscriptionId
+            );
+
+            AsaasDTO.PaymentResponse resp = asaasClient.createPayment(req);
+            log.info("Asaas PIX detached payment created id={} for payer {}", resp.id(), account.getUser().getId());
+            return new ProviderCharge(resp.id(), resp.invoiceUrl());
+
+        } catch (AsaasException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to create Asaas PIX detached payment for payer {}: {}", account.getUser().getId(), e.getMessage());
+            throw new AsaasException(
+                    String.format("Failed to create Asaas PIX detached payment for payer %s", account.getUser().getId()), e);
+        }
+
     }
 
     private void resolveExternalCustomerId(BillingAccount account, User payer) {
@@ -227,5 +272,7 @@ public class TrialExpirationService {
         if (method == PaymentMethodType.CARD) return AsaasDTO.BillingType.CREDIT_CARD;
         return AsaasDTO.BillingType.PIX;
     }
-    
+
+    private record ProviderCharge(String externalId, String paymentLink) {}
+
 }

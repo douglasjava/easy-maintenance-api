@@ -47,4 +47,22 @@ public interface BillingSubscriptionRepository extends JpaRepository<BillingSubs
 
     List<BillingSubscription> findAllByNextDueDate(LocalDate nextDueDate);
 
+    @Query("SELECT s FROM BillingSubscription s " +
+            "JOIN FETCH s.billingAccount ba " +
+            "WHERE s.status IN :statuses " +
+            "AND s.createdAt >= :createdAfter")
+    List<BillingSubscription> findReconciliationCandidates(
+            @Param("statuses") List<SubscriptionStatus> statuses,
+            @Param("createdAfter") Instant createdAfter
+    );
+
+    @Query("SELECT s FROM BillingSubscription s " +
+            "JOIN FETCH s.billingAccount ba " +
+            "JOIN FETCH ba.user " +
+            "WHERE s.status = com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus.ACTIVE " +
+            "AND ba.paymentMethod = com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType.PIX " +
+            "AND s.currentPeriodEnd IS NOT NULL " +
+            "AND s.currentPeriodEnd <= :upperBound")
+    List<BillingSubscription> findPixSubscriptionsDueForRenewal(@Param("upperBound") Instant upperBound);
+
 }

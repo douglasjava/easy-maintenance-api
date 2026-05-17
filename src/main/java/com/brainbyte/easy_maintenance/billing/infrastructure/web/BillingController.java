@@ -17,6 +17,7 @@ import com.brainbyte.easy_maintenance.org_users.application.service.Authenticati
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -80,6 +81,23 @@ public class BillingController {
     public InvoiceDetailResponse getInvoiceDetail(@PathVariable Long id) {
         var user = authenticationService.getCurrentUser();
         return invoiceService.getInvoiceDetail(user.getId(), id);
+    }
+
+    @PatchMapping("/payment-method")
+    @Operation(summary = "Atualiza o método de pagamento da assinatura do usuário",
+            description = "Permitido apenas em status TRIAL ou PAST_DUE.")
+    public ResponseEntity<Void> updatePaymentMethod(
+            @Valid @RequestBody BillingAccountDTO.UpdatePaymentMethodRequest request) {
+        var user = authenticationService.getCurrentUser();
+        billingAccountService.updatePaymentMethod(user.getId(), request.method());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/payment-failure")
+    @Operation(summary = "Retorna o último motivo de falha de pagamento da assinatura")
+    public ResponseEntity<BillingAccountDTO.PaymentFailureResponse> getPaymentFailure() {
+        var user = authenticationService.getCurrentUser();
+        return ResponseEntity.ok(billingAccountService.getLastPaymentFailure(user.getId()));
     }
 
     @GetMapping("/pending-payment")
