@@ -75,6 +75,7 @@ public class BillingNotificationService {
                     "Assinatura bloqueada",
                     "Sua assinatura foi bloqueada por falta de pagamento. Regularize para continuar usando o Easy Maintenance.",
                     InAppNotificationType.SUBSCRIPTION_BLOCKED,
+                    null,
                     null
             );
         } catch (Exception e) {
@@ -143,6 +144,7 @@ public class BillingNotificationService {
                     "Pagamento PIX em atraso",
                     "Seu pagamento via PIX está em atraso. Acesse o billing para regularizar e evitar o bloqueio do seu acesso.",
                     InAppNotificationType.SUBSCRIPTION_BLOCKED,
+                    null,
                     null
             );
         } catch (Exception e) {

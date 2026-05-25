@@ -39,6 +39,9 @@ public class InAppNotification {
     @Column(name = "reference_id")
     private Long referenceId;
 
+    @Column(name = "reference_label", length = 255)
+    private String referenceLabel;
+
     @Column(name = "read_at")
     private Instant readAt;
 

@@ -10,6 +10,7 @@ public record InAppNotificationResponse(
         String body,
         InAppNotificationType type,
         Long referenceId,
+        String referenceLabel,
         boolean read,
         Instant createdAt
 ) {}

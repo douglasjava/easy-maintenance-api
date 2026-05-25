@@ -58,7 +58,7 @@ public class NotificationOrchestratorService {
         String body = resolveInAppBody(event);
 
         inAppNotificationService.saveForOrg(
-                event.getOrganizationCode(), title, body, type, event.getReferenceId());
+                event.getOrganizationCode(), title, body, type, event.getReferenceId(), event.getReferenceLabel());
     }
 
     private InAppNotificationType resolveInAppType(NotificationEventType eventType) {
@@ -82,15 +82,17 @@ public class NotificationOrchestratorService {
     }
 
     private String resolveInAppBody(NotificationEvent event) {
-        String ref = switch (event.getReferenceType()) {
-            case ITEM -> "Item";
-            case MAINTENANCE -> "Manutenção";
-        };
+        String label = event.getReferenceLabel() != null
+                ? event.getReferenceLabel()
+                : switch (event.getReferenceType()) {
+                    case ITEM -> "Item #" + event.getReferenceId();
+                    case MAINTENANCE -> "Manutenção #" + event.getReferenceId();
+                };
         int days = event.getDaysOffset();
         String status = days > 0 ? "vence em " + days + " dia(s)" :
                         days == 0 ? "vence hoje" :
                         "está em atraso há " + Math.abs(days) + " dia(s)";
-        return ref + " (ID: " + event.getReferenceId() + ") " + status + ".";
+        return label + " " + status + ".";
     }
 
     public void dispatch(List<NotificationEvent> events) {

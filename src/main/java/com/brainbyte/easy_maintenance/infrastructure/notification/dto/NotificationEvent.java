@@ -19,6 +19,7 @@ public class NotificationEvent {
     private NotificationEventType eventType;
     private NotificationReferenceType referenceType;
     private Long referenceId;
+    private String referenceLabel;
     private LocalDate dueDate;
     private int daysOffset;
     private String recipient;

@@ -55,7 +55,7 @@ public class InAppNotificationService {
      * Saves an in-app notification for every user belonging to the given organization.
      */
     public void saveForOrg(String orgCode, String title, String body,
-                           InAppNotificationType type, Long referenceId) {
+                           InAppNotificationType type, Long referenceId, String referenceLabel) {
         List<Long> userIds = userOrganizationRepository.findAllByOrganizationCode(orgCode)
                 .stream()
                 .map(UserOrganization::getUser)
@@ -75,6 +75,7 @@ public class InAppNotificationService {
                         .body(body)
                         .type(type)
                         .referenceId(referenceId)
+                        .referenceLabel(referenceLabel)
                         .build())
                 .toList();
 
@@ -86,13 +87,14 @@ public class InAppNotificationService {
      * Saves an in-app notification for a single user.
      */
     public void saveForUser(Long userId, String title, String body,
-                            InAppNotificationType type, Long referenceId) {
+                            InAppNotificationType type, Long referenceId, String referenceLabel) {
         repository.save(InAppNotification.builder()
                 .userId(userId)
                 .title(title)
                 .body(body)
                 .type(type)
                 .referenceId(referenceId)
+                .referenceLabel(referenceLabel)
                 .build());
     }
 
@@ -103,6 +105,7 @@ public class InAppNotificationService {
                 n.getBody(),
                 n.getType(),
                 n.getReferenceId(),
+                n.getReferenceLabel(),
                 n.getReadAt() != null,
                 n.getCreatedAt()
         );

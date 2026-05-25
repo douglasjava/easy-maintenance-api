@@ -55,12 +55,13 @@ public class NotificationEventDetectionService {
                 .map(item -> {
                     int offset = (int) ChronoUnit.DAYS.between(today, item.getNextDueAt());
                     NotificationEventType type = offset > 0 ? NotificationEventType.ITEM_NEAR_DUE : NotificationEventType.ITEM_OVERDUE;
-                    
+
                     return NotificationEvent.builder()
                             .organizationCode(item.getOrganizationCode())
                             .eventType(type)
                             .referenceType(NotificationReferenceType.ITEM)
                             .referenceId(item.getId())
+                            .referenceLabel(item.getItemType())
                             .dueDate(item.getNextDueAt())
                             .daysOffset(Math.abs(offset))
                             .build();
@@ -87,15 +88,18 @@ public class NotificationEventDetectionService {
                     // Para evitar N+1 excessivo nesta fase de "log", vamos buscar o organizationCode de forma simples.
                     // Em um cenário de alta performance, poderíamos usar um DTO ou JOIN FETCH.
                     
-                    String orgCode = itemRepository.findById(m.getItemId())
-                            .map(MaintenanceItem::getOrganizationCode)
-                            .orElse(null);
+                    MaintenanceItem parentItem = itemRepository.findById(m.getItemId()).orElse(null);
+                    String orgCode = parentItem != null ? parentItem.getOrganizationCode() : null;
+                    String label = parentItem != null
+                            ? m.getType().name() + " — " + parentItem.getItemType()
+                            : m.getType().name();
 
                     return NotificationEvent.builder()
                             .organizationCode(orgCode)
                             .eventType(type)
                             .referenceType(NotificationReferenceType.MAINTENANCE)
                             .referenceId(m.getId())
+                            .referenceLabel(label)
                             .dueDate(m.getNextDueAt())
                             .daysOffset(Math.abs(offset))
                             .build();
