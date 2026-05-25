@@ -47,7 +47,7 @@ class InAppNotificationServiceTest {
         List<InAppNotificationResponse> result = service.listForUser(42L);
 
         assertEquals(1, result.size());
-        InAppNotificationResponse r = result.get(0);
+        InAppNotificationResponse r = result.getFirst();
         assertEquals(1L, r.id());
         assertEquals("Título", r.title());
         assertEquals(InAppNotificationType.ITEM_DUE, r.type());
@@ -60,7 +60,7 @@ class InAppNotificationServiceTest {
         when(repository.findTop20ByUserIdOrderByCreatedAtDesc(42L)).thenReturn(List.of(n));
 
         List<InAppNotificationResponse> result = service.listForUser(42L);
-        assertTrue(result.get(0).read());
+        assertTrue(result.getFirst().read());
     }
 
     // -----------------------------------------------------------------------
@@ -128,7 +128,7 @@ class InAppNotificationServiceTest {
                 .thenReturn(List.of(uo1, uo2));
 
         service.saveForOrg("org-1", "Título", "Corpo",
-                InAppNotificationType.ITEM_DUE, 7L);
+                InAppNotificationType.ITEM_DUE, 7L, "");
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<InAppNotification>> captor = ArgumentCaptor.forClass(List.class);
@@ -151,7 +151,7 @@ class InAppNotificationServiceTest {
         when(userOrganizationRepository.findAllByOrganizationCode("org-empty"))
                 .thenReturn(List.of());
 
-        service.saveForOrg("org-empty", "X", "Y", InAppNotificationType.ITEM_DUE, null);
+        service.saveForOrg("org-empty", "X", "Y", InAppNotificationType.ITEM_DUE, null, "");
 
         verify(repository, never()).saveAll(any());
     }
