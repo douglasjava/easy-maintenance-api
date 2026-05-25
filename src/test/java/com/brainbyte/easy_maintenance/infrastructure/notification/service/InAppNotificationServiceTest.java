@@ -67,6 +67,7 @@ class InAppNotificationServiceTest {
     // countUnread
     // -----------------------------------------------------------------------
 
+
     @Test
     void countUnread_delegatesToRepository() {
         when(repository.countByUserIdAndReadAtIsNull(99L)).thenReturn(5L);
