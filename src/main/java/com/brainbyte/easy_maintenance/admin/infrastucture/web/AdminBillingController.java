@@ -15,6 +15,7 @@ import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.Billing
 import com.brainbyte.easy_maintenance.billing.mapper.IBillingMapper;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.org_users.application.service.OrganizationsService;
 import com.brainbyte.easy_maintenance.org_users.application.service.UsersService;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
@@ -47,6 +48,7 @@ public class AdminBillingController {
     private final SubscriptionItemCancelAdapter cancelAdapter;
     private final UserRepository userRepository;
     private final BillingAccountService billingAccountService;
+    private final OrganizationsService organizationsService;
 
     @GetMapping("/plans")
     @Operation(summary = "Lista todos os planos de faturamento")
@@ -175,6 +177,14 @@ public class AdminBillingController {
     public SubscriptionItemCancelResponse undoCancel(@PathVariable Long id, @RequestHeader("X-id-User") Long idUser) {
         var user = getOrElseThrow(idUser);
         return cancelAdapter.undoCancel(id, user);
+    }
+
+    @PutMapping("/organizations/{orgCode}/subscription")
+    @Operation(summary = "Atribui ou atualiza a assinatura de uma organização via admin")
+    public BillingSubscriptionResponse.SubscriptionItemResponse addOrganizationSubscription(
+            @PathVariable String orgCode,
+            @RequestBody BillingSubscriptionResponse.SubscriptionItemRequest request) {
+        return organizationsService.addOrganizationSubscription(orgCode, request);
     }
 
     private User getOrElseThrow(Long idUser) {
