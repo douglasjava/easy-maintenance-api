@@ -8,6 +8,7 @@ import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingPlanRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
@@ -226,7 +227,7 @@ public class OrganizationsService {
 
         log.info("1. Obter ou inicializar BillingSubscription do usuário {}", request.payerUserId());
         var billingSubscription = billingSubscriptionService.findByUser(request.payerUserId())
-                .orElseGet(() -> initializeSubscriptionForUser(request.payerUserId()));
+                .orElseGet(() -> initializeSubscriptionForUser(request.payerUserId(), request.paymentMethod()));
 
         BillingPlan billingPlan = billingPlanRepository.findByCode(request.planCode())
                 .orElseThrow(() -> new NotFoundException(String.format("Não existe plano %s cadastrado", request.planCode())));
@@ -238,12 +239,17 @@ public class OrganizationsService {
     }
 
     // Cria BillingAccount + BillingSubscription (TRIAL) para usuários criados pelo admin sem onboarding
-    private BillingSubscription initializeSubscriptionForUser(Long userId) {
+    private BillingSubscription initializeSubscriptionForUser(Long userId, PaymentMethodType paymentMethod) {
         log.info("Inicializando BillingAccount e BillingSubscription para usuário {} (sem onboarding)", userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Usuário não encontrado: " + userId));
         BillingAccount account = billingAccountRepository.findByUserId(userId)
-                .orElseGet(() -> billingAccountRepository.save(BillingAccount.builder().user(user).build()));
+                .orElseGet(() -> billingAccountRepository.save(BillingAccount.builder()
+                        .user(user)
+                        .name(user.getName())
+                        .billingEmail(user.getEmail())
+                        .paymentMethod(paymentMethod)
+                        .build()));
         return billingSubscriptionService.createTrial(account, Duration.ofDays(7));
     }
 

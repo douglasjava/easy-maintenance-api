@@ -2,6 +2,7 @@ package com.brainbyte.easy_maintenance.billing.application.dto.response;
 
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingCycle;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
+import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -32,6 +33,7 @@ public record BillingSubscriptionResponse(
 
     public record SubscriptionItemRequest(
             Long payerUserId,
-            String planCode
+            String planCode,
+            PaymentMethodType paymentMethod
     ) {}
 }
