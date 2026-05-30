@@ -75,6 +75,7 @@ public class BillingSummaryResponse {
         private LocalDate periodStart;
         private LocalDate periodEnd;
         private String paymentLink;
+        private String receiptUrl;
         private Boolean fromPlanChange;
     }
 

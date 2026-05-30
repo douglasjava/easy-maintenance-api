@@ -117,8 +117,15 @@ public class BillingDashboardService {
         if (invoice == null) return null;
 
         String paymentLink = null;
+        String receiptUrl = null;
+
         if (invoice.getStatus() == InvoiceStatus.OPEN || invoice.getStatus() == InvoiceStatus.OVERDUE) {
             paymentLink = paymentRepository.findFirstByInvoiceIdAndStatusOrderByCreatedAtDesc(invoice.getId(), PaymentStatus.PENDING)
+                    .map(Payment::getPaymentLink)
+                    .orElse(null);
+        } else if (invoice.getStatus() == InvoiceStatus.PAID) {
+            receiptUrl = paymentRepository.findFirstByInvoiceIdAndStatusOrderByCreatedAtDesc(invoice.getId(), PaymentStatus.PAID)
+                    .or(() -> paymentRepository.findFirstByInvoiceIdAndStatusOrderByCreatedAtDesc(invoice.getId(), PaymentStatus.RECEIVED))
                     .map(Payment::getPaymentLink)
                     .orElse(null);
         }
@@ -130,6 +137,7 @@ public class BillingDashboardService {
                 .periodStart(invoice.getPeriodStart())
                 .periodEnd(invoice.getPeriodEnd())
                 .paymentLink(paymentLink)
+                .receiptUrl(receiptUrl)
                 .fromPlanChange(false)
                 .build();
     }
