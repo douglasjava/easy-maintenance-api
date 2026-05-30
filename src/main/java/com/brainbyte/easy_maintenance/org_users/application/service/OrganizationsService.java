@@ -3,11 +3,15 @@ package com.brainbyte.easy_maintenance.org_users.application.service;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSubscriptionResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanService;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
+import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingPlanRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
+import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
@@ -27,6 +31,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +45,8 @@ public class OrganizationsService {
     private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
     private final BillingSubscriptionService billingSubscriptionService;
     private final BillingPlanRepository billingPlanRepository;
+    private final BillingAccountRepository billingAccountRepository;
+    private final UserRepository userRepository;
 
     public boolean existsByCode(String code) {
         log.info("Checking if organization with id {} exists", code);
@@ -213,12 +220,13 @@ public class OrganizationsService {
                 .toList();
     }
 
+    @Transactional
     public BillingSubscriptionResponse.SubscriptionItemResponse addOrganizationSubscription(String orgCode,
                                                                 BillingSubscriptionResponse.SubscriptionItemRequest request) {
 
-        log.info("1. Obter BillingSubscription ativa do usuário");
+        log.info("1. Obter ou inicializar BillingSubscription do usuário {}", request.payerUserId());
         var billingSubscription = billingSubscriptionService.findByUser(request.payerUserId())
-                .orElseThrow(() -> new NotFoundException("Assinatura ativa não encontrada para usuário: " + request.payerUserId()));
+                .orElseGet(() -> initializeSubscriptionForUser(request.payerUserId()));
 
         BillingPlan billingPlan = billingPlanRepository.findByCode(request.planCode())
                 .orElseThrow(() -> new NotFoundException(String.format("Não existe plano %s cadastrado", request.planCode())));
@@ -227,7 +235,16 @@ public class OrganizationsService {
                 BillingSubscriptionItemSourceType.ORGANIZATION, orgCode, billingPlan);
 
         return getOrganizationSubscription(orgCode);
+    }
 
+    // Cria BillingAccount + BillingSubscription (TRIAL) para usuários criados pelo admin sem onboarding
+    private BillingSubscription initializeSubscriptionForUser(Long userId) {
+        log.info("Inicializando BillingAccount e BillingSubscription para usuário {} (sem onboarding)", userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado: " + userId));
+        BillingAccount account = billingAccountRepository.findByUserId(userId)
+                .orElseGet(() -> billingAccountRepository.save(BillingAccount.builder().user(user).build()));
+        return billingSubscriptionService.createTrial(account, Duration.ofDays(7));
     }
 
 }
