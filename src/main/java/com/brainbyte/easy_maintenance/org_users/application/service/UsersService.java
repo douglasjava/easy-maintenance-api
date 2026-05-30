@@ -139,7 +139,7 @@ public class UsersService {
         );
 
         Page<UserDTO.UserResponse> page =
-                repository.findAllFetchOrganization(spec, pageable).map(IUserMapper.INSTANCE::toUserResponse);
+                repository.findAll(spec, pageable).map(IUserMapper.INSTANCE::toUserResponse);
 
         return PageResponse.of(page);
     }

@@ -47,13 +47,9 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
             """)
     Page<User> findAllByOrganizationCode(@Param("organizationCode") String organizationCode, Pageable pageable);
 
+    @Override
     @EntityGraph(attributePaths = "organizations")
-    @Query("""
-              SELECT u
-              FROM User u
-              LEFT JOIN u.organizations o
-            """)
-    Page<User> findAllFetchOrganization(Specification<User> spec, Pageable pageable);
+    Page<User> findAll(Specification<User> spec, Pageable pageable);
 
     @EntityGraph(attributePaths = "organizations")
     Optional<User> findByEmail(String email);
