@@ -35,6 +35,9 @@ import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -85,9 +88,11 @@ public class MaintenanceService {
 
         Specification<Maintenance> spec = MaintenanceSpecs.filter(orgId, itemId, performedAt, type, performedBy);
 
-        return maintenanceRepository.findAll(spec, pageable)
+        Page<MaintenanceResponse> page = maintenanceRepository.findAll(spec, pageable)
                 .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse);
 
+        Map<Long, String> typeMap = buildItemTypeMap(page.getContent());
+        return page.map(r -> withItemType(r, typeMap));
     }
 
     public CursorPageResponse<MaintenanceResponse> listByItemCursor(String orgId, Long itemId,
@@ -113,6 +118,8 @@ public class MaintenanceService {
                     : null;
             List<MaintenanceResponse> content = page.getContent().stream()
                     .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse).toList();
+            Map<Long, String> typeMap = buildItemTypeMap(content);
+            content = content.stream().map(r -> withItemType(r, typeMap)).toList();
             return new CursorPageResponse<>(content, nextCursor, null, page.hasNext(),
                     size, page.getTotalElements(), page.getTotalPages(), page.getNumber());
         }
@@ -129,6 +136,8 @@ public class MaintenanceService {
             java.util.Collections.reverse(ascending);
             List<MaintenanceResponse> content = ascending.stream()
                     .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse).toList();
+            Map<Long, String> typeMap = buildItemTypeMap(content);
+            content = content.stream().map(r -> withItemType(r, typeMap)).toList();
             Long pc = (hasPrev && !content.isEmpty())
                     ? ascending.get(0).getId() : null;
             return CursorPageResponse.ofCursor(content, null, pc, hasPrev, size);
@@ -143,6 +152,8 @@ public class MaintenanceService {
         List<Maintenance> items = hasMore ? raw.getContent().subList(0, size) : raw.getContent();
         List<MaintenanceResponse> content = items.stream()
                 .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse).toList();
+        Map<Long, String> typeMap = buildItemTypeMap(content);
+        content = content.stream().map(r -> withItemType(r, typeMap)).toList();
         Long nc = (hasMore && !content.isEmpty()) ? items.get(items.size() - 1).getId() : null;
         return CursorPageResponse.ofCursor(content, nc, null, hasMore, size);
     }
@@ -159,7 +170,9 @@ public class MaintenanceService {
         List<MaintenanceAttachment> attachments = attachmentRepository.findByMaintenanceId(maintenanceId);
         List<MaintenanceAttachmentSimpleResponse> attachmentResponses = IMaintenanceMapper.INSTANCE.toAttachmentSimpleResponseList(attachments);
 
-        return IMaintenanceMapper.INSTANCE.toMaintenanceResponse(maintenance, attachmentResponses);
+        MaintenanceResponse base = IMaintenanceMapper.INSTANCE.toMaintenanceResponse(maintenance, attachmentResponses);
+        return new MaintenanceResponse(base.id(), base.itemId(), item.getItemType(),
+                base.performedAt(), base.type(), base.performedBy(), base.costCents(), base.nextDueAt(), base.attachments());
     }
 
 
@@ -168,6 +181,17 @@ public class MaintenanceService {
         validateOrganization(orgId, item);
         validatePerformedAt(req);
 
+    }
+
+    private Map<Long, String> buildItemTypeMap(List<MaintenanceResponse> responses) {
+        Set<Long> ids = responses.stream().map(MaintenanceResponse::itemId).collect(Collectors.toSet());
+        return maintenanceItemService.findAllByIds(ids).stream()
+                .collect(Collectors.toMap(MaintenanceItem::getId, MaintenanceItem::getItemType));
+    }
+
+    private static MaintenanceResponse withItemType(MaintenanceResponse r, Map<Long, String> typeMap) {
+        return new MaintenanceResponse(r.id(), r.itemId(), typeMap.get(r.itemId()),
+                r.performedAt(), r.type(), r.performedBy(), r.costCents(), r.nextDueAt(), r.attachments());
     }
 
     private static void validateOrganization(String orgId, MaintenanceItem item) {

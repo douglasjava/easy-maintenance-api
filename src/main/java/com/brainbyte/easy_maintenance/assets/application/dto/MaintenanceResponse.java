@@ -14,6 +14,9 @@ public record MaintenanceResponse(
         @Schema(description = "ID do item de manutenção", example = "10")
         Long itemId,
 
+        @Schema(description = "Nome/tipo do item de manutenção", example = "EXTINTOR")
+        String itemType,
+
         @Schema(description = "Data em que a manutenção foi realizada", example = "2024-05-20")
         LocalDate performedAt,
 
@@ -33,6 +36,6 @@ public record MaintenanceResponse(
         List<MaintenanceAttachmentSimpleResponse> attachments
 ) {
     public MaintenanceResponse(Long id, Long itemId, LocalDate performedAt, MaintenanceType type, String performedBy, Integer costCents, LocalDate nextDueAt) {
-        this(id, itemId, performedAt, type, performedBy, costCents, nextDueAt, List.of());
+        this(id, itemId, null, performedAt, type, performedBy, costCents, nextDueAt, List.of());
     }
 }

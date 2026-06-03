@@ -37,6 +37,7 @@ public interface IMaintenanceMapper {
     return new MaintenanceResponse(
             maintenance.getId(),
             maintenance.getItemId(),
+            null,
             maintenance.getPerformedAt(),
             maintenance.getType(),
             maintenance.getPerformedBy(),
@@ -47,6 +48,7 @@ public interface IMaintenanceMapper {
   }
 
   @Mapping(target = "attachments", source = "attachments")
+  @Mapping(target = "itemType", ignore = true)
   MaintenanceResponse toMaintenanceResponse(Maintenance maintenance, List<MaintenanceAttachmentSimpleResponse> attachments);
 
   @Mapping(target = "attachmentType", source = "attachmentType")

@@ -67,6 +67,10 @@ public class MaintenanceItemService {
                 () -> new NotFoundException(String.format("Item not found: %s", itemId)));
     }
 
+    public List<MaintenanceItem> findAllByIds(java.util.Collection<Long> ids) {
+        return repository.findAllById(ids);
+    }
+
     public MaintenanceItem save(MaintenanceItem item) {
         log.info("save: {}", item);
         return repository.save(item);
