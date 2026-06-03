@@ -317,10 +317,6 @@ public class UsersService {
     }
 
     public void resetPassword(User user, String newPassword) {
-        if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
-            throw new NotFoundException("A nova senha não pode ser igual à senha atual");
-        }
-
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setUpdatedAt(Instant.now());
         repository.save(user);
