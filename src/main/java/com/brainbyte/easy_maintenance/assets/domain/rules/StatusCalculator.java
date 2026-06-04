@@ -10,6 +10,10 @@ public final class StatusCalculator {
 
   public static ItemStatus calculate(LocalDate nextDue) {
 
+    if (nextDue == null) {
+      return ItemStatus.OK;
+    }
+
     LocalDate today = LocalDate.now();
 
     if (nextDue.isBefore(today)) {

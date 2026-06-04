@@ -5,7 +5,6 @@ import com.brainbyte.easy_maintenance.assets.domain.enums.CustomPeriodUnit;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory;
 import com.brainbyte.easy_maintenance.catalog_norms.application.dto.NormDTO;
 import com.brainbyte.easy_maintenance.catalog_norms.application.service.NormService;
-import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -25,7 +24,7 @@ public class ServiceBase {
 
       Integer qty = normResponse.periodQty();
       if (qty == null || qty <= 0) {
-        throw new RuleException("Invalid period in norm");
+        return null;
       }
 
       CustomPeriodUnit periodUnit = normResponse.periodUnit();

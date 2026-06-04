@@ -86,8 +86,10 @@ public class MaintenanceItemService {
 
         maintenanceItem.setLastPerformedAt(request.lastPerformedAt());
         Period period = serviceBase.resolvePeriod(maintenanceItem);
-        LocalDate base = Optional.ofNullable(maintenanceItem.getLastPerformedAt()).orElse(LocalDate.now());
-        maintenanceItem.setNextDueAt(base.plus(period));
+        if (period != null) {
+            LocalDate base = Optional.ofNullable(maintenanceItem.getLastPerformedAt()).orElse(LocalDate.now());
+            maintenanceItem.setNextDueAt(base.plus(period));
+        }
         maintenanceItem.setStatus(StatusCalculator.calculate(maintenanceItem.getNextDueAt()));
         Instant now = Instant.now();
         maintenanceItem.setCreatedAt(now);
@@ -256,8 +258,12 @@ public class MaintenanceItemService {
         maintenanceItem.setItemCategory(request.itemCategory());
 
         Period period = serviceBase.resolvePeriod(maintenanceItem);
-        LocalDate base = Optional.ofNullable(maintenanceItem.getLastPerformedAt()).orElse(LocalDate.now());
-        maintenanceItem.setNextDueAt(base.plus(period));
+        if (period != null) {
+            LocalDate base = Optional.ofNullable(maintenanceItem.getLastPerformedAt()).orElse(LocalDate.now());
+            maintenanceItem.setNextDueAt(base.plus(period));
+        } else {
+            maintenanceItem.setNextDueAt(null);
+        }
 
         maintenanceItem.setLastPerformedAt(request.lastPerformedAt());
         maintenanceItem.setCustomPeriodQty(request.customPeriodQty());

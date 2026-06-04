@@ -65,7 +65,9 @@ public class MaintenanceService {
 
         item.setLastPerformedAt(req.performedAt());
         Period period = serviceBase.resolvePeriod(item);
-        item.setNextDueAt(req.performedAt().plus(period));
+        if (period != null) {
+            item.setNextDueAt(req.performedAt().plus(period));
+        }
         item.setStatus(StatusCalculator.calculate(item.getNextDueAt()));
         item.setUpdatedAt(Instant.now());
         MaintenanceItem savedItem = maintenanceItemService.save(item);
