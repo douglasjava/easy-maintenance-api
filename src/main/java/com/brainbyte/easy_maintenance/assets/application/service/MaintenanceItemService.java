@@ -23,10 +23,7 @@ import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.commons.exceptions.TenantException;
-import com.brainbyte.easy_maintenance.infrastructure.audit.AuditAction;
 import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -202,7 +199,7 @@ public class MaintenanceItemService {
                     return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, resolveNormName(item.getNormId()), canUpdate, reason);
                 }).toList();
         Long nextCursor = page.hasNext() && !content.isEmpty()
-                ? page.getContent().get(page.getContent().size() - 1).getId()
+                ? page.getContent().getLast().getId()
                 : null;
         return new CursorPageResponse<>(content, nextCursor, null, page.hasNext(),
                 size, page.getTotalElements(), page.getTotalPages(), page.getNumber());
@@ -223,9 +220,9 @@ public class MaintenanceItemService {
                 }).toList();
 
         Long nextCursor = (!backward && hasMore && !content.isEmpty())
-                ? items.get(items.size() - 1).getId() : null;
+                ? items.getLast().getId() : null;
         Long prevCursor = (backward && hasMore && !content.isEmpty())
-                ? items.get(0).getId() : null;
+                ? items.getFirst().getId() : null;
 
         return CursorPageResponse.ofCursor(content, nextCursor, prevCursor, hasMore, size);
     }
@@ -256,6 +253,7 @@ public class MaintenanceItemService {
 
         maintenanceItem.setItemType(request.itemType());
         maintenanceItem.setItemCategory(request.itemCategory());
+        maintenanceItem.setCustomPeriodUnit(request.customPeriodUnit());
 
         Period period = serviceBase.resolvePeriod(maintenanceItem);
         if (period != null) {
