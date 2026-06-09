@@ -71,6 +71,34 @@ public class OrganizationsService {
 
     }
 
+    public OrganizationDTO.OrganizationResponse findByIdWithoutBusiness(Long id) {
+        log.info("Getting organization without Business and with id {}", id);
+        var organization = repository.findById(id)
+                .orElseThrow(() -> new NotFoundException(String.format("Organization with id %s not found", id)));
+
+        var organizationResponse = IOrganizationMapper.INSTANCE.toOrganizationResponse(organization);
+
+        organizationResponse = new OrganizationDTO.OrganizationResponse(
+                organizationResponse.id(),
+                organizationResponse.code(),
+                organizationResponse.name(),
+                organizationResponse.city(),
+                organizationResponse.street(),
+                organizationResponse.number(),
+                organizationResponse.complement(),
+                organizationResponse.neighborhood(),
+                organizationResponse.state(),
+                organizationResponse.zipCode(),
+                organizationResponse.country(),
+                organizationResponse.doc(),
+                organizationResponse.companyType(),
+                null
+        );
+
+
+        return organizationResponse;
+    }
+
     public OrganizationDTO.OrganizationResponse findById(Long id) {
         log.info("Getting organization with id {}", id);
         var organization = repository.findById(id)

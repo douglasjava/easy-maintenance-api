@@ -89,7 +89,7 @@ public class AdminService {
     }
 
     public OrganizationDTO.OrganizationResponse findByOrganizationId(Long id) {
-        return organizationsService.findById(id);
+        return organizationsService.findByIdWithoutBusiness(id);
     }
 
     public OrganizationDTO.OrganizationResponse updateByOrganizationId(Long id, OrganizationDTO.UpdateOrganizationRequest request) {
