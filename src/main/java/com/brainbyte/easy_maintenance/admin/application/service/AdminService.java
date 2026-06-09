@@ -1,6 +1,8 @@
 package com.brainbyte.easy_maintenance.admin.application.service;
 
 import com.brainbyte.easy_maintenance.admin.application.dto.AdminMetricsResponse;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.AccessAdminException;
@@ -22,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -44,6 +47,7 @@ public class AdminService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
+    private final BillingSubscriptionService billingSubscriptionService;
     private final CriticalEmailDispatchService criticalEmailDispatchService;
     private final EmailTemplateHelper emailTemplateHelper;
 
@@ -133,8 +137,16 @@ public class AdminService {
         usersService.addOrganization(userId, orgCode);
     }
 
+    @Transactional
     public void removeOrganizationFromUser(Long userId, String orgCode) {
         usersService.removeOrganization(userId, orgCode);
+
+        billingSubscriptionItemRepository
+                .findBySourceTypeAndSourceId(BillingSubscriptionItemSourceType.ORGANIZATION, orgCode)
+                .ifPresent(item -> {
+                    log.info("Agendando cancelamento de billing da org {} ao desvincular do usuario {}", orgCode, userId);
+                    billingSubscriptionService.scheduleItemCancellation(item.getId());
+                });
     }
 
     private UserDTO.UserResponse initializeUserAccess(UserDTO.UserResponse userResponse, String password, String orgCode) {
