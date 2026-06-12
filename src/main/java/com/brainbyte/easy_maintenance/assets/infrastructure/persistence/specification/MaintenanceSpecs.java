@@ -1,16 +1,13 @@
 package com.brainbyte.easy_maintenance.assets.infrastructure.persistence.specification;
 
+import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceFilter;
 import com.brainbyte.easy_maintenance.assets.domain.Maintenance;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
-import com.brainbyte.easy_maintenance.assets.domain.enums.MaintenanceType;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,7 +17,7 @@ public final class MaintenanceSpecs {
 
     private MaintenanceSpecs() {}
 
-    public static Specification<Maintenance> filter(String orgId, Long itemId, LocalDate performedAt, MaintenanceType type, String performedBy) {
+    public static Specification<Maintenance> filter(String orgId, MaintenanceFilter f) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -35,27 +32,32 @@ public final class MaintenanceSpecs {
 
             predicates.add(cb.exists(subquery));
 
-            if (itemId != null) {
-                predicates.add(cb.equal(root.get("itemId"), itemId));
+            if (f.itemId() != null) {
+                predicates.add(cb.equal(root.get("itemId"), f.itemId()));
             }
 
-            if (performedAt != null) {
-                predicates.add(cb.equal(root.get("performedAt"), performedAt));
+            if (f.performedAt() != null) {
+                predicates.add(cb.equal(root.get("performedAt"), f.performedAt()));
+            } else {
+                if (f.performedAtFrom() != null) {
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("performedAt"), f.performedAtFrom()));
+                }
+                if (f.performedAtTo() != null) {
+                    predicates.add(cb.lessThanOrEqualTo(root.get("performedAt"), f.performedAtTo()));
+                }
             }
 
-            if (type != null) {
-                predicates.add(cb.equal(root.get("type"), type));
+            if (f.type() != null) {
+                predicates.add(cb.equal(root.get("type"), f.type()));
             }
 
-            if (isNotBlank(performedBy)) {
-                String pattern = "%" + performedBy
+            if (isNotBlank(f.performedBy())) {
+                String pattern = "%" + f.performedBy()
                         .toLowerCase()
                         .replace("%", "\\%")
                         .replace("_", "\\_") + "%";
 
-                predicates.add(
-                        cb.like(cb.lower(root.get("performedBy")), pattern, '\\')
-                );
+                predicates.add(cb.like(cb.lower(root.get("performedBy")), pattern, '\\'));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

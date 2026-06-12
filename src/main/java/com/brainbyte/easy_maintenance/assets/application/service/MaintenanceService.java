@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.assets.application.service;
 
 import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceAttachmentSimpleResponse;
+import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceFilter;
 import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceResponse;
 import com.brainbyte.easy_maintenance.assets.application.dto.RegisterMaintenanceRequest;
 import com.brainbyte.easy_maintenance.commons.dto.CursorPageResponse;
@@ -8,7 +9,6 @@ import com.brainbyte.easy_maintenance.assets.component.ServiceBase;
 import com.brainbyte.easy_maintenance.assets.domain.Maintenance;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceAttachment;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
-import com.brainbyte.easy_maintenance.assets.domain.enums.MaintenanceType;
 import com.brainbyte.easy_maintenance.assets.domain.rules.StatusCalculator;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceAttachmentRepository;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceRepository;
@@ -79,16 +79,14 @@ public class MaintenanceService {
     }
 
 
-    public Page<MaintenanceResponse> listByItem(String orgId, Long itemId, LocalDate performedAt, MaintenanceType type, String performedBy, Pageable pageable) {
+    public Page<MaintenanceResponse> listByItem(String orgId, MaintenanceFilter filter, Pageable pageable) {
 
-        if(itemId != null) {
-
-            MaintenanceItem item = maintenanceItemService.findById(itemId);
-
+        if (filter.itemId() != null) {
+            MaintenanceItem item = maintenanceItemService.findById(filter.itemId());
             validateOrganization(orgId, item);
         }
 
-        Specification<Maintenance> spec = MaintenanceSpecs.filter(orgId, itemId, performedAt, type, performedBy);
+        Specification<Maintenance> spec = MaintenanceSpecs.filter(orgId, filter);
 
         Page<MaintenanceResponse> page = maintenanceRepository.findAll(spec, pageable)
                 .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse);
@@ -97,19 +95,17 @@ public class MaintenanceService {
         return page.map(r -> withItemType(r, typeMap));
     }
 
-    public CursorPageResponse<MaintenanceResponse> listByItemCursor(String orgId, Long itemId,
-                                                                     LocalDate performedAt,
-                                                                     MaintenanceType type,
-                                                                     String performedBy,
+    public CursorPageResponse<MaintenanceResponse> listByItemCursor(String orgId,
+                                                                     MaintenanceFilter filter,
                                                                      Long cursor,
                                                                      Long prevCursor,
                                                                      int size) {
-        if (itemId != null) {
-            MaintenanceItem item = maintenanceItemService.findById(itemId);
+        if (filter.itemId() != null) {
+            MaintenanceItem item = maintenanceItemService.findById(filter.itemId());
             validateOrganization(orgId, item);
         }
 
-        Specification<Maintenance> baseSpec = MaintenanceSpecs.filter(orgId, itemId, performedAt, type, performedBy);
+        Specification<Maintenance> baseSpec = MaintenanceSpecs.filter(orgId, filter);
 
         if (cursor == null && prevCursor == null) {
             // OFFSET fallback — first page

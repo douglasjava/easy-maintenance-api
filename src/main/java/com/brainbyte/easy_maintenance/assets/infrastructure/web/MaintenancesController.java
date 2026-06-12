@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.assets.infrastructure.web;
 
+import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceFilter;
 import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceResponse;
 import com.brainbyte.easy_maintenance.assets.application.dto.RegisterMaintenanceRequest;
 import com.brainbyte.easy_maintenance.assets.application.service.MaintenanceExportService;
@@ -68,18 +69,21 @@ public class MaintenancesController {
     @RequireTenant
     @Operation(
             summary = "Lista o histórico de manutenções de uma organização",
-            description = "Retorna uma lista paginada de manutenções. Suporta cursor pagination (cursor/prevCursor) e OFFSET (primeira página sem cursor)."
+            description = "Retorna uma lista paginada de manutenções. Suporta cursor pagination (cursor/prevCursor) e OFFSET (primeira página sem cursor). Use performedAtFrom/performedAtTo para filtrar por intervalo de datas, ou performedAt para data exata."
     )
     public CursorPageResponse<MaintenanceResponse> list(
             @Parameter(description = "Filtrar por ID do item") @RequestParam(required = false) Long itemId,
-            @Parameter(description = "Filtrar por data de execução (YYYY-MM-DD)") @RequestParam(required = false) LocalDate performedAt,
+            @Parameter(description = "Filtrar por data exata (YYYY-MM-DD). Ignorado se performedAtFrom ou performedAtTo forem informados.") @RequestParam(required = false) LocalDate performedAt,
+            @Parameter(description = "Filtrar por data de início do intervalo (YYYY-MM-DD)") @RequestParam(required = false) LocalDate performedAtFrom,
+            @Parameter(description = "Filtrar por data de fim do intervalo (YYYY-MM-DD)") @RequestParam(required = false) LocalDate performedAtTo,
             @Parameter(description = "Filtrar por tipo de manutenção") @RequestParam(required = false) MaintenanceType type,
             @Parameter(description = "Filtrar por executor") @RequestParam(required = false) String performedBy,
             @Parameter(description = "Cursor para paginação forward (ID da última manutenção vista)") @RequestParam(required = false) Long cursor,
             @Parameter(description = "Cursor para paginação backward (ID da primeira manutenção da página atual)") @RequestParam(required = false) Long prevCursor,
             @RequestParam(defaultValue = "20") int size) {
         String orgId = TenantContext.get().orElseThrow();
-        return service.listByItemCursor(orgId, itemId, performedAt, type, performedBy, cursor, prevCursor, size);
+        MaintenanceFilter filter = new MaintenanceFilter(itemId, performedAt, performedAtFrom, performedAtTo, type, performedBy);
+        return service.listByItemCursor(orgId, filter, cursor, prevCursor, size);
     }
 
     @GetMapping("/maintenances/export")
