@@ -60,8 +60,15 @@ public class BillingDashboardService {
         var items = getBillingSubscriptionItemActive(subscription.getId());
         Map<String, String> orgNames = getOrganizationNames(items);
 
+        long cancelingCents = items.stream()
+                .filter(BillingSubscriptionItem::isCancelAtPeriodEnd)
+                .mapToLong(BillingSubscriptionItem::getValueCents)
+                .sum();
+        Long currentTotal = subscription.getTotalCents() != null ? subscription.getTotalCents() : 0L;
+        Long projectedTotal = cancelingCents > 0 ? currentTotal - cancelingCents : null;
+
         return BillingSummaryResponse.builder()
-                .subscription(mapToSubscriptionSummary(subscription))
+                .subscription(mapToSubscriptionSummary(subscription, projectedTotal))
                 .items(items.stream()
                         .map(item -> mapToSubscriptionItemDTO(item, orgNames, subscription.getNextDueDate()))
                         .toList())
@@ -99,13 +106,15 @@ public class BillingDashboardService {
                 .build();
     }
 
-    private static BillingSummaryResponse.SubscriptionSummaryDTO mapToSubscriptionSummary(BillingSubscription subscription) {
+    private static BillingSummaryResponse.SubscriptionSummaryDTO mapToSubscriptionSummary(BillingSubscription subscription, Long projectedTotalCents) {
         return BillingSummaryResponse.SubscriptionSummaryDTO.builder()
                 .id(subscription.getId())
                 .status(subscription.getStatus().name())
                 .cycle(subscription.getCycle().name())
                 .totalCents(subscription.getTotalCents())
                 .nextDueDate(subscription.getNextDueDate())
+                .projectedTotalCents(projectedTotalCents)
+                .projectedChangeDate(projectedTotalCents != null ? subscription.getNextDueDate() : null)
                 .build();
     }
 

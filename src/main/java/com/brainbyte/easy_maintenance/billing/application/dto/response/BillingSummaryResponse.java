@@ -29,6 +29,8 @@ public class BillingSummaryResponse {
         private String cycle;
         private Long totalCents;
         private LocalDate nextDueDate;
+        private Long projectedTotalCents;
+        private LocalDate projectedChangeDate;
     }
 
     @Data
