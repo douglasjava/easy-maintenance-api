@@ -113,50 +113,38 @@ public class MaintenanceService {
 
         if (cursor == null && prevCursor == null) {
             // OFFSET fallback — first page
-            Page<Maintenance> page = maintenanceRepository.findAll(
-                    baseSpec, PageRequest.of(0, size, Sort.by("id").ascending()));
-            Long nextCursor = page.hasNext() && !page.getContent().isEmpty()
-                    ? page.getContent().get(page.getContent().size() - 1).getId()
-                    : null;
-            List<MaintenanceResponse> content = page.getContent().stream()
-                    .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse).toList();
+            Page<Maintenance> page = maintenanceRepository.findAll(baseSpec, PageRequest.of(0, size, Sort.by("id").ascending()));
+            Long nextCursor = page.hasNext() && !page.getContent().isEmpty() ? page.getContent().getLast().getId() : null;
+            List<MaintenanceResponse> content = page.getContent().stream().map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse).toList();
             Map<Long, String> typeMap = buildItemTypeMap(content);
             content = content.stream().map(r -> withItemType(r, typeMap)).toList();
-            return new CursorPageResponse<>(content, nextCursor, null, page.hasNext(),
-                    size, page.getTotalElements(), page.getTotalPages(), page.getNumber());
+            return new CursorPageResponse<>(content, nextCursor, null, page.hasNext(), size, page.getTotalElements(), page.getTotalPages(), page.getNumber());
         }
 
         if (prevCursor != null) {
             // Backward: fetch items before prevCursor
-            Specification<Maintenance> backSpec = baseSpec.and(
-                    (root, query, cb) -> cb.lessThan(root.get("id"), prevCursor));
-            Page<Maintenance> raw = maintenanceRepository.findAll(
-                    backSpec, PageRequest.of(0, size + 1, Sort.by("id").descending()));
+            Specification<Maintenance> backSpec = baseSpec.and((root, query, cb) -> cb.lessThan(root.get("id"), prevCursor));
+            Page<Maintenance> raw = maintenanceRepository.findAll(backSpec, PageRequest.of(0, size + 1, Sort.by("id").descending()));
             boolean hasPrev = raw.getContent().size() > size;
             List<Maintenance> items = hasPrev ? raw.getContent().subList(0, size) : raw.getContent();
-            java.util.ArrayList<Maintenance> ascending = new java.util.ArrayList<>(items);
-            java.util.Collections.reverse(ascending);
-            List<MaintenanceResponse> content = ascending.stream()
-                    .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse).toList();
+            ArrayList<Maintenance> ascending = new java.util.ArrayList<>(items);
+            Collections.reverse(ascending);
+            List<MaintenanceResponse> content = ascending.stream().map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse).toList();
             Map<Long, String> typeMap = buildItemTypeMap(content);
             content = content.stream().map(r -> withItemType(r, typeMap)).toList();
-            Long pc = (hasPrev && !content.isEmpty())
-                    ? ascending.get(0).getId() : null;
+            Long pc = (hasPrev && !content.isEmpty()) ? ascending.getFirst().getId() : null;
             return CursorPageResponse.ofCursor(content, null, pc, hasPrev, size);
         }
 
         // Forward: fetch items after cursor
-        Specification<Maintenance> fwdSpec = baseSpec.and(
-                (root, query, cb) -> cb.greaterThan(root.get("id"), cursor));
-        Page<Maintenance> raw = maintenanceRepository.findAll(
-                fwdSpec, PageRequest.of(0, size + 1, Sort.by("id").ascending()));
+        Specification<Maintenance> fwdSpec = baseSpec.and((root, query, cb) -> cb.greaterThan(root.get("id"), cursor));
+        Page<Maintenance> raw = maintenanceRepository.findAll(fwdSpec, PageRequest.of(0, size + 1, Sort.by("id").ascending()));
         boolean hasMore = raw.getContent().size() > size;
         List<Maintenance> items = hasMore ? raw.getContent().subList(0, size) : raw.getContent();
-        List<MaintenanceResponse> content = items.stream()
-                .map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse).toList();
+        List<MaintenanceResponse> content = items.stream().map(IMaintenanceMapper.INSTANCE::toMaintenanceResponse).toList();
         Map<Long, String> typeMap = buildItemTypeMap(content);
         content = content.stream().map(r -> withItemType(r, typeMap)).toList();
-        Long nc = (hasMore && !content.isEmpty()) ? items.get(items.size() - 1).getId() : null;
+        Long nc = (hasMore && !content.isEmpty()) ? items.getLast().getId() : null;
         return CursorPageResponse.ofCursor(content, nc, null, hasMore, size);
     }
 
