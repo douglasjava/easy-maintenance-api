@@ -14,28 +14,49 @@ import java.time.Period;
 @RequiredArgsConstructor
 public class ServiceBase {
 
-  private final NormService normService;
+    private final NormService normService;
 
-  public Period resolvePeriod(MaintenanceItem e) {
+    public Period resolvePeriod(MaintenanceItem e) {
 
-    if (e.getItemCategory() == ItemCategory.REGULATORY) {
+        if (e.getItemCategory() == ItemCategory.REGULATORY) {
 
-      NormDTO.NormResponse normResponse = normService.findById(e.getNormId());
+            NormDTO.NormResponse normResponse = normService.findById(e.getNormId());
 
-      Integer qty = normResponse.periodQty();
-      if (qty == null || qty <= 0) {
+            Integer qty = normResponse.periodQty();
+            if (qty == null || qty <= 0) {
+                return null;
+            }
+
+            CustomPeriodUnit periodUnit = normResponse.periodUnit();
+
+            if (CustomPeriodUnit.ANUAL == periodUnit) {
+                return Period.ofYears(qty);
+
+            } else if (CustomPeriodUnit.MESES == periodUnit) {
+                return Period.ofMonths(qty);
+
+            } else if (CustomPeriodUnit.DIAS == periodUnit) {
+                return Period.ofDays(qty);
+
+            }
+
+        } else {
+
+            if (CustomPeriodUnit.ANUAL == e.getCustomPeriodUnit()) {
+                return Period.ofYears(e.getCustomPeriodQty());
+
+            } else if (CustomPeriodUnit.MESES == e.getCustomPeriodUnit()) {
+                return Period.ofMonths(e.getCustomPeriodQty());
+
+            } else if (CustomPeriodUnit.DIAS == e.getCustomPeriodUnit()) {
+                return Period.ofDays(e.getCustomPeriodQty());
+
+            }
+
+        }
+
         return null;
-      }
 
-      CustomPeriodUnit periodUnit = normResponse.periodUnit();
-      return CustomPeriodUnit.MESES == periodUnit ? Period.ofMonths(qty) : Period.ofDays(qty);
-
-    } else {
-      return CustomPeriodUnit.MESES == e.getCustomPeriodUnit()
-              ? Period.ofMonths(e.getCustomPeriodQty())
-              : Period.ofDays(e.getCustomPeriodQty());
     }
-
-  }
 
 }
