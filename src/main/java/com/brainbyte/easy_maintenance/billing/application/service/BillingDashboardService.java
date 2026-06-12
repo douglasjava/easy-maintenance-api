@@ -62,14 +62,14 @@ public class BillingDashboardService {
         return BillingSummaryResponse.builder()
                 .subscription(mapToSubscriptionSummary(subscription))
                 .items(items.stream()
-                        .map(item -> mapToSubscriptionItemDTO(item, orgNames))
+                        .map(item -> mapToSubscriptionItemDTO(item, orgNames, subscription.getNextDueDate()))
                         .toList())
                 .invoices(mapInvoicesToSummary(recentInvoices))
                 .billingAccount(mapAccountToSummary(accountOpt.orElse(null)))
                 .build();
     }
 
-    private static BillingSummaryResponse.SubscriptionItemDTO mapToSubscriptionItemDTO(BillingSubscriptionItem item, Map<String, String> orgNames) {
+    private static BillingSummaryResponse.SubscriptionItemDTO mapToSubscriptionItemDTO(BillingSubscriptionItem item, Map<String, String> orgNames, LocalDate subscriptionNextDueDate) {
         return BillingSummaryResponse.SubscriptionItemDTO.builder()
                 .id(item.getId())
                 .type(item.getSourceType().name())
@@ -78,6 +78,8 @@ public class BillingDashboardService {
                 .valueCents(item.getValueCents())
                 .plan(mapToPlanDTO(item.getPlan()))
                 .pendingChange(item.getNextPlan() != null ? mapToPendingChangeDTO(item) : null)
+                .cancelAtPeriodEnd(item.isCancelAtPeriodEnd())
+                .scheduledCancellationDate(item.isCancelAtPeriodEnd() ? subscriptionNextDueDate : null)
                 .build();
     }
 

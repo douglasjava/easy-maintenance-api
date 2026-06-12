@@ -43,6 +43,8 @@ public class BillingSummaryResponse {
         private PlanDTO plan;
         private Long valueCents;
         private PendingChangeDTO pendingChange;
+        private boolean cancelAtPeriodEnd;
+        private LocalDate scheduledCancellationDate;
     }
 
     @Data
