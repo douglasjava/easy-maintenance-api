@@ -254,6 +254,7 @@ public class MaintenanceItemService {
         maintenanceItem.setItemType(request.itemType());
         maintenanceItem.setItemCategory(request.itemCategory());
         maintenanceItem.setCustomPeriodUnit(request.customPeriodUnit());
+        maintenanceItem.setCustomPeriodQty(request.customPeriodQty());
 
         Period period = serviceBase.resolvePeriod(maintenanceItem);
         if (period != null) {
@@ -264,7 +265,6 @@ public class MaintenanceItemService {
         }
 
         maintenanceItem.setLastPerformedAt(request.lastPerformedAt());
-        maintenanceItem.setCustomPeriodQty(request.customPeriodQty());
         maintenanceItem.setNormId(request.normId());
         maintenanceItem.setUpdatedAt(Instant.now());
 
