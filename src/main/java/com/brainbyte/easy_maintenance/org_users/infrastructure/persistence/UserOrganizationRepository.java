@@ -14,6 +14,8 @@ public interface UserOrganizationRepository extends JpaRepository<UserOrganizati
 
     List<UserOrganization> findAllByOrganizationCode(String organizationCode);
 
+    List<UserOrganization> findAllByUserId(Long userId);
+
     void deleteByUserIdAndOrganizationCode(Long userId, String organizationCode);
 
     long countByUserId(Long userId);
