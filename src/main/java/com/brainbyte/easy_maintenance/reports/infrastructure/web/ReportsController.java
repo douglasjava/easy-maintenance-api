@@ -1,14 +1,24 @@
 package com.brainbyte.easy_maintenance.reports.infrastructure.web;
 
+import com.brainbyte.easy_maintenance.assets.domain.enums.MaintenanceType;
+import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
+import com.brainbyte.easy_maintenance.reports.application.dto.ReportsMaintenanceResponse;
 import com.brainbyte.easy_maintenance.reports.application.dto.ReportsOverviewResponse;
 import com.brainbyte.easy_maintenance.reports.application.service.ReportsService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -28,5 +38,29 @@ public class ReportsController {
     public ReportsOverviewResponse getOverview() {
         var user = authenticationService.getCurrentUser();
         return reportsService.getOverview(user.getId());
+    }
+
+    @GetMapping("/maintenances")
+    @Operation(
+            summary = "Listagem paginada de manutenções cross-org",
+            description = "Retorna manutenções de todas as empresas do usuário. "
+                    + "Filtros opcionais: orgCodes (padrão: todas as empresas do usuário), "
+                    + "performedAtFrom, performedAtTo, type, itemType. "
+                    + "Cada registro inclui orgCode e orgName para identificação da empresa."
+    )
+    public PageResponse<ReportsMaintenanceResponse> listMaintenances(
+            @Parameter(description = "Filtrar por empresas específicas (códigos). Padrão: todas as empresas do usuário.")
+            @RequestParam(required = false) List<String> orgCodes,
+            @Parameter(description = "Data de início do período (YYYY-MM-DD)")
+            @RequestParam(required = false) LocalDate performedAtFrom,
+            @Parameter(description = "Data de fim do período (YYYY-MM-DD)")
+            @RequestParam(required = false) LocalDate performedAtTo,
+            @Parameter(description = "Tipo de manutenção")
+            @RequestParam(required = false) MaintenanceType type,
+            @Parameter(description = "Tipo do item (ex: EXTINTOR, GERADOR)")
+            @RequestParam(required = false) String itemType,
+            @PageableDefault(size = 20, sort = "performedAt") Pageable pageable) {
+        var user = authenticationService.getCurrentUser();
+        return reportsService.listMaintenances(user.getId(), orgCodes, performedAtFrom, performedAtTo, type, itemType, pageable);
     }
 }
