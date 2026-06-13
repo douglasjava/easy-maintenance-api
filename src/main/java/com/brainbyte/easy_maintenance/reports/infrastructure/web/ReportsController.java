@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.reports.infrastructure.web;
 
+import com.brainbyte.easy_maintenance.assets.application.service.MaintenanceExportService;
 import com.brainbyte.easy_maintenance.assets.domain.enums.MaintenanceType;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
@@ -12,12 +13,16 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -27,6 +32,7 @@ import java.util.List;
 public class ReportsController {
 
     private final ReportsService reportsService;
+    private final MaintenanceExportService exportService;
     private final AuthenticationService authenticationService;
 
     @GetMapping("/overview")
@@ -62,5 +68,28 @@ public class ReportsController {
             @PageableDefault(size = 20, sort = "performedAt") Pageable pageable) {
         var user = authenticationService.getCurrentUser();
         return reportsService.listMaintenances(user.getId(), orgCodes, performedAtFrom, performedAtTo, type, itemType, pageable);
+    }
+
+    @GetMapping("/maintenances/export")
+    @Operation(
+            summary = "Exportar manutenções cross-org em CSV",
+            description = "Gera um CSV consolidado com manutenções de todas as empresas do usuário (máx. 5000 registros). "
+                    + "Apenas empresas com o plano que inclui exportação de relatórios são incluídas. "
+                    + "Não requer X-Org-Id — usa as organizações do usuário autenticado."
+    )
+    public ResponseEntity<byte[]> exportMaintenancesCrossOrg(
+            @Parameter(description = "Filtrar por empresas específicas. Padrão: todas as empresas autorizadas.")
+            @RequestParam(required = false) List<String> orgCodes,
+            @Parameter(description = "Data de início do período (YYYY-MM-DD)")
+            @RequestParam(required = false) LocalDate startDate,
+            @Parameter(description = "Data de fim do período (YYYY-MM-DD)")
+            @RequestParam(required = false) LocalDate endDate) {
+        var user = authenticationService.getCurrentUser();
+        byte[] csv = exportService.exportCsvCrossOrg(user.getId(), orgCodes, startDate, endDate);
+        String filename = "relatorios_manutencoes_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".csv";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csv);
     }
 }

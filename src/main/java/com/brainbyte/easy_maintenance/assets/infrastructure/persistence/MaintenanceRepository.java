@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.assets.infrastructure.persistence;
 
+import com.brainbyte.easy_maintenance.assets.application.dto.CrossOrgMaintenanceExportProjection;
 import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceExportProjection;
 import com.brainbyte.easy_maintenance.assets.domain.Maintenance;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -52,6 +53,25 @@ public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>,
   List<MaintenanceExportProjection> findForExport(
       @Param("orgCode") String orgCode,
       @Param("itemId") Long itemId,
+      @Param("startDate") LocalDate startDate,
+      @Param("endDate") LocalDate endDate
+  );
+
+  @Query(value =
+      "SELECT m.id AS id, i.organization_code AS orgCode, i.item_type AS itemType, " +
+      "m.performed_at AS performedAt, m.type AS maintenanceType, m.performed_by AS performedBy, " +
+      "m.cost_cents AS costCents, m.next_due_at AS nextDueAt, n.authority AS normAuthority " +
+      "FROM maintenances m " +
+      "JOIN maintenance_items i ON i.id = m.item_id " +
+      "LEFT JOIN norms n ON n.id = i.norm_id " +
+      "WHERE i.organization_code IN (:orgCodes) " +
+      "AND (:startDate IS NULL OR m.performed_at >= :startDate) " +
+      "AND (:endDate IS NULL OR m.performed_at <= :endDate) " +
+      "ORDER BY i.organization_code, m.performed_at DESC " +
+      "LIMIT 5000",
+      nativeQuery = true)
+  List<CrossOrgMaintenanceExportProjection> findForExportCrossOrg(
+      @Param("orgCodes") List<String> orgCodes,
       @Param("startDate") LocalDate startDate,
       @Param("endDate") LocalDate endDate
   );
