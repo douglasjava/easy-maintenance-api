@@ -35,6 +35,14 @@ public final class TenantContext {
     return Boolean.TRUE.equals(SYSTEM_CONTEXT.get());
   }
 
+  /**
+   * Clears only the system-context flag, leaving the tenant org code intact.
+   * Use in a finally block after setSystemContext() to restore per-request scoping.
+   */
+  public static void clearSystemContext() {
+    SYSTEM_CONTEXT.remove();
+  }
+
   public static void clear() {
     CURRENT.remove();
     SYSTEM_CONTEXT.remove();

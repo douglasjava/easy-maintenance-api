@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.reports.application.service;
 
+import com.brainbyte.easy_maintenance.assets.domain.Maintenance;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
 import com.brainbyte.easy_maintenance.assets.domain.enums.MaintenanceType;
@@ -7,7 +8,9 @@ import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.Maintena
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceRepository;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.specification.MaintenanceSpecs;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
+import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
+import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import com.brainbyte.easy_maintenance.reports.application.dto.ReportsMaintenanceResponse;
@@ -38,7 +41,7 @@ public class ReportsService {
     @Transactional(readOnly = true)
     public ReportsOverviewResponse getOverview(Long userId) {
         List<String> orgCodes = userOrgRepository.findAllByUserId(userId).stream()
-                .map(uo -> uo.getOrganizationCode())
+                .map(UserOrganization::getOrganizationCode)
                 .toList();
 
         if (orgCodes.isEmpty()) {
@@ -79,8 +82,9 @@ public class ReportsService {
                                                                       MaintenanceType type,
                                                                       String itemType,
                                                                       Pageable pageable) {
+
         List<String> userOrgCodes = userOrgRepository.findAllByUserId(userId).stream()
-                .map(uo -> uo.getOrganizationCode())
+                .map(UserOrganization::getOrganizationCode)
                 .toList();
 
         // Intersect with requested filter — user can never see orgs they don't belong to
@@ -95,19 +99,23 @@ public class ReportsService {
         Map<String, String> orgNames = organizationRepository.findAllByCodeIn(effectiveOrgCodes).stream()
                 .collect(Collectors.toMap(Organization::getCode, Organization::getName));
 
-        Specification<com.brainbyte.easy_maintenance.assets.domain.Maintenance> spec =
-                MaintenanceSpecs.filterCrossOrg(effectiveOrgCodes, performedAtFrom, performedAtTo, type, itemType);
+        Specification<Maintenance> spec = MaintenanceSpecs.filterCrossOrg(effectiveOrgCodes, performedAtFrom, performedAtTo, type, itemType);
 
-        Page<com.brainbyte.easy_maintenance.assets.domain.Maintenance> page =
-                maintenanceRepository.findAll(spec, pageable);
+        Page<Maintenance> page = maintenanceRepository.findAll(spec, pageable);
 
-        // Resolve itemId → orgCode in one query (avoids N+1)
-        Set<Long> itemIds = page.getContent().stream()
-                .map(m -> m.getItemId())
-                .collect(Collectors.toSet());
-        Map<Long, MaintenanceItem> itemMap = itemIds.isEmpty() ? Map.of() :
-                itemRepository.findAllById(itemIds).stream()
-                        .collect(Collectors.toMap(MaintenanceItem::getId, i -> i));
+        // Resolve itemId → orgCode in one query (avoids N+1).
+        // TenantFilterAspect intercepts MaintenanceItemRepository — bypass it here because
+        // this is a cross-org read already scoped by effectiveOrgCodes above.
+        Set<Long> itemIds = page.getContent().stream().map(Maintenance::getItemId).collect(Collectors.toSet());
+        Map<Long, MaintenanceItem> itemMap;
+        TenantContext.setSystemContext();
+        try {
+            itemMap = itemIds.isEmpty() ? Map.of() :
+                    itemRepository.findAllById(itemIds).stream()
+                            .collect(Collectors.toMap(MaintenanceItem::getId, i -> i));
+        } finally {
+            TenantContext.clearSystemContext();
+        }
 
         List<ReportsMaintenanceResponse> content = page.getContent().stream()
                 .map(m -> {
