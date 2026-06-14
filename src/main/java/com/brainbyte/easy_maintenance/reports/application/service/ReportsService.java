@@ -106,6 +106,7 @@ public class ReportsService {
         // Resolve itemId → orgCode in one query (avoids N+1).
         // TenantFilterAspect intercepts MaintenanceItemRepository — bypass it here because
         // this is a cross-org read already scoped by effectiveOrgCodes above.
+
         Set<Long> itemIds = page.getContent().stream().map(Maintenance::getItemId).collect(Collectors.toSet());
         Map<Long, MaintenanceItem> itemMap;
         TenantContext.setSystemContext();
