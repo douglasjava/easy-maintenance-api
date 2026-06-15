@@ -1,0 +1,49 @@
+global:
+  # Intervalo de re-envio de alertas já disparados
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alertas@easymaintenance.com.br'
+  # Configure as variáveis ALERTMANAGER_SMTP_USERNAME e ALERTMANAGER_SMTP_PASSWORD
+  # no ambiente onde o AlertManager rodar (Railway/docker-compose .env)
+  smtp_auth_username: '${ALERTMANAGER_SMTP_USERNAME}'
+  smtp_auth_password: '${ALERTMANAGER_SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'email-principal'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'email-principal'
+      repeat_interval: 1h
+    - match:
+        severity: high
+      receiver: 'email-principal'
+      repeat_interval: 4h
+
+receivers:
+  - name: 'email-principal'
+    email_configs:
+      - to: 'douglasmarquesdias@gmail.com'
+        send_resolved: true
+        headers:
+          Subject: '[Easy Maintenance] {{ .Status | toUpper }}: {{ .CommonAnnotations.summary }}'
+        body: |
+          {{ range .Alerts }}
+          Alerta: {{ .Annotations.summary }}
+          Descrição: {{ .Annotations.description }}
+          Severidade: {{ .Labels.severity }}
+          Início: {{ .StartsAt }}
+          Runbook: {{ .Annotations.runbook }}
+          {{ end }}
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'high'
+    equal: ['alertname']

@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.jobs;
 
+import com.brainbyte.easy_maintenance.infrastructure.observability.service.JobHealthReporter;
 import com.brainbyte.easy_maintenance.jobs.service.TrialExpirationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 public class DailyTrialJob {
 
     private final TrialExpirationService jobService;
+    private final JobHealthReporter jobHealthReporter;
 
     // Executa 1x por dia às 01:15
     @Scheduled(cron = "0 15 1 * * *")
@@ -20,6 +22,7 @@ public class DailyTrialJob {
     public void run() {
         log.info("[DailyTrialJob] Lock adquirido. Iniciando execução.");
         jobService.processTrialsExpiringWithinDays(1);
+        jobHealthReporter.markSuccess("daily_trial");
         log.info("[DailyTrialJob] Execução concluída.");
     }
 }

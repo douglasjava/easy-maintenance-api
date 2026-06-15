@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.jobs;
 
+import com.brainbyte.easy_maintenance.infrastructure.observability.service.JobHealthReporter;
 import com.brainbyte.easy_maintenance.jobs.service.SubscriptionBlockingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 public class SubscriptionBlockingJob {
 
     private final SubscriptionBlockingService subscriptionBlockingService;
+    private final JobHealthReporter jobHealthReporter;
 
     @Scheduled(cron = "${billing.blocking.cron:0 0 3 * * *}") // Padrão: 3h da manhã
     @SchedulerLock(name = "SubscriptionBlockingJob", lockAtMostFor = "PT30M", lockAtLeastFor = "PT15M")
@@ -20,6 +22,7 @@ public class SubscriptionBlockingJob {
         log.info("[SubscriptionBlockingJob] Lock adquirido. Iniciando execução diária do job de bloqueio.");
         try {
             subscriptionBlockingService.executeBlockingJob();
+            jobHealthReporter.markSuccess("subscription_blocking");
             log.info("[SubscriptionBlockingJob] Execução concluída com sucesso.");
         } catch (Exception e) {
             log.error("[SubscriptionBlockingJob] Erro inesperado durante execução do job: {}", e.getMessage(), e);

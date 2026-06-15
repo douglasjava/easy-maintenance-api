@@ -1,0 +1,104 @@
+groups:
+  - name: easy_maintenance_critical
+    rules:
+
+      # ─── HTTP 5xx ────────────────────────────────────────────────────────────
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{status=~"5..",application="easy-maintenance"}[5m]))
+          /
+          sum(rate(http_server_requests_seconds_count{application="easy-maintenance"}[5m]))
+          > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alta taxa de erros HTTP 5xx (> 1%)"
+          description: "Taxa atual: {{ $value | humanizePercentage }}. Verificar logs da aplicação."
+          runbook: "https://github.com/douglasjava/project-easy-maintenance/blob/main/roadmap/runbook-alertas.md#high-error-rate"
+
+      # ─── Latência P95 ────────────────────────────────────────────────────────
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_server_requests_seconds_bucket{application="easy-maintenance"}[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "Latência P95 acima de 2 segundos"
+          description: "P95 atual: {{ $value | humanizeDuration }}. Verificar queries lentas ou serviços externos."
+          runbook: "https://github.com/douglasjava/project-easy-maintenance/blob/main/roadmap/runbook-alertas.md#high-latency-p95"
+
+      # ─── Jobs críticos de billing ─────────────────────────────────────────────
+      - alert: JobFailure
+        expr: |
+          (time() - easy_job_last_success_seconds) > 93600
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Job {{ $labels.job }} sem sucesso há mais de 26h"
+          description: "Tempo desde o último sucesso: {{ $value | humanizeDuration }}. Verificar ShedLock e logs."
+          runbook: "https://github.com/douglasjava/project-easy-maintenance/blob/main/roadmap/runbook-alertas.md#job-failure"
+
+  - name: easy_maintenance_infra
+    rules:
+
+      # ─── JVM Heap ─────────────────────────────────────────────────────────────
+      - alert: JvmMemoryHigh
+        expr: |
+          jvm_memory_used_bytes{area="heap",application="easy-maintenance"}
+          /
+          jvm_memory_max_bytes{area="heap",application="easy-maintenance"}
+          > 0.85
+        for: 10m
+        labels:
+          severity: high
+        annotations:
+          summary: "JVM Heap acima de 85%"
+          description: "Uso atual: {{ $value | humanizePercentage }}. Risco de OOM iminente."
+          runbook: "https://github.com/douglasjava/project-easy-maintenance/blob/main/roadmap/runbook-alertas.md#jvm-memory-high"
+
+      # ─── HikariCP connections ────────────────────────────────────────────────
+      - alert: DbConnectionsHigh
+        expr: |
+          hikaricp_connections_active{application="easy-maintenance"}
+          /
+          hikaricp_connections_max{application="easy-maintenance"}
+          > 0.8
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "Pool de conexões MySQL acima de 80%"
+          description: "Ativas/Max: {{ $value | humanizePercentage }}. Risco de connection starvation."
+          runbook: "https://github.com/douglasjava/project-easy-maintenance/blob/main/roadmap/runbook-alertas.md#db-connections-high"
+
+  - name: easy_maintenance_billing
+    rules:
+
+      # ─── Webhook DLQ acumulando ───────────────────────────────────────────────
+      - alert: WebhookDlqGrowing
+        expr: |
+          increase(billing_webhook_dlq_count_total{application="easy-maintenance"}[1h]) > 5
+        for: 0m
+        labels:
+          severity: high
+        annotations:
+          summary: "DLQ de webhooks Asaas acumulando (> 5 em 1h)"
+          description: "{{ $value | humanize }} eventos não processados na última hora. Verificar conectividade com Asaas."
+          runbook: "https://github.com/douglasjava/project-easy-maintenance/blob/main/roadmap/runbook-alertas.md#webhook-dlq-growing"
+
+      # ─── Reconciliação com divergências ──────────────────────────────────────
+      - alert: BillingReconciliationDivergence
+        expr: |
+          increase(billing_reconciliation_divergence_count_total{application="easy-maintenance"}[24h]) > 3
+        for: 0m
+        labels:
+          severity: high
+        annotations:
+          summary: "Divergências de billing Asaas detectadas (> 3 em 24h)"
+          description: "{{ $value | humanize }} divergências. Subscriptions locais desincronizadas com Asaas."
+          runbook: "https://github.com/douglasjava/project-easy-maintenance/blob/main/roadmap/runbook-alertas.md#billing-reconciliation-divergence"
