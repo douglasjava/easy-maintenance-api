@@ -149,7 +149,7 @@ public class EmailTemplateHelper {
                     
                     <p>Seu cadastro inicial foi concluído com sucesso e seu acesso ao Easy Maintenance já está liberado.</p>
                     
-                    <p>A partir de agora, você pode utilizar a plataforma com acesso completo em período TRIAL por 7 dias, até <strong>%s</strong>.</p>
+                    <p>A partir de agora, você pode utilizar a plataforma com acesso completo em período TRIAL por 14 dias, até <strong>%s</strong>.</p>
                     
                     <p>Durante esse período, você poderá explorar os principais recursos do sistema, como:</p>
                     <ul>

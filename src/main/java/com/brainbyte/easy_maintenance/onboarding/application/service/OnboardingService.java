@@ -71,9 +71,9 @@ public class OnboardingService {
 
         BillingAccount savedAccount = billingAccountRepository.save(account);
 
-        log.info("3. Buscar ou criar BillingSubscription (Trial de 7 dias — plano BUSINESS)");
+        log.info("3. Buscar ou criar BillingSubscription (Trial de 14 dias — plano BUSINESS)");
         var billingSubscription = billingSubscriptionService.findByUser(user.getId())
-                .orElseGet(() -> billingSubscriptionService.createTrial(savedAccount, Duration.ofDays(7)));
+                .orElseGet(() -> billingSubscriptionService.createTrial(savedAccount, Duration.ofDays(14)));
 
         var trialPlan = getBillingPlanByCode("BUSINESS");
 
