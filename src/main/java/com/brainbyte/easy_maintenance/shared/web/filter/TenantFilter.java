@@ -37,6 +37,7 @@ public class TenantFilter extends OncePerRequestFilter {
           "forgot-password",
           "reset-password",
           "/me/organizations/",
+          "/me/lgpd",
           "/organizations/",
           "/user/"
   );
