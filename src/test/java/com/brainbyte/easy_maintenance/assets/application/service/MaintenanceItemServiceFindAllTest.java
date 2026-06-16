@@ -161,4 +161,68 @@ class MaintenanceItemServiceFindAllTest {
         // Exactly one batch call regardless of how many items are on the page
         verify(maintenanceRepository, times(1)).findItemIdsWithMaintenances(anySet());
     }
+
+    // ─── Status recalculation on read (BUG-013) ──────────────────────────────
+
+    @Test
+    void status_isRecalculated_fromNextDueAt_notFromStoredField() {
+        // Item stored with stale NEAR_DUE but nextDueAt is in the past → must return OVERDUE
+        MaintenanceItem staleItem = MaintenanceItem.builder()
+                .id(99L)
+                .organizationCode(ORG)
+                .itemType("CORTE DE GRAMA")
+                .itemCategory(ItemCategory.OPERATIONAL)
+                .status(ItemStatus.NEAR_DUE)           // stale DB value
+                .nextDueAt(LocalDate.now().minusDays(6)) // actually overdue
+                .build();
+
+        Page<MaintenanceItem> pageResult = new PageImpl<>(List.of(staleItem), PAGE, 1);
+        when(repository.findAll(any(Specification.class), eq(PAGE))).thenReturn(pageResult);
+        when(maintenanceRepository.findItemIdsWithMaintenances(Set.of(99L))).thenReturn(Set.of());
+
+        Page<ItemResponse> result = service.findAll(ORG, null, null, null, PAGE);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().getFirst().status()).isEqualTo(ItemStatus.OVERDUE);
+    }
+
+    @Test
+    void status_isNearDue_forItemDueWithin30Days() {
+        MaintenanceItem item = MaintenanceItem.builder()
+                .id(100L)
+                .organizationCode(ORG)
+                .itemType("EXTINTORES")
+                .itemCategory(ItemCategory.OPERATIONAL)
+                .status(ItemStatus.OK)                        // stale DB value
+                .nextDueAt(LocalDate.now().plusDays(15))       // actually near-due
+                .build();
+
+        Page<MaintenanceItem> pageResult = new PageImpl<>(List.of(item), PAGE, 1);
+        when(repository.findAll(any(Specification.class), eq(PAGE))).thenReturn(pageResult);
+        when(maintenanceRepository.findItemIdsWithMaintenances(Set.of(100L))).thenReturn(Set.of());
+
+        Page<ItemResponse> result = service.findAll(ORG, null, null, null, PAGE);
+
+        assertThat(result.getContent().getFirst().status()).isEqualTo(ItemStatus.NEAR_DUE);
+    }
+
+    @Test
+    void status_isOk_forItemWithNullNextDueAt() {
+        MaintenanceItem item = MaintenanceItem.builder()
+                .id(101L)
+                .organizationCode(ORG)
+                .itemType("SEM DATA")
+                .itemCategory(ItemCategory.OPERATIONAL)
+                .status(ItemStatus.OVERDUE)  // stale
+                .nextDueAt(null)
+                .build();
+
+        Page<MaintenanceItem> pageResult = new PageImpl<>(List.of(item), PAGE, 1);
+        when(repository.findAll(any(Specification.class), eq(PAGE))).thenReturn(pageResult);
+        when(maintenanceRepository.findItemIdsWithMaintenances(Set.of(101L))).thenReturn(Set.of());
+
+        Page<ItemResponse> result = service.findAll(ORG, null, null, null, PAGE);
+
+        assertThat(result.getContent().getFirst().status()).isEqualTo(ItemStatus.OK);
+    }
 }

@@ -6,6 +6,7 @@ import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
 import org.springframework.data.jpa.domain.Specification;
 
 import jakarta.persistence.criteria.Predicate;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,15 +18,31 @@ public final class MaintenanceItemSpecs {
 
     public static Specification<MaintenanceItem> filter(String orgId, ItemStatus status, String itemType, ItemCategory categoria) {
 
-
-
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             predicates.add(cb.equal(root.get("organizationCode"), orgId));
 
             if (status != null) {
-                predicates.add(cb.equal(root.get("status"), status));
+                LocalDate today = LocalDate.now();
+                var nextDue = root.<LocalDate>get("nextDueAt");
+
+                Predicate statusPredicate = switch (status) {
+                    case OVERDUE -> cb.and(
+                            cb.isNotNull(nextDue),
+                            cb.lessThan(nextDue, today)
+                    );
+                    case NEAR_DUE -> cb.and(
+                            cb.isNotNull(nextDue),
+                            cb.greaterThanOrEqualTo(nextDue, today),
+                            cb.lessThanOrEqualTo(nextDue, today.plusDays(30))
+                    );
+                    case OK -> cb.or(
+                            cb.isNull(nextDue),
+                            cb.greaterThan(nextDue, today.plusDays(30))
+                    );
+                };
+                predicates.add(statusPredicate);
             }
 
             if (isNotBlank(itemType)) {

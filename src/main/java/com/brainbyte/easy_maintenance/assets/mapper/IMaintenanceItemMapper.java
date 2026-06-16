@@ -4,6 +4,7 @@ import com.brainbyte.easy_maintenance.assets.application.dto.CreateItemRequest;
 import com.brainbyte.easy_maintenance.assets.application.dto.ItemResponse;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory;
+import com.brainbyte.easy_maintenance.assets.domain.rules.StatusCalculator;
 import org.mapstruct.Mapper;
 import org.mapstruct.factory.Mappers;
 
@@ -46,7 +47,7 @@ public interface IMaintenanceItemMapper {
             maintenanceItem.getCustomPeriodQty(),
             maintenanceItem.getLastPerformedAt(),
             maintenanceItem.getNextDueAt(),
-            maintenanceItem.getStatus(),
+            StatusCalculator.calculate(maintenanceItem.getNextDueAt()),
             normName,
             canUpdate,
             reason
