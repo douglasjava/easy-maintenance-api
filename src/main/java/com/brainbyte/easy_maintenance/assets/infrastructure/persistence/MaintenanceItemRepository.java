@@ -35,8 +35,14 @@ public interface MaintenanceItemRepository extends JpaRepository<MaintenanceItem
   @Query("select mi from MaintenanceItem mi where mi.organizationCode = :org and mi.nextDueAt between :start and :end")
   List<MaintenanceItem> findUpcoming(@Param("org") String orgId, @Param("start") LocalDate start, @Param("end") LocalDate end);
 
-  @Query("select mi from MaintenanceItem mi where mi.organizationCode = :org and (mi.status = com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus.OVERDUE or mi.status = com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus.NEAR_DUE)")
-  List<MaintenanceItem> findAttentionCandidates(@Param("org") String orgId);
+  @Query("select mi from MaintenanceItem mi where mi.organizationCode = :org and mi.nextDueAt is not null and mi.nextDueAt <= :threshold")
+  List<MaintenanceItem> findAttentionCandidates(@Param("org") String orgId, @Param("threshold") LocalDate threshold);
+
+  @Query("select count(mi) from MaintenanceItem mi where mi.organizationCode = :org and mi.nextDueAt is not null and mi.nextDueAt < :today")
+  long countOverdueByDate(@Param("org") String orgId, @Param("today") LocalDate today);
+
+  @Query("select count(mi) from MaintenanceItem mi where mi.organizationCode = :org and mi.nextDueAt >= :today and mi.nextDueAt <= :nearDueEnd")
+  long countNearDueByDate(@Param("org") String orgId, @Param("today") LocalDate today, @Param("nearDueEnd") LocalDate nearDueEnd);
 
   @Query("select count(mi) from MaintenanceItem mi where mi.organizationCode = :org and mi.nextDueAt between :start and :end")
   long countDueBetween(@Param("org") String orgId, @Param("start") LocalDate start, @Param("end") LocalDate end);

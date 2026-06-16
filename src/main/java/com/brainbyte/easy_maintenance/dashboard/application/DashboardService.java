@@ -4,6 +4,7 @@ import com.brainbyte.easy_maintenance.ai.infrastructure.provider.AiProvider;
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
+import com.brainbyte.easy_maintenance.assets.domain.rules.StatusCalculator;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceItemRepository;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceRepository;
 import com.brainbyte.easy_maintenance.dashboard.domain.RiskHeuristics;
@@ -40,10 +41,10 @@ public class DashboardService {
         LocalDate endNear = today.plusDays(nearDueThresholdDays);
 
         long itemsTotal = itemRepo.countByOrganizationCode(orgId);
-        long overdueCount = itemRepo.countByOrganizationCodeAndStatus(orgId, ItemStatus.OVERDUE);
-        long okCount = itemRepo.countByOrganizationCodeAndStatus(orgId, ItemStatus.OK);
-        long nearDueCount = itemRepo.countDueBetween(orgId, today, endNear);
+        long overdueCount = itemRepo.countOverdueByDate(orgId, today);
+        long nearDueCount = itemRepo.countNearDueByDate(orgId, today, endNear);
         long dueSoonCount = itemRepo.countDueSoon(orgId, today, endSoon);
+        long okCount = Math.max(0, itemsTotal - overdueCount - nearDueCount);
 
         YearMonth ym = YearMonth.now();
         long maintenancesThisMonth = maintenanceRepo.countByOrgAndPerformedBetween(orgId, ym.atDay(1), ym.atEndOfMonth());
@@ -61,17 +62,18 @@ public class DashboardService {
                 .complianceScore(complianceScore)
                 .build();
 
-        // Attention now
-        List<MaintenanceItem> candidates = itemRepo.findAttentionCandidates(orgId);
+        // Attention now — threshold = near-due window + already overdue (nextDueAt <= today+nearDueThresholdDays)
+        List<MaintenanceItem> candidates = itemRepo.findAttentionCandidates(orgId, endNear);
         List<DashboardResponse.AttentionItem> attentionList = candidates.stream()
                 .map(mi -> {
-                    RiskLevel risk = RiskHeuristics.riskLevel(mi.getItemCategory(), mi.getStatus());
-                    int daysLate = RiskHeuristics.daysLate(mi.getNextDueAt(), today, mi.getStatus());
+                    ItemStatus liveStatus = StatusCalculator.calculate(mi.getNextDueAt());
+                    RiskLevel risk = RiskHeuristics.riskLevel(mi.getItemCategory(), liveStatus);
+                    int daysLate = RiskHeuristics.daysLate(mi.getNextDueAt(), today, liveStatus);
                     return DashboardResponse.AttentionItem.builder()
                             .itemId(mi.getId())
                             .itemType(mi.getItemType())
                             .itemCategory(mi.getItemCategory())
-                            .status(mi.getStatus())
+                            .status(liveStatus)
                             .nextDueAt(mi.getNextDueAt())
                             .daysLate(daysLate)
                             .riskLevel(risk)
@@ -99,9 +101,13 @@ public class DashboardService {
                         .build())
                 .toList();
 
-        // Breakdowns
+        // Breakdowns — status computed from dates, not from stale DB column
         Map<ItemStatus, Long> byStatus = new EnumMap<>(ItemStatus.class);
-        itemRepo.countByStatus(orgId).forEach(p -> byStatus.put(ItemStatus.valueOf(p.getStatus()), p.getCnt()));
+        long nearDueBreakdown = itemRepo.countNearDueByDate(orgId, today, today.plusDays(30));
+        if (overdueCount > 0)       byStatus.put(ItemStatus.OVERDUE,  overdueCount);
+        if (nearDueBreakdown > 0)   byStatus.put(ItemStatus.NEAR_DUE, nearDueBreakdown);
+        long okBreakdown = Math.max(0, itemsTotal - overdueCount - nearDueBreakdown);
+        if (okBreakdown > 0)        byStatus.put(ItemStatus.OK, okBreakdown);
 
         Map<ItemCategory, Long> byCategory = new EnumMap<>(ItemCategory.class);
         itemRepo.countByCategory(orgId).forEach(p -> byCategory.put(ItemCategory.valueOf(p.getItemCategory()), p.getCnt()));
