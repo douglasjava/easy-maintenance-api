@@ -23,6 +23,7 @@ public class BillingPlanService {
 
     public List<BillingPlanDTO.BillingPlanResponse> listAll() {
         return repository.findAll().stream()
+                .filter(plan -> plan.getStatus() == BillingStatus.ACTIVE)
                 .map(IBillingMapper.INSTANCE::toBillingPlanResponse)
                 .toList();
     }
