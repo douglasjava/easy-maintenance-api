@@ -147,8 +147,13 @@ public class MaintenanceExportService {
         return date != null ? date.toString() : "";
     }
 
+    private static final java.text.NumberFormat COST_FORMAT =
+            java.text.NumberFormat.getCurrencyInstance(new java.util.Locale("pt", "BR"));
+
     private String formatCost(Integer costCents) {
         if (costCents == null || costCents == 0) return "";
-        return String.format("%.2f", costCents / 100.0).replace(".", ",");
+        // Wrap in quotes so the comma decimal separator doesn't break CSV column parsing.
+        // Produces: "R$ 1.597,77"
+        return "\"" + COST_FORMAT.format(costCents / 100.0) + "\"";
     }
 }
