@@ -53,7 +53,7 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
 
     @Transactional
     public ChangePlanResponse changePlan(T sourceId, Long idItem, ChangePlanRequest request) {
-        log.info("Processando mudança de plano para {}: novo plano {}", sourceId, request.newPlanCode());
+        log.info("Processando mudança de plano para sourceId {}: novo plano {}", sourceId, request.newPlanCode());
 
 
         BillingSubscriptionItem item = findSubscriptionItem(idItem);
@@ -71,7 +71,7 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
             throw new RuleException("O novo plano é igual ao plano atual.");
         }
 
-        if (request.applyImmediately() || newPlan.getPriceCents() > currentPlan.getPriceCents()) {
+        if (newPlan.getPriceCents() > currentPlan.getPriceCents()) {
             return processUpgrade(billingSubscription, item, currentPlan, newPlan);
         } else {
             return processDowngrade(billingSubscription, item, newPlan, sourceId);
