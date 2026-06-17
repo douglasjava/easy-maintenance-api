@@ -96,9 +96,8 @@ public class MaintenanceItemService {
 
         auditService.logCreate("MAINTENANCE_ITEM", maintenanceItem.getId().toString(), request);
 
-        String normName = resolveNormName(maintenanceItem.getNormId());
-
-        return IMaintenanceItemMapper.INSTANCE.toItemResponse(maintenanceItem, normName);
+        NormInfo normInfo = resolveNormInfo(maintenanceItem.getNormId());
+        return IMaintenanceItemMapper.INSTANCE.toItemResponse(maintenanceItem, normInfo.name(), normInfo.pendingReview());
 
     }
 
@@ -116,9 +115,8 @@ public class MaintenanceItemService {
 
         validateTenant(orgId, maintenanceItem);
 
-        String normName = resolveNormName(maintenanceItem.getNormId());
-
-        return IMaintenanceItemMapper.INSTANCE.toItemResponse(maintenanceItem, normName);
+        NormInfo normInfo = resolveNormInfo(maintenanceItem.getNormId());
+        return IMaintenanceItemMapper.INSTANCE.toItemResponse(maintenanceItem, normInfo.name(), normInfo.pendingReview());
 
     }
 
@@ -143,7 +141,8 @@ public class MaintenanceItemService {
         return page.map(item -> {
             boolean canUpdate = !idsWithMaintenance.contains(item.getId());
             String reason = canUpdate ? null : "ITEM_ALREADY_USED_IN_MAINTENANCE";
-            return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, resolveNormName(item.getNormId()), canUpdate, reason);
+            NormInfo ni = resolveNormInfo(item.getNormId());
+            return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, ni.name(), ni.pendingReview(), canUpdate, reason);
         });
     }
 
@@ -196,7 +195,8 @@ public class MaintenanceItemService {
                 .map(item -> {
                     boolean canUpdate = !idsWithMaintenance.contains(item.getId());
                     String reason = canUpdate ? null : "ITEM_ALREADY_USED_IN_MAINTENANCE";
-                    return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, resolveNormName(item.getNormId()), canUpdate, reason);
+                    NormInfo ni = resolveNormInfo(item.getNormId());
+                    return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, ni.name(), ni.pendingReview(), canUpdate, reason);
                 }).toList();
         Long nextCursor = page.hasNext() && !content.isEmpty()
                 ? page.getContent().getLast().getId()
@@ -216,7 +216,8 @@ public class MaintenanceItemService {
                 .map(item -> {
                     boolean canUpdate = !idsWithMaintenance.contains(item.getId());
                     String reason = canUpdate ? null : "ITEM_ALREADY_USED_IN_MAINTENANCE";
-                    return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, resolveNormName(item.getNormId()), canUpdate, reason);
+                    NormInfo ni = resolveNormInfo(item.getNormId());
+                    return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, ni.name(), ni.pendingReview(), canUpdate, reason);
                 }).toList();
 
         Long nextCursor = (!backward && hasMore && !content.isEmpty())
@@ -272,7 +273,8 @@ public class MaintenanceItemService {
 
         auditService.logUpdate("MAINTENANCE_ITEM", updatedItem.getId().toString(), request);
 
-        return  IMaintenanceItemMapper.INSTANCE.toItemResponse(updatedItem, resolveNormName(updatedItem.getNormId()));
+        NormInfo normInfo = resolveNormInfo(updatedItem.getNormId());
+        return IMaintenanceItemMapper.INSTANCE.toItemResponse(updatedItem, normInfo.name(), normInfo.pendingReview());
 
     }
 
@@ -341,15 +343,20 @@ public class MaintenanceItemService {
 
     }
 
-    private String resolveNormName(Long normId) {
-        if (normId == null) return null;
+    private record NormInfo(String name, boolean pendingReview) {
+        static final NormInfo EMPTY = new NormInfo(null, false);
+    }
 
+    private NormInfo resolveNormInfo(Long normId) {
+        if (normId == null) return NormInfo.EMPTY;
         try {
-            var normResponse = normService.findById(normId);
-            return String.format("%s - %s", normResponse.itemType(), normResponse.authority());
+            var n = normService.findById(normId);
+            String name = String.format("%s - %s", n.itemType(), n.authority());
+            boolean pending = Boolean.TRUE.equals(n.pendingReview());
+            return new NormInfo(name, pending);
         } catch (Exception e) {
             log.warn("Norm not found for id: {}", normId);
-            return null;
+            return NormInfo.EMPTY;
         }
     }
 

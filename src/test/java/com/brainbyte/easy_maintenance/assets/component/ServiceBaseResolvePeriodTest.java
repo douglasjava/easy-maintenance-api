@@ -88,6 +88,6 @@ class ServiceBaseResolvePeriodTest {
     }
 
     private NormDTO.NormResponse norm(Integer qty, CustomPeriodUnit unit) {
-        return new NormDTO.NormResponse(null, null, unit, qty, null, null, null, null, null, null);
+        return new NormDTO.NormResponse(null, null, unit, qty, null, null, null, null, null, null, null, null);
     }
 }

@@ -144,30 +144,20 @@ class UserPlanChangeServiceTest {
     }
 
     @Test
-    void changePlan_applyImmediately_shouldForceUpgrade() {
+    void changePlan_applyImmediately_shouldApplyDowngradeImmediately() {
         var request = new ChangePlanRequest("FREE", true);
 
+        var features = BillingPlanFeatures.builder().maxOrganizations(10).build();
         when(billingSubscriptionItemRepository.findById(1L)).thenReturn(Optional.of(item));
         when(planRepository.findByCode("FREE")).thenReturn(Optional.of(cheaperPlan));
-        when(prorataCalculator.calculateUpgradeCents(anyInt(), anyInt(), any(), any())).thenReturn(0);
-        when(invoiceRepository.save(any())).thenAnswer(inv -> {
-            Invoice i = inv.getArgument(0);
-            i.setId(101L);
-            return i;
-        });
-        when(asaasClient.createCheckout(any())).thenReturn(
-                new AsaasDTO.CheckoutResponse("chk-002", "https://link2", null, null));
-        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(userOrganizationRepository.countByUserId(10L)).thenReturn(1L);
+        when(featuresHelper.parse(cheaperPlan)).thenReturn(features);
         when(billingSubscriptionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(billingSubscriptionItemRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(asaasProperties.checkoutMinutesToExpire()).thenReturn(30);
-        when(asaasProperties.checkoutSuccessUrl()).thenReturn("https://success");
-        when(asaasProperties.checkoutCancelUrl()).thenReturn("https://cancel");
-        when(asaasProperties.checkoutExpiredUrl()).thenReturn("https://expired");
 
         ChangePlanResponse response = service.changePlan(10L, 1L, request);
 
-        assertThat(response.type()).isEqualTo(ChangePlanResponse.PlanChangeType.UPGRADE);
+        assertThat(response.type()).isEqualTo(ChangePlanResponse.PlanChangeType.DOWNGRADE);
     }
 
     @Test

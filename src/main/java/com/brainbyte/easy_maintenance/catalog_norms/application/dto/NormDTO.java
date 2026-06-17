@@ -15,6 +15,8 @@ public class NormDTO {
           String authority,
           String docUrl,
           String notes,
+          String source,
+          Boolean pendingReview,
           Instant createdAt,
           Instant updatedAt
   ) {}

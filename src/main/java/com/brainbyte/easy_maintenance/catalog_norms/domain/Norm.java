@@ -37,6 +37,12 @@ public class Norm {
   @Column(name = "notes")
   private String notes;
 
+  @Column(name = "source")
+  private String source;
+
+  @Column(name = "pending_review")
+  private Boolean pendingReview;
+
   @Column(name = "created_at")
   private Instant createdAt;
 

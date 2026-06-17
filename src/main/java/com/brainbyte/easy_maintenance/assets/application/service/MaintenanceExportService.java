@@ -153,7 +153,9 @@ public class MaintenanceExportService {
     private String formatCost(Integer costCents) {
         if (costCents == null || costCents == 0) return "";
         // Wrap in quotes so the comma decimal separator doesn't break CSV column parsing.
-        // Produces: "R$ 1.597,77"
-        return "\"" + COST_FORMAT.format(costCents / 100.0) + "\"";
+        // Normalize non-breaking space (U+00A0) that newer JDK locales insert between
+        // the currency symbol and the amount (e.g. "R$ 150,00" → "R$ 150,00").
+        String formatted = COST_FORMAT.format(costCents / 100.0).replace(' ', ' ');
+        return "\"" + formatted + "\"";
     }
 }

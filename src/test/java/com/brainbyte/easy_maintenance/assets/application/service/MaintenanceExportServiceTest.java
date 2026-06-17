@@ -107,7 +107,7 @@ class MaintenanceExportServiceTest {
         String csv = new String(result, StandardCharsets.UTF_8);
         String[] lines = csv.split("\n");
         assertEquals(2, lines.length);
-        assertEquals("1,Extintor,2024-05-20,PREVENTIVA,Técnico João,150,00,2024-11-20,NBR 12693", lines[1]);
+        assertEquals("1,Extintor,2024-05-20,PREVENTIVA,Técnico João,\"R$ 150,00\",2024-11-20,NBR 12693", lines[1]);
     }
 
     @Test

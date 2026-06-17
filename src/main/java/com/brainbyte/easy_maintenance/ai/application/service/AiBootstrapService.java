@@ -159,22 +159,34 @@ public class AiBootstrapService {
     }
 
     private Long resolveNorm(AiBootstrapApplyRequest.BootstrapApplyItem item) {
-        // Tenta achar norma existente equivalente
         List<Norm> existingNorms = normRepository.findByItemType(item.getItemType());
 
-        Optional<Norm> matchingNorm = existingNorms.stream()
-                .filter(n -> n.getPeriodQty().equals(item.getMaintenance().getPeriodQty()) &&
-                        n.getPeriodUnit().name().equalsIgnoreCase(item.getMaintenance().getPeriodUnit()) &&
-                        n.getAuthority().equals("AI_BOOTSTRAP"))
+        // Curated-first: reutiliza norm do catálogo oficial quando disponível.
+        // Evita criar duplicatas AI_BOOTSTRAP para tipos já catalogados (TASK-088).
+        Optional<Norm> curatedNorm = existingNorms.stream()
+                .filter(n -> !"AI_BOOTSTRAP".equals(n.getAuthority()))
                 .findFirst();
-
-        if (matchingNorm.isPresent()) {
-            return matchingNorm.get().getId();
+        if (curatedNorm.isPresent()) {
+            log.debug("Reutilizando norm curada id={} para itemType={}", curatedNorm.get().getId(), item.getItemType());
+            return curatedNorm.get().getId();
         }
 
-        // Se não encontrar, cria uma nova norma
+        // Sem norm curada — verifica se já existe AI_BOOTSTRAP equivalente para evitar duplicata
+        Optional<Norm> matchingAi = existingNorms.stream()
+                .filter(n -> n.getPeriodQty() != null &&
+                        n.getPeriodQty().equals(item.getMaintenance().getPeriodQty()) &&
+                        n.getPeriodUnit() != null &&
+                        n.getPeriodUnit().name().equalsIgnoreCase(item.getMaintenance().getPeriodUnit()) &&
+                        "AI_BOOTSTRAP".equals(n.getAuthority()))
+                .findFirst();
+        if (matchingAi.isPresent()) {
+            return matchingAi.get().getId();
+        }
+
+        // Cria nova norm AI_BOOTSTRAP (source=AI_GENERATED, pendingReview=true)
         Norm newNorm = IAiBootstrapMapper.INSTANCE.toNorm(item);
         newNorm = normRepository.save(newNorm);
+        log.info("Nova norm AI_BOOTSTRAP criada id={} itemType={} — pendente de revisão", newNorm.getId(), item.getItemType());
         return newNorm.getId();
     }
 

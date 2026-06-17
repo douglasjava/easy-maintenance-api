@@ -18,6 +18,7 @@ public record ItemResponse(
         LocalDate nextDueAt,
         ItemStatus status,
         String normName,
+        boolean normPendingReview,
         boolean canUpdate,
         String reason
 ) {}

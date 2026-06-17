@@ -67,6 +67,8 @@ public interface IAiBootstrapMapper {
     @Mapping(target = "periodQty", source = "item.maintenance.periodQty")
     @Mapping(target = "toleranceDays", source = "item.maintenance.toleranceDays")
     @Mapping(target = "authority", constant = "AI_BOOTSTRAP")
+    @Mapping(target = "source", constant = "AI_GENERATED")
+    @Mapping(target = "pendingReview", expression = "java(Boolean.TRUE)")
     @Mapping(target = "docUrl", ignore = true)
     @Mapping(target = "notes", expression = "java(formatNotes(item.getMaintenance()))")
     @Mapping(target = "createdAt", expression = "java(java.time.Instant.now())")
