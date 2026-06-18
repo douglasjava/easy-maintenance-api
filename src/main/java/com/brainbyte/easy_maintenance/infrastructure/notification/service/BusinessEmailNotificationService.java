@@ -154,8 +154,8 @@ public class BusinessEmailNotificationService {
             status = "está em atraso há " + Math.abs(event.getDaysOffset()) + " dias";
         }
 
-        return String.format("%s (ID: %s) %s. Data de vencimento: %s.", 
-                ref, event.getReferenceId(), status, event.getDueDate());
+        return String.format("%s \"%s\" %s. Data de vencimento: %s.",
+                ref, event.getReferenceLabel(), status, event.getDueDate());
     }
 
 }
