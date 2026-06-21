@@ -254,6 +254,7 @@ public class MaintenanceItemService {
 
         maintenanceItem.setItemType(request.itemType());
         maintenanceItem.setItemCategory(request.itemCategory());
+        maintenanceItem.setNormId(request.normId());
         maintenanceItem.setCustomPeriodUnit(request.customPeriodUnit());
         maintenanceItem.setCustomPeriodQty(request.customPeriodQty());
 
