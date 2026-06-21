@@ -39,7 +39,7 @@ public class GlobalExceptionHandler {
                 .toList();
 
         ProblemDetail pd = ProblemDetails.of(HttpStatus.UNPROCESSABLE_ENTITY, ProblemType.VALIDATION,
-                "One or more fields are invalid",
+                "Um ou mais campos são inválidos.",
                 request);
 
         pd.setProperty("violations", violations);
@@ -56,7 +56,7 @@ public class GlobalExceptionHandler {
         ProblemDetail pd = ProblemDetails.of(
                 HttpStatus.UNPROCESSABLE_ENTITY,
                 ProblemType.VALIDATION,
-                "One or more constraints were violated",
+                "Uma ou mais restrições foram violadas.",
                 request
         );
 
@@ -203,7 +203,7 @@ public class GlobalExceptionHandler {
         return ProblemDetails.of(
                 HttpStatus.SERVICE_UNAVAILABLE,
                 ProblemType.SERVICE_UNAVAILABLE,
-                "Service temporarily unavailable. Please try again later.",
+                "Serviço temporariamente indisponível. Tente novamente mais tarde.",
                 request
         );
     }
@@ -215,7 +215,7 @@ public class GlobalExceptionHandler {
         return ProblemDetails.of(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 ProblemType.UNEXPECTED,
-                "Unexpected internal error",
+                "Erro interno inesperado",
                 request
         );
     }
@@ -227,7 +227,7 @@ public class GlobalExceptionHandler {
         return ProblemDetails.of(
                 HttpStatus.CONFLICT,
                 ProblemType.CONFLICT,
-                "The operation could not be completed due to a conflict with existing data.",
+                "A operação não pôde ser concluída devido a um conflito com os dados existentes.",
                 request
         );
     }
