@@ -1,5 +1,7 @@
 package com.brainbyte.easy_maintenance.webhooks.asaas.strategy.impl;
 
+import com.brainbyte.easy_maintenance.affiliates.application.service.CommissionService;
+import com.brainbyte.easy_maintenance.affiliates.infrastructure.persistence.AffiliateRepository;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
@@ -52,6 +54,8 @@ class PaymentReceivedHandlerTest {
     @Mock private OrganizationRepository organizationRepository;
     @Mock private ObjectMapper objectMapper;
     @Mock private BillingSubscriptionService billingSubscriptionService;
+    @Mock private CommissionService commissionService;
+    @Mock private AffiliateRepository affiliateRepository;
 
     @InjectMocks
     private PaymentReceivedHandler handler;

@@ -1,12 +1,19 @@
 package com.brainbyte.easy_maintenance.webhooks.asaas.strategy.impl;
 
+import com.brainbyte.easy_maintenance.affiliates.application.service.CommissionService;
+import com.brainbyte.easy_maintenance.affiliates.domain.Affiliate;
+import com.brainbyte.easy_maintenance.affiliates.domain.AffiliateStatus;
+import com.brainbyte.easy_maintenance.affiliates.infrastructure.persistence.AffiliateRepository;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.Invoice;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.domain.enums.InvoiceStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
+import com.brainbyte.easy_maintenance.org_users.domain.Organization;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.payment.domain.Payment;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
@@ -18,7 +25,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -26,6 +35,8 @@ import java.util.Optional;
 public class PaymentReceivedHandler extends AbstractAsaasWebhookStrategy {
 
     private final BillingSubscriptionService billingSubscriptionService;
+    private final CommissionService commissionService;
+    private final AffiliateRepository affiliateRepository;
 
     public PaymentReceivedHandler(InvoiceService invoiceService, PaymentRepository paymentRepository,
                                   PaymentGatewayEventRepository paymentGatewayEventRepository,
@@ -35,13 +46,17 @@ public class PaymentReceivedHandler extends AbstractAsaasWebhookStrategy {
                                   InvoiceItemRepository invoiceItemRepository,
                                   OrganizationRepository organizationRepository,
                                   ObjectMapper objectMapper,
-                                  BillingSubscriptionService billingSubscriptionService) {
+                                  BillingSubscriptionService billingSubscriptionService,
+                                  CommissionService commissionService,
+                                  AffiliateRepository affiliateRepository) {
 
         super(invoiceService, paymentRepository, paymentGatewayEventRepository, invoiceRepository, billingAccountRepository,
                 billingSubscriptionRepository, billingSubscriptionItemRepository, invoiceItemRepository,
                 organizationRepository, objectMapper);
 
         this.billingSubscriptionService = billingSubscriptionService;
+        this.commissionService = commissionService;
+        this.affiliateRepository = affiliateRepository;
     }
 
     @Override
@@ -103,6 +118,11 @@ public class PaymentReceivedHandler extends AbstractAsaasWebhookStrategy {
                     subscription != null ? subscription.getExternalSubscriptionId() : null);
         }
 
+        // One-time commission trigger — only on first payment
+        if (Integer.valueOf(1).equals(payment.getCycleNumber())) {
+            triggerCommissionIfApplicable(payment, subscription);
+        }
+
         log.info("[AsaasWebhook] PAYMENT_RECEIVED: Payment {} (cycleNumber={}) marked RECEIVED for subscription {}",
                 payment.getId(), payment.getCycleNumber(),
                 subscription != null ? subscription.getId() : null);
@@ -119,6 +139,39 @@ public class PaymentReceivedHandler extends AbstractAsaasWebhookStrategy {
             found = paymentRepository.findByExternalPaymentId(paymentObj.id());
         }
         return found;
+    }
+
+    private void triggerCommissionIfApplicable(Payment payment, BillingSubscription subscription) {
+        if (subscription == null) return;
+
+        List<BillingSubscriptionItem> items =
+                billingSubscriptionItemRepository.findAllByBillingSubscriptionId(subscription.getId());
+
+        for (BillingSubscriptionItem item : items) {
+            if (item.getSourceType() != BillingSubscriptionItemSourceType.ORGANIZATION) continue;
+
+            Organization org = organizationRepository.findByCode(item.getSourceId()).orElse(null);
+            if (org == null || org.getReferralCode() == null) return;
+
+            Affiliate affiliate = affiliateRepository.findByCode(org.getReferralCode()).orElse(null);
+            if (affiliate == null || affiliate.getStatus() != AffiliateStatus.ACTIVE) return;
+
+            // Resolve plan name: use the plan of the organization's subscription item
+            String planName = items.stream()
+                    .filter(i -> i.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION)
+                    .filter(i -> i.getPlan() != null)
+                    .map(i -> i.getPlan().getCode())
+                    .findFirst().orElse("unknown");
+
+            BigDecimal planPrice = payment.getAmountCents() != null
+                    ? new BigDecimal(payment.getAmountCents()).movePointLeft(2)
+                    : BigDecimal.ZERO;
+
+            commissionService.createCommission(affiliate, org.getId(), planName, planPrice);
+            log.info("[Commission] Triggered: orgId={}, affiliateCode={}, amount={}",
+                    org.getId(), affiliate.getCode(), planPrice);
+            return;
+        }
     }
 
     private boolean shouldAdvanceCycle(Payment payment, BillingSubscription subscription) {
