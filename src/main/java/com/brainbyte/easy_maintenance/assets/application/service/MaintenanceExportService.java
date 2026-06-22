@@ -88,7 +88,7 @@ public class MaintenanceExportService {
     private byte[] buildCsvCrossOrg(List<CrossOrgMaintenanceExportProjection> rows, Map<String, String> orgNames) {
         var sb = new StringBuilder();
         sb.append('﻿'); // UTF-8 BOM — required for Excel on Windows to decode accents correctly
-        sb.append("ID,Empresa,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável\n");
+        sb.append("ID,Empresa,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável,Categoria\n");
 
         for (var row : rows) {
             sb.append(row.getId()).append(",");
@@ -99,7 +99,8 @@ public class MaintenanceExportService {
             sb.append(csv(row.getPerformedBy())).append(",");
             sb.append(formatCost(row.getCostCents())).append(",");
             sb.append(dateStr(row.getNextDueAt())).append(",");
-            sb.append(csv(row.getNormAuthority())).append("\n");
+            sb.append(csv(row.getNormAuthority())).append(",");
+            sb.append(csv(translateCategory(row.getItemCategory()))).append("\n");
         }
 
         return sb.toString().getBytes(StandardCharsets.UTF_8);
@@ -121,7 +122,7 @@ public class MaintenanceExportService {
     private byte[] buildCsv(List<MaintenanceExportProjection> rows) {
         var sb = new StringBuilder();
         sb.append('﻿'); // UTF-8 BOM — required for Excel on Windows to decode accents correctly
-        sb.append("ID,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável\n");
+        sb.append("ID,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável,Categoria\n");
 
         for (var row : rows) {
             sb.append(row.getId()).append(",");
@@ -131,10 +132,20 @@ public class MaintenanceExportService {
             sb.append(csv(row.getPerformedBy())).append(",");
             sb.append(formatCost(row.getCostCents())).append(",");
             sb.append(dateStr(row.getNextDueAt())).append(",");
-            sb.append(csv(row.getNormAuthority())).append("\n");
+            sb.append(csv(row.getNormAuthority())).append(",");
+            sb.append(csv(translateCategory(row.getItemCategory()))).append("\n");
         }
 
         return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private String translateCategory(String category) {
+        if (category == null) return "";
+        return switch (category.toUpperCase()) {
+            case "REGULATORY" -> "Regulatório";
+            case "OPERATIONAL" -> "Operacional";
+            default -> category;
+        };
     }
 
     private String csv(String value) {

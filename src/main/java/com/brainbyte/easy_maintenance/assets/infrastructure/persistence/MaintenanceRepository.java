@@ -39,7 +39,7 @@ public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>,
   @Query(value =
       "SELECT m.id AS id, i.item_type AS itemType, m.performed_at AS performedAt, " +
       "m.type AS maintenanceType, m.performed_by AS performedBy, m.cost_cents AS costCents, " +
-      "m.next_due_at AS nextDueAt, n.authority AS normAuthority " +
+      "m.next_due_at AS nextDueAt, n.authority AS normAuthority, i.item_category AS itemCategory " +
       "FROM maintenances m " +
       "JOIN maintenance_items i ON i.id = m.item_id " +
       "LEFT JOIN norms n ON n.id = i.norm_id " +
@@ -60,7 +60,7 @@ public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>,
   @Query(value =
       "SELECT m.id AS id, i.organization_code AS orgCode, i.item_type AS itemType, " +
       "m.performed_at AS performedAt, m.type AS maintenanceType, m.performed_by AS performedBy, " +
-      "m.cost_cents AS costCents, m.next_due_at AS nextDueAt, n.authority AS normAuthority " +
+      "m.cost_cents AS costCents, m.next_due_at AS nextDueAt, n.authority AS normAuthority, i.item_category AS itemCategory " +
       "FROM maintenances m " +
       "JOIN maintenance_items i ON i.id = m.item_id " +
       "LEFT JOIN norms n ON n.id = i.norm_id " +

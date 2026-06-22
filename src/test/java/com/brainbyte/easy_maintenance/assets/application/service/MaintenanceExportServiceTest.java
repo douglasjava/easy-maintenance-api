@@ -90,7 +90,7 @@ class MaintenanceExportServiceTest {
 
         String csv = new String(result, StandardCharsets.UTF_8);
         assertTrue(csv.startsWith("﻿"), "CSV must start with UTF-8 BOM so Excel on Windows decodes accents correctly");
-        assertEquals("﻿ID,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável\n", csv);
+        assertEquals("﻿ID,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável,Categoria\n", csv);
     }
 
     @Test
@@ -98,7 +98,7 @@ class MaintenanceExportServiceTest {
         enableReports("org-1");
         MaintenanceExportProjection row = buildProjection(
                 1L, "Extintor", LocalDate.of(2024, 5, 20), "PREVENTIVA",
-                "Técnico João", 15000, LocalDate.of(2024, 11, 20), "NBR 12693");
+                "Técnico João", 15000, LocalDate.of(2024, 11, 20), "NBR 12693", "REGULATORY");
 
         when(maintenanceRepository.findForExport(eq("org-1"), isNull(), isNull(), isNull()))
                 .thenReturn(List.of(row));
@@ -108,7 +108,7 @@ class MaintenanceExportServiceTest {
         String csv = new String(result, StandardCharsets.UTF_8);
         String[] lines = csv.split("\n");
         assertEquals(2, lines.length);
-        assertEquals("1,Extintor,2024-05-20,PREVENTIVA,Técnico João,\"R$ 150,00\",2024-11-20,NBR 12693", lines[1]);
+        assertEquals("1,Extintor,2024-05-20,PREVENTIVA,Técnico João,\"R$ 150,00\",2024-11-20,NBR 12693,Regulatório", lines[1]);
     }
 
     @Test
@@ -116,7 +116,7 @@ class MaintenanceExportServiceTest {
         enableReports("org-1");
         MaintenanceExportProjection row = buildProjection(
                 2L, "Gerador, Elétrico", LocalDate.of(2024, 6, 1), "CORRETIVA",
-                "Empresa ABC, Ltda", null, null, null);
+                "Empresa ABC, Ltda", null, null, null, "OPERATIONAL");
 
         when(maintenanceRepository.findForExport(any(), any(), any(), any()))
                 .thenReturn(List.of(row));
@@ -133,7 +133,7 @@ class MaintenanceExportServiceTest {
         enableReports("org-1");
         MaintenanceExportProjection row = buildProjection(
                 3L, "Bomba", LocalDate.of(2024, 3, 10), "PREVENTIVA",
-                "Técnico", null, null, null);
+                "Técnico", null, null, null, null);
 
         when(maintenanceRepository.findForExport(any(), any(), any(), any()))
                 .thenReturn(List.of(row));
@@ -159,6 +159,28 @@ class MaintenanceExportServiceTest {
     }
 
     // -----------------------------------------------------------------------
+    // Category translation
+    // -----------------------------------------------------------------------
+
+    @Test
+    void shouldTranslateCategoryToPortuguese() {
+        enableReports("org-1");
+        MaintenanceExportProjection regulatory = buildProjection(
+                10L, "Item", LocalDate.of(2024, 1, 1), "PREVENTIVA", "Tec", null, null, null, "REGULATORY");
+        MaintenanceExportProjection operational = buildProjection(
+                11L, "Item", LocalDate.of(2024, 1, 1), "PREVENTIVA", "Tec", null, null, null, "OPERATIONAL");
+
+        when(maintenanceRepository.findForExport(any(), any(), any(), any()))
+                .thenReturn(List.of(regulatory, operational));
+
+        String csv = new String(service.exportCsv("org-1", null, null, null), StandardCharsets.UTF_8);
+        String[] lines = csv.split("\n");
+
+        assertTrue(lines[1].endsWith(",Regulatório"), "REGULATORY should translate to Regulatório");
+        assertTrue(lines[2].endsWith(",Operacional"), "OPERATIONAL should translate to Operacional");
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 
@@ -171,7 +193,8 @@ class MaintenanceExportServiceTest {
 
     private MaintenanceExportProjection buildProjection(
             Long id, String itemType, LocalDate performedAt, String maintenanceType,
-            String performedBy, Integer costCents, LocalDate nextDueAt, String normAuthority) {
+            String performedBy, Integer costCents, LocalDate nextDueAt, String normAuthority,
+            String itemCategory) {
 
         return new MaintenanceExportProjection() {
             public Long getId() { return id; }
@@ -182,6 +205,7 @@ class MaintenanceExportServiceTest {
             public Integer getCostCents() { return costCents; }
             public LocalDate getNextDueAt() { return nextDueAt; }
             public String getNormAuthority() { return normAuthority; }
+            public String getItemCategory() { return itemCategory; }
         };
     }
 }

@@ -83,7 +83,7 @@ class MaintenanceExportServiceCrossOrgTest {
                 .thenReturn(List.of(buildOrg("ORG-001", "Alpha Corp")));
 
         CrossOrgMaintenanceExportProjection row = buildProjection(1L, "ORG-001", "EXTINTOR",
-                LocalDate.of(2026, 6, 1), "PREVENTIVA", "José", 15000, LocalDate.of(2026, 12, 1), "NR-23");
+                LocalDate.of(2026, 6, 1), "PREVENTIVA", "José", 15000, LocalDate.of(2026, 12, 1), "NR-23", "REGULATORY");
         when(maintenanceRepository.findForExportCrossOrg(List.of("ORG-001"), null, null))
                 .thenReturn(List.of(row));
 
@@ -95,6 +95,8 @@ class MaintenanceExportServiceCrossOrgTest {
         assertThat(content).contains("EXTINTOR");
         assertThat(content).contains("150,00");
         assertThat(content).contains("NR-23");
+        assertThat(content).contains("Categoria");
+        assertThat(content).contains("Regulatório");
     }
 
     @Test
@@ -144,7 +146,7 @@ class MaintenanceExportServiceCrossOrgTest {
     private CrossOrgMaintenanceExportProjection buildProjection(
             Long id, String orgCode, String itemType, LocalDate performedAt,
             String maintenanceType, String performedBy, Integer costCents,
-            LocalDate nextDueAt, String normAuthority) {
+            LocalDate nextDueAt, String normAuthority, String itemCategory) {
         return new CrossOrgMaintenanceExportProjection() {
             public Long getId() { return id; }
             public String getOrgCode() { return orgCode; }
@@ -155,6 +157,7 @@ class MaintenanceExportServiceCrossOrgTest {
             public Integer getCostCents() { return costCents; }
             public LocalDate getNextDueAt() { return nextDueAt; }
             public String getNormAuthority() { return normAuthority; }
+            public String getItemCategory() { return itemCategory; }
         };
     }
 }

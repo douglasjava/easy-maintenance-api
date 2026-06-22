@@ -15,4 +15,5 @@ public interface MaintenanceExportProjection {
     Integer getCostCents();
     LocalDate getNextDueAt();
     String getNormAuthority();
+    String getItemCategory();
 }

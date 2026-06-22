@@ -12,4 +12,5 @@ public interface CrossOrgMaintenanceExportProjection {
     Integer getCostCents();
     LocalDate getNextDueAt();
     String getNormAuthority();
+    String getItemCategory();
 }
