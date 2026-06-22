@@ -40,7 +40,8 @@ public class TenantFilter extends OncePerRequestFilter {
           "/me/lgpd",
           "/organizations/",
           "/indicador/novo",
-          "/user/"
+          "/user/",
+          "/affiliates/"
   );
 
   // endpoints fixos (ex.: auth, org register)
