@@ -43,6 +43,9 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserOrganization> organizations = new ArrayList<>();
 
+    @Column(name = "referral_code", length = 8)
+    private String referralCode;
+
     @Column(name = "created_at")
     private Instant createdAt;
 

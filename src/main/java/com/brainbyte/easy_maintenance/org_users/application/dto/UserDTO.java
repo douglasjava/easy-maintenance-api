@@ -17,7 +17,9 @@ public final class UserDTO {
             @Schema(example = "João Silva")
             @NotBlank String name,
             @NotNull Role role,
-            Status status
+            Status status,
+            @Schema(description = "Código do afiliado indicador (opcional)", example = "ABC123")
+            String referralCode
     ) {
     }
 

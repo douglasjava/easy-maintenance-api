@@ -70,6 +70,10 @@ public class AdminService {
 
         var userResponse = usersService.createUser(createUserRequest);
 
+        if (request.referralCode() != null && !request.referralCode().isBlank()) {
+            usersService.applyReferralCode(userResponse.id(), request.referralCode().toUpperCase().trim());
+        }
+
         return initializeUserAccess(userResponse, password, null);
 
     }

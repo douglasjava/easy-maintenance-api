@@ -34,6 +34,17 @@ public class AffiliateController {
         return affiliateService.createAffiliate(request);
     }
 
+    @GetMapping("/suggest")
+    @Operation(
+            summary = "Sugerir afiliado por e-mail (Público)",
+            description = "Retorna o afiliado vinculado ao lead com esse e-mail, se existir."
+    )
+    public AffiliateResponse suggestByEmail(@RequestParam String email) {
+        return affiliateService.suggestForEmail(email)
+                .map(affiliateService::toResponse)
+                .orElse(null);
+    }
+
     @GetMapping("/{code}/dashboard")
     @Operation(
             summary = "Painel do afiliado (Público)",

@@ -51,6 +51,15 @@ public class OrganizationsService {
     private final UserRepository userRepository;
     private final AffiliateService affiliateService;
 
+    @Transactional
+    public void applyReferralCode(String orgCode, String referralCode) {
+        repository.findByCode(orgCode).ifPresent(org -> {
+            org.setReferralCode(referralCode);
+            repository.save(org);
+            log.info("[Affiliate] referralCode={} applied to org={}", referralCode, orgCode);
+        });
+    }
+
     public boolean existsByCode(String code) {
         log.info("Checking if organization with id {} exists", code);
         return repository.existsByCode(code);

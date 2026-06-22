@@ -61,6 +61,14 @@ public class UsersService {
 
     }
 
+    public void applyReferralCode(Long userId, String referralCode) {
+        User user = repository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Usuário não encontrado: " + userId));
+        user.setReferralCode(referralCode);
+        repository.save(user);
+        log.info("[Affiliate] referralCode={} applied to userId={}", referralCode, userId);
+    }
+
     private void validateUserRegistered(UserDTO.CreateUserRequest request) {
         if (repository.existsByEmail(request.email())) {
             throw new ConflictException(String.format("E-mail %s já está em uso", request.email()));
