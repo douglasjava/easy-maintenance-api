@@ -89,7 +89,8 @@ class MaintenanceExportServiceTest {
         byte[] result = service.exportCsv("org-1", null, null, null);
 
         String csv = new String(result, StandardCharsets.UTF_8);
-        assertEquals("ID,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável\n", csv);
+        assertTrue(csv.startsWith("﻿"), "CSV must start with UTF-8 BOM so Excel on Windows decodes accents correctly");
+        assertEquals("﻿ID,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável\n", csv);
     }
 
     @Test

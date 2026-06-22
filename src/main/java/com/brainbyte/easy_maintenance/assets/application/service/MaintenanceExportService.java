@@ -87,6 +87,7 @@ public class MaintenanceExportService {
 
     private byte[] buildCsvCrossOrg(List<CrossOrgMaintenanceExportProjection> rows, Map<String, String> orgNames) {
         var sb = new StringBuilder();
+        sb.append('﻿'); // UTF-8 BOM — required for Excel on Windows to decode accents correctly
         sb.append("ID,Empresa,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável\n");
 
         for (var row : rows) {
@@ -119,6 +120,7 @@ public class MaintenanceExportService {
 
     private byte[] buildCsv(List<MaintenanceExportProjection> rows) {
         var sb = new StringBuilder();
+        sb.append('﻿'); // UTF-8 BOM — required for Excel on Windows to decode accents correctly
         sb.append("ID,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável\n");
 
         for (var row : rows) {
