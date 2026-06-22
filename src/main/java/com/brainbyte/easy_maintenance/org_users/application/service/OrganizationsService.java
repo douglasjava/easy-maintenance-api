@@ -17,6 +17,7 @@ import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
+import com.brainbyte.easy_maintenance.affiliates.application.service.AffiliateService;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Plan;
@@ -48,6 +49,7 @@ public class OrganizationsService {
     private final BillingPlanRepository billingPlanRepository;
     private final BillingAccountRepository billingAccountRepository;
     private final UserRepository userRepository;
+    private final AffiliateService affiliateService;
 
     public boolean existsByCode(String code) {
         log.info("Checking if organization with id {} exists", code);
@@ -165,6 +167,19 @@ public class OrganizationsService {
             }
 
             var organization = IOrganizationMapper.INSTANCE.toOrganization(request);
+
+            // Resolve referralCode: explicit value takes priority; fallback to email auto-match
+            String referralCode = request.referralCode();
+            if (referralCode == null && request.userEmail() != null) {
+                referralCode = affiliateService.suggestForEmail(request.userEmail())
+                        .map(a -> a.getCode())
+                        .orElse(null);
+                if (referralCode != null) {
+                    log.info("[Affiliate] Auto-matched referralCode={} for email={}", referralCode, request.userEmail());
+                }
+            }
+            organization.setReferralCode(referralCode);
+
             organization = repository.save(organization);
 
             return IOrganizationMapper.INSTANCE.toOrganizationResponse(organization);

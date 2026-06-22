@@ -26,6 +26,9 @@ public record CreateLeadRequest(
     String landingPath,
 
     @Schema(description = "Dados UTM em formato JSON", example = "{\"utm_source\": \"google\", \"utm_medium\": \"cpc\"}")
-    String utmJson
+    String utmJson,
+
+    @Schema(description = "Código do afiliado que indicou o lead (opcional)", example = "ABC123")
+    String affiliateCode
 ) {
 }

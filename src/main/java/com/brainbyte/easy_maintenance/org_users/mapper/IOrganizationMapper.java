@@ -19,6 +19,7 @@ public interface IOrganizationMapper {
     OrganizationDTO.ResponsibleUser toResponsibleUser(User user);
 
     @Mapping(target = "doc", source = "doc", qualifiedByName = "sanitizeDocument")
+    @Mapping(target = "referralCode", ignore = true)
     Organization toOrganization(OrganizationDTO.CreateOrganizationRequest request);
 
     @Named("sanitizeDocument")

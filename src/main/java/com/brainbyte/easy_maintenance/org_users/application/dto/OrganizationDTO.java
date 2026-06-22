@@ -25,7 +25,11 @@ public final class OrganizationDTO {
             @Schema(example = "Mangabeiras") String neighborhood,
             @Schema(example = "Brasil") String country,
             @Schema(example = "12.345.678/0001-90") @NotBlank @Doc String doc,
-            @NotNull CompanyType companyType
+            @NotNull CompanyType companyType,
+            @Schema(description = "Código do afiliado indicador (opcional)", example = "ABC123")
+            String referralCode,
+            @Schema(description = "E-mail do usuário para auto-match de afiliado (opcional)", example = "cliente@email.com")
+            String userEmail
     ) {
     }
 

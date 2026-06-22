@@ -30,6 +30,7 @@ public class LeadService {
                 .referrer(request.referrer())
                 .landingPath(request.landingPath())
                 .utmJson(request.utmJson())
+                .affiliateCode(request.affiliateCode())
                 .ip(httpRequest.getRemoteAddr())
                 .userAgent(httpRequest.getHeader("User-Agent"))
                 .status("NEW")
