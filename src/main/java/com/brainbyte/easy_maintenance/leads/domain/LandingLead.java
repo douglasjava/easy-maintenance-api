@@ -30,6 +30,9 @@ public class LandingLead {
 
     private String referrer;
 
+    @Column(name = "affiliate_code", length = 8)
+    private String affiliateCode;
+
     @Column(name = "landing_path")
     private String landingPath;
 

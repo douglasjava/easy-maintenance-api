@@ -67,6 +67,9 @@ public class Organization {
     @Column(name = "require_2fa", nullable = false)
     private boolean require2fa;
 
+    @Column(name = "referral_code", length = 8)
+    private String referralCode;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
