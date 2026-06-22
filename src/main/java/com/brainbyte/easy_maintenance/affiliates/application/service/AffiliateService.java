@@ -4,6 +4,7 @@ import com.brainbyte.easy_maintenance.affiliates.application.dto.*;
 import com.brainbyte.easy_maintenance.affiliates.domain.Affiliate;
 import com.brainbyte.easy_maintenance.affiliates.domain.AffiliateStatus;
 import com.brainbyte.easy_maintenance.affiliates.domain.CommissionStatus;
+import com.brainbyte.easy_maintenance.affiliates.domain.ReferralCommission;
 import com.brainbyte.easy_maintenance.affiliates.infrastructure.persistence.AffiliateRepository;
 import com.brainbyte.easy_maintenance.affiliates.infrastructure.persistence.ReferralCommissionRepository;
 import com.brainbyte.easy_maintenance.leads.infrastructure.persistence.LandingLeadRepository;
@@ -22,6 +23,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AffiliateService {
+
+    private static final SecureRandom RNG = new SecureRandom();
 
     private static final String BASE_URL = "https://easymaintenance.com.br/landing?ref=";
     private static final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -63,11 +66,11 @@ public class AffiliateService {
         long converted = commissions.size();
         BigDecimal pending = commissions.stream()
                 .filter(c -> c.getStatus() == CommissionStatus.PENDING)
-                .map(c -> c.getCommissionAmount())
+                .map(ReferralCommission::getCommissionAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal paid = commissions.stream()
                 .filter(c -> c.getStatus() == CommissionStatus.PAID)
-                .map(c -> c.getCommissionAmount())
+                .map(ReferralCommission::getCommissionAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         List<ReferralLeadResponse> leadList = leads.stream()
@@ -104,15 +107,18 @@ public class AffiliateService {
     }
 
     private String generateUniqueCode() {
-        SecureRandom rng = new SecureRandom();
         String code;
+
         do {
             StringBuilder sb = new StringBuilder(CODE_LENGTH);
+
             for (int i = 0; i < CODE_LENGTH; i++) {
-                sb.append(CHARS.charAt(rng.nextInt(CHARS.length())));
+                sb.append(CHARS.charAt(RNG.nextInt(CHARS.length())));
             }
+
             code = sb.toString();
         } while (affiliateRepository.findByCode(code).isPresent());
+
         return code;
     }
 
