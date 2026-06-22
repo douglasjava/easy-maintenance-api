@@ -7,6 +7,8 @@ import com.brainbyte.easy_maintenance.affiliates.domain.CommissionStatus;
 import com.brainbyte.easy_maintenance.affiliates.domain.ReferralCommission;
 import com.brainbyte.easy_maintenance.affiliates.infrastructure.persistence.AffiliateRepository;
 import com.brainbyte.easy_maintenance.affiliates.infrastructure.persistence.ReferralCommissionRepository;
+import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
+import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.leads.infrastructure.persistence.LandingLeadRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +40,7 @@ public class AffiliateService {
     @Transactional
     public AffiliateResponse createAffiliate(CreateAffiliateRequest request) {
         if (affiliateRepository.existsByEmail(request.email())) {
-            throw new IllegalArgumentException("E-mail já cadastrado como afiliado.");
+            throw new ConflictException("E-mail já cadastrado como afiliado.");
         }
         String code = generateUniqueCode();
         Affiliate affiliate = Affiliate.builder()
@@ -55,7 +57,7 @@ public class AffiliateService {
 
     public Affiliate findByCode(String code) {
         return affiliateRepository.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("Afiliado não encontrado: " + code));
+                .orElseThrow(() -> new NotFoundException("Afiliado não encontrado: " + code));
     }
 
     public AffiliateDashboardResponse getDashboard(String code) {
@@ -130,4 +132,5 @@ public class AffiliateService {
         if (local.length() <= 2) return local.charAt(0) + "***@" + domain;
         return local.substring(0, 2) + "***@" + domain;
     }
+
 }
