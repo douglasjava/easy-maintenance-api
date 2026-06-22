@@ -26,7 +26,7 @@ public class AffiliateService {
 
     private static final SecureRandom RNG = new SecureRandom();
 
-    private static final String BASE_URL = "https://easymaintenance.com.br/landing?ref=";
+    private static final String BASE_URL = "https://www.easymaintenance.com.br/landing?ref=";
     private static final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int CODE_LENGTH = 6;
     private static final BigDecimal DEFAULT_COMMISSION_RATE = new BigDecimal("0.2000");
