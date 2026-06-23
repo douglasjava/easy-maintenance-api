@@ -93,12 +93,15 @@ public final class MaintenanceSpecs {
                 predicates.add(cb.equal(root.get("type"), type));
             }
             if (isNotBlank(itemType)) {
+                String pattern = "%" + itemType.toLowerCase()
+                        .replace("%", "\\%")
+                        .replace("_", "\\_") + "%";
                 Subquery<Long> itemTypeSubquery = query.subquery(Long.class);
                 Root<MaintenanceItem> itRoot = itemTypeSubquery.from(MaintenanceItem.class);
                 itemTypeSubquery.select(itRoot.get("id"))
                         .where(
                                 cb.equal(itRoot.get("id"), root.get("itemId")),
-                                cb.equal(cb.lower(itRoot.get("itemType")), itemType.toLowerCase())
+                                cb.like(cb.lower(itRoot.get("itemType")), pattern, '\\')
                         );
                 predicates.add(cb.exists(itemTypeSubquery));
             }
