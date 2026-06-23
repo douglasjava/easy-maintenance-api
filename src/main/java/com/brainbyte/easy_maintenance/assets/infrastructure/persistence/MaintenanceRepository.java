@@ -47,6 +47,7 @@ public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>,
       "AND (:itemId IS NULL OR m.item_id = :itemId) " +
       "AND (:startDate IS NULL OR m.performed_at >= :startDate) " +
       "AND (:endDate IS NULL OR m.performed_at <= :endDate) " +
+      "AND (:performedBy IS NULL OR m.performed_by LIKE CONCAT('%', :performedBy, '%')) " +
       "ORDER BY m.performed_at DESC " +
       "LIMIT 5000",
       nativeQuery = true)
@@ -54,7 +55,8 @@ public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>,
       @Param("orgCode") String orgCode,
       @Param("itemId") Long itemId,
       @Param("startDate") LocalDate startDate,
-      @Param("endDate") LocalDate endDate
+      @Param("endDate") LocalDate endDate,
+      @Param("performedBy") String performedBy
   );
 
   @Query(value =
@@ -67,13 +69,17 @@ public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>,
       "WHERE i.organization_code IN (:orgCodes) " +
       "AND (:startDate IS NULL OR m.performed_at >= :startDate) " +
       "AND (:endDate IS NULL OR m.performed_at <= :endDate) " +
+      "AND (:type IS NULL OR m.type = :type) " +
+      "AND (:itemType IS NULL OR i.item_type LIKE CONCAT('%', :itemType, '%')) " +
       "ORDER BY i.organization_code, m.performed_at DESC " +
       "LIMIT 5000",
       nativeQuery = true)
   List<CrossOrgMaintenanceExportProjection> findForExportCrossOrg(
       @Param("orgCodes") List<String> orgCodes,
       @Param("startDate") LocalDate startDate,
-      @Param("endDate") LocalDate endDate
+      @Param("endDate") LocalDate endDate,
+      @Param("type") String type,
+      @Param("itemType") String itemType
   );
 
 }

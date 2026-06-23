@@ -52,7 +52,7 @@ class MaintenanceExportServiceCrossOrgTest {
                 BillingSubscriptionItemSourceType.ORGANIZATION, List.of("ORG-001")))
                 .thenReturn(List.of());
 
-        assertThatThrownBy(() -> exportService.exportCsvCrossOrg(1L, null, null, null))
+        assertThatThrownBy(() -> exportService.exportCsvCrossOrg(1L, null, null, null, null, null))
                 .isInstanceOf(NotAuthorizedException.class);
     }
 
@@ -62,7 +62,7 @@ class MaintenanceExportServiceCrossOrgTest {
                 .thenReturn(List.of(buildUserOrg(1L, "ORG-001")));
 
         // ORG-999 is not in user's list → effective is empty → early exit before repo call
-        assertThatThrownBy(() -> exportService.exportCsvCrossOrg(1L, List.of("ORG-999"), null, null))
+        assertThatThrownBy(() -> exportService.exportCsvCrossOrg(1L, List.of("ORG-999"), null, null, null, null))
                 .isInstanceOf(NotAuthorizedException.class);
     }
 
@@ -84,10 +84,10 @@ class MaintenanceExportServiceCrossOrgTest {
 
         CrossOrgMaintenanceExportProjection row = buildProjection(1L, "ORG-001", "EXTINTOR",
                 LocalDate.of(2026, 6, 1), "PREVENTIVA", "José", 15000, LocalDate.of(2026, 12, 1), "NR-23", "REGULATORY");
-        when(maintenanceRepository.findForExportCrossOrg(List.of("ORG-001"), null, null))
+        when(maintenanceRepository.findForExportCrossOrg(List.of("ORG-001"), null, null, null, null))
                 .thenReturn(List.of(row));
 
-        byte[] csv = exportService.exportCsvCrossOrg(1L, null, null, null);
+        byte[] csv = exportService.exportCsvCrossOrg(1L, null, null, null, null, null);
         String content = new String(csv, StandardCharsets.UTF_8);
 
         assertThat(content).contains("Empresa");
@@ -113,7 +113,7 @@ class MaintenanceExportServiceCrossOrgTest {
         BillingPlanFeatures features = BillingPlanFeatures.builder().reportsEnabled(false).build();
         when(featuresHelper.parse(any())).thenReturn(features);
 
-        assertThatThrownBy(() -> exportService.exportCsvCrossOrg(1L, null, null, null))
+        assertThatThrownBy(() -> exportService.exportCsvCrossOrg(1L, null, null, null, null, null))
                 .isInstanceOf(NotAuthorizedException.class);
     }
 

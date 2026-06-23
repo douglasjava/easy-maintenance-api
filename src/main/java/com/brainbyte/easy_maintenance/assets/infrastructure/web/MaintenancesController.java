@@ -95,10 +95,11 @@ public class MaintenancesController {
     public ResponseEntity<byte[]> exportCsv(
             @Parameter(description = "Filtrar por ID do item") @RequestParam(required = false) Long itemId,
             @Parameter(description = "Data de início (YYYY-MM-DD)") @RequestParam(required = false) LocalDate startDate,
-            @Parameter(description = "Data de fim (YYYY-MM-DD)") @RequestParam(required = false) LocalDate endDate) {
+            @Parameter(description = "Data de fim (YYYY-MM-DD)") @RequestParam(required = false) LocalDate endDate,
+            @Parameter(description = "Filtrar por responsável (busca parcial)") @RequestParam(required = false) String performedBy) {
 
         String orgCode = TenantContext.get().orElseThrow();
-        byte[] csv = exportService.exportCsv(orgCode, itemId, startDate, endDate);
+        byte[] csv = exportService.exportCsv(orgCode, itemId, startDate, endDate, performedBy);
 
         String filename = "manutencoes_" + LocalDate.now() + ".csv";
         return ResponseEntity.ok()

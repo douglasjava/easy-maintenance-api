@@ -83,9 +83,13 @@ public class ReportsController {
             @Parameter(description = "Data de início do período (YYYY-MM-DD)")
             @RequestParam(required = false) LocalDate startDate,
             @Parameter(description = "Data de fim do período (YYYY-MM-DD)")
-            @RequestParam(required = false) LocalDate endDate) {
+            @RequestParam(required = false) LocalDate endDate,
+            @Parameter(description = "Filtrar por tipo de manutenção (ex: PREVENTIVA, CORRETIVA)")
+            @RequestParam(required = false) String type,
+            @Parameter(description = "Filtrar por tipo de item (busca parcial, ex: EXTINTOR)")
+            @RequestParam(required = false) String itemType) {
         var user = authenticationService.getCurrentUser();
-        byte[] csv = exportService.exportCsvCrossOrg(user.getId(), orgCodes, startDate, endDate);
+        byte[] csv = exportService.exportCsvCrossOrg(user.getId(), orgCodes, startDate, endDate, type, itemType);
         String filename = "relatorios_manutencoes_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".csv";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")

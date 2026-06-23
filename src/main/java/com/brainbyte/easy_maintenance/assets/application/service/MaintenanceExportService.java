@@ -35,19 +35,22 @@ public class MaintenanceExportService {
     private final OrganizationRepository organizationRepository;
     private final BillingSubscriptionItemRepository subscriptionItemRepository;
 
-    public byte[] exportCsv(String orgCode, Long itemId, LocalDate startDate, LocalDate endDate) {
+    public byte[] exportCsv(String orgCode, Long itemId, LocalDate startDate, LocalDate endDate,
+                             String performedBy) {
         checkReportsFeature(orgCode);
 
         List<MaintenanceExportProjection> rows =
-                maintenanceRepository.findForExport(orgCode, itemId, startDate, endDate);
+                maintenanceRepository.findForExport(orgCode, itemId, startDate, endDate,
+                        (performedBy != null && !performedBy.isBlank()) ? performedBy : null);
 
-        log.info("[Export] org={} itemId={} rows={}", orgCode, itemId, rows.size());
+        log.info("[Export] org={} itemId={} performedBy={} rows={}", orgCode, itemId, performedBy, rows.size());
 
         return buildCsv(rows);
     }
 
     public byte[] exportCsvCrossOrg(Long userId, List<String> requestedOrgCodes,
-                                     LocalDate startDate, LocalDate endDate) {
+                                     LocalDate startDate, LocalDate endDate,
+                                     String type, String itemType) {
         List<String> userOrgCodes = userOrgRepository.findAllByUserId(userId).stream()
                 .map(UserOrganization::getOrganizationCode)
                 .toList();
@@ -77,10 +80,15 @@ public class MaintenanceExportService {
         Map<String, String> orgNames = organizationRepository.findAllByCodeIn(authorizedOrgCodes).stream()
                 .collect(Collectors.toMap(Organization::getCode, Organization::getName));
 
-        List<CrossOrgMaintenanceExportProjection> rows =
-                maintenanceRepository.findForExportCrossOrg(authorizedOrgCodes, startDate, endDate);
+        String typeFilter = (type != null && !type.isBlank()) ? type : null;
+        String itemTypeFilter = (itemType != null && !itemType.isBlank()) ? itemType : null;
 
-        log.info("[CrossOrgExport] userId={} orgs={} rows={}", userId, authorizedOrgCodes, rows.size());
+        List<CrossOrgMaintenanceExportProjection> rows =
+                maintenanceRepository.findForExportCrossOrg(authorizedOrgCodes, startDate, endDate,
+                        typeFilter, itemTypeFilter);
+
+        log.info("[CrossOrgExport] userId={} orgs={} type={} itemType={} rows={}",
+                userId, authorizedOrgCodes, type, itemType, rows.size());
 
         return buildCsvCrossOrg(rows, orgNames);
     }

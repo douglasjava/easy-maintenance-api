@@ -60,7 +60,7 @@ class MaintenanceExportServiceTest {
         when(featuresHelper.parse(plan)).thenReturn(features);
 
         assertThrows(NotAuthorizedException.class,
-                () -> service.exportCsv("org-1", null, null, null));
+                () -> service.exportCsv("org-1", null, null, null, null));
 
         verifyNoInteractions(maintenanceRepository);
     }
@@ -71,7 +71,7 @@ class MaintenanceExportServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThrows(NotAuthorizedException.class,
-                () -> service.exportCsv("org-1", null, null, null));
+                () -> service.exportCsv("org-1", null, null, null, null));
 
         verifyNoInteractions(maintenanceRepository);
     }
@@ -83,10 +83,10 @@ class MaintenanceExportServiceTest {
     @Test
     void shouldReturnOnlyHeaderWhenNoRows() {
         enableReports("org-1");
-        when(maintenanceRepository.findForExport(eq("org-1"), isNull(), isNull(), isNull()))
+        when(maintenanceRepository.findForExport(eq("org-1"), isNull(), isNull(), isNull(), isNull()))
                 .thenReturn(List.of());
 
-        byte[] result = service.exportCsv("org-1", null, null, null);
+        byte[] result = service.exportCsv("org-1", null, null, null, null);
 
         String csv = new String(result, StandardCharsets.UTF_8);
         assertTrue(csv.startsWith("﻿"), "CSV must start with UTF-8 BOM so Excel on Windows decodes accents correctly");
@@ -100,10 +100,10 @@ class MaintenanceExportServiceTest {
                 1L, "Extintor", LocalDate.of(2024, 5, 20), "PREVENTIVA",
                 "Técnico João", 15000, LocalDate.of(2024, 11, 20), "NBR 12693", "REGULATORY");
 
-        when(maintenanceRepository.findForExport(eq("org-1"), isNull(), isNull(), isNull()))
+        when(maintenanceRepository.findForExport(eq("org-1"), isNull(), isNull(), isNull(), isNull()))
                 .thenReturn(List.of(row));
 
-        byte[] result = service.exportCsv("org-1", null, null, null);
+        byte[] result = service.exportCsv("org-1", null, null, null, null);
 
         String csv = new String(result, StandardCharsets.UTF_8);
         String[] lines = csv.split("\n");
@@ -118,10 +118,10 @@ class MaintenanceExportServiceTest {
                 2L, "Gerador, Elétrico", LocalDate.of(2024, 6, 1), "CORRETIVA",
                 "Empresa ABC, Ltda", null, null, null, "OPERATIONAL");
 
-        when(maintenanceRepository.findForExport(any(), any(), any(), any()))
+        when(maintenanceRepository.findForExport(any(), any(), any(), any(), any()))
                 .thenReturn(List.of(row));
 
-        String csv = new String(service.exportCsv("org-1", null, null, null), StandardCharsets.UTF_8);
+        String csv = new String(service.exportCsv("org-1", null, null, null, null), StandardCharsets.UTF_8);
         String dataLine = csv.split("\n")[1];
 
         assertTrue(dataLine.contains("\"Gerador, Elétrico\""));
@@ -135,10 +135,10 @@ class MaintenanceExportServiceTest {
                 3L, "Bomba", LocalDate.of(2024, 3, 10), "PREVENTIVA",
                 "Técnico", null, null, null, null);
 
-        when(maintenanceRepository.findForExport(any(), any(), any(), any()))
+        when(maintenanceRepository.findForExport(any(), any(), any(), any(), any()))
                 .thenReturn(List.of(row));
 
-        String csv = new String(service.exportCsv("org-1", null, null, null), StandardCharsets.UTF_8);
+        String csv = new String(service.exportCsv("org-1", null, null, null, null), StandardCharsets.UTF_8);
         String dataLine = csv.split("\n")[1];
 
         // nulls render as empty fields
@@ -149,13 +149,13 @@ class MaintenanceExportServiceTest {
     void shouldPassFiltersToRepository() {
         enableReports("org-1");
         when(maintenanceRepository.findForExport(eq("org-1"), eq(42L),
-                eq(LocalDate.of(2024, 1, 1)), eq(LocalDate.of(2024, 12, 31))))
+                eq(LocalDate.of(2024, 1, 1)), eq(LocalDate.of(2024, 12, 31)), isNull()))
                 .thenReturn(List.of());
 
-        service.exportCsv("org-1", 42L, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 12, 31));
+        service.exportCsv("org-1", 42L, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 12, 31), null);
 
         verify(maintenanceRepository).findForExport("org-1", 42L,
-                LocalDate.of(2024, 1, 1), LocalDate.of(2024, 12, 31));
+                LocalDate.of(2024, 1, 1), LocalDate.of(2024, 12, 31), null);
     }
 
     // -----------------------------------------------------------------------
@@ -170,10 +170,10 @@ class MaintenanceExportServiceTest {
         MaintenanceExportProjection operational = buildProjection(
                 11L, "Item", LocalDate.of(2024, 1, 1), "PREVENTIVA", "Tec", null, null, null, "OPERATIONAL");
 
-        when(maintenanceRepository.findForExport(any(), any(), any(), any()))
+        when(maintenanceRepository.findForExport(any(), any(), any(), any(), any()))
                 .thenReturn(List.of(regulatory, operational));
 
-        String csv = new String(service.exportCsv("org-1", null, null, null), StandardCharsets.UTF_8);
+        String csv = new String(service.exportCsv("org-1", null, null, null, null), StandardCharsets.UTF_8);
         String[] lines = csv.split("\n");
 
         assertTrue(lines[1].endsWith(",Regulatório"), "REGULATORY should translate to Regulatório");
