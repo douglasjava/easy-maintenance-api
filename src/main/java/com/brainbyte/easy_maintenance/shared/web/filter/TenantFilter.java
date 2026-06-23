@@ -41,7 +41,8 @@ public class TenantFilter extends OncePerRequestFilter {
           "/organizations/",
           "/indicador/novo",
           "/user/",
-          "/affiliates/"
+          "/affiliates/",
+          "/dev/simulate"
   );
 
   // endpoints fixos (ex.: auth, org register)
