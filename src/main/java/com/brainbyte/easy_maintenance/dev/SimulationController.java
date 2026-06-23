@@ -395,7 +395,7 @@ public class SimulationController {
             if (stopAt < 4) return billingResult(runId, scenario, steps, user, subscription, null, payments, null, null);
 
             // ── Step 4: First Invoice + Payment ───────────────────────────
-            Invoice inv1 = createInvoice(user, planCents);
+            Invoice inv1 = createInvoice(user, planCents, 1);
             String extRef1 = "BSIM-" + runId.toUpperCase() + "-CYCLE-1";
             String extId1 = "BSIM-PAY1-" + runId.toUpperCase();
             Payment pay1 = createPayment(inv1, subscription, user, 1, isPix, planCents, extRef1, extId1);
@@ -435,7 +435,7 @@ public class SimulationController {
                         subscription.getCurrentPeriodEnd(), payments, buildNote(isPix), null);
 
             // ── Step 6+: Second payment (only for *_SECOND scenarios) ──────
-            Invoice inv2 = createInvoice(user, planCents);
+            Invoice inv2 = createInvoice(user, planCents, 2);
             String extRef2 = "BSIM-" + runId.toUpperCase() + "-CYCLE-2";
             String extId2 = "BSIM-PAY2-" + runId.toUpperCase();
             Payment pay2 = createPayment(inv2, subscription, user, 2, isPix, planCents, extRef2, extId2);
@@ -467,11 +467,13 @@ public class SimulationController {
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    private Invoice createInvoice(User user, int totalCents) {
+    private Invoice createInvoice(User user, int totalCents, int cycleNumber) {
+        LocalDate periodStart = LocalDate.now().plusMonths(cycleNumber - 1);
+        LocalDate periodEnd   = periodStart.plusMonths(1);
         return invoiceRepository.save(Invoice.builder()
                 .payer(user).currency("BRL")
-                .periodStart(LocalDate.now()).periodEnd(LocalDate.now().plusMonths(1))
-                .dueDate(LocalDate.now())
+                .periodStart(periodStart).periodEnd(periodEnd)
+                .dueDate(periodStart)
                 .subtotalCents(totalCents).discountCents(0).totalCents(totalCents).build());
     }
 
