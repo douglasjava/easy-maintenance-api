@@ -130,11 +130,29 @@ public class AiBootstrapService {
         ItemTypes itemTypes = ensureItemType(item.getItemType());
         log.info("Retorno ItemTypes {}", itemTypes);
 
-        // 2. Resolver Norm
-        Long normId = resolveNorm(item);
+        // 2. Resolver Norm e Categoria — estratégia segura: curated-first, nunca AI_BOOTSTRAP
+        //    - Encontrou norm curada? → usa ela, item = REGULATORY
+        //    - Não encontrou? → normId = null, item = OPERATIONAL
+        //    IA não cria normas regulatórias — risco de dado incorreto de compliance
+        Optional<Norm> curatedNorm = normRepository.findByItemType(item.getItemType()).stream()
+                .filter(n -> !"AI_BOOTSTRAP".equals(n.getAuthority()))
+                .findFirst();
+
+        Long normId;
+        com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory itemCategory;
+
+        if (curatedNorm.isPresent()) {
+            normId = curatedNorm.get().getId();
+            itemCategory = com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory.REGULATORY;
+            log.info("[AI] Norm curada id={} reutilizada para itemType={} → REGULATORY", normId, item.getItemType());
+        } else {
+            normId = null;
+            itemCategory = com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory.OPERATIONAL;
+            log.info("[AI] Sem norm curada para itemType={} → criado como OPERATIONAL sem norma", item.getItemType());
+        }
 
         // 3. Criar MaintenanceItem
-        MaintenanceItem maintenanceItem = IAiBootstrapMapper.INSTANCE.toMaintenanceItem(item, organizationCode, normId);
+        MaintenanceItem maintenanceItem = IAiBootstrapMapper.INSTANCE.toMaintenanceItem(item, organizationCode, normId, itemCategory);
         maintenanceItem = maintenanceItemRepository.save(maintenanceItem);
 
         return maintenanceItem.getId();
@@ -158,37 +176,6 @@ public class AiBootstrapService {
         return itemTypesRepository.save(newItemType);
     }
 
-    private Long resolveNorm(AiBootstrapApplyRequest.BootstrapApplyItem item) {
-        List<Norm> existingNorms = normRepository.findByItemType(item.getItemType());
-
-        // Curated-first: reutiliza norm do catálogo oficial quando disponível.
-        // Evita criar duplicatas AI_BOOTSTRAP para tipos já catalogados (TASK-088).
-        Optional<Norm> curatedNorm = existingNorms.stream()
-                .filter(n -> !"AI_BOOTSTRAP".equals(n.getAuthority()))
-                .findFirst();
-        if (curatedNorm.isPresent()) {
-            log.debug("Reutilizando norm curada id={} para itemType={}", curatedNorm.get().getId(), item.getItemType());
-            return curatedNorm.get().getId();
-        }
-
-        // Sem norm curada — verifica se já existe AI_BOOTSTRAP equivalente para evitar duplicata
-        Optional<Norm> matchingAi = existingNorms.stream()
-                .filter(n -> n.getPeriodQty() != null &&
-                        n.getPeriodQty().equals(item.getMaintenance().getPeriodQty()) &&
-                        n.getPeriodUnit() != null &&
-                        n.getPeriodUnit().name().equalsIgnoreCase(item.getMaintenance().getPeriodUnit()) &&
-                        "AI_BOOTSTRAP".equals(n.getAuthority()))
-                .findFirst();
-        if (matchingAi.isPresent()) {
-            return matchingAi.get().getId();
-        }
-
-        // Cria nova norm AI_BOOTSTRAP (source=AI_GENERATED, pendingReview=true)
-        Norm newNorm = IAiBootstrapMapper.INSTANCE.toNorm(item);
-        newNorm = normRepository.save(newNorm);
-        log.info("Nova norm AI_BOOTSTRAP criada id={} itemType={} — pendente de revisão", newNorm.getId(), item.getItemType());
-        return newNorm.getId();
-    }
 
     private String appendOutputContract(String basePrompt) {
         AiBootstrapPreviewResponse example = AiBootstrapPreviewResponse.builder()

@@ -4,11 +4,8 @@ import com.brainbyte.easy_maintenance.ai.application.dto.AiBootstrapApplyRequest
 import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
 import com.brainbyte.easy_maintenance.assets.domain.enums.CustomPeriodUnit;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory;
-import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
-import com.brainbyte.easy_maintenance.catalog_norms.domain.Norm;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.Named;
 import org.mapstruct.factory.Mappers;
 
 import java.time.Instant;
@@ -22,7 +19,7 @@ public interface IAiBootstrapMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "organizationCode", source = "organizationCode")
     @Mapping(target = "itemType", source = "item.itemType")
-    @Mapping(target = "itemCategory", source = "item.category", qualifiedByName = "mapCategory")
+    @Mapping(target = "itemCategory", source = "itemCategory")
     @Mapping(target = "customPeriodUnit", source = "item.maintenance.periodUnit")
     @Mapping(target = "customPeriodQty", source = "item.maintenance.periodQty")
     @Mapping(target = "criticality", source = "item.criticality")
@@ -32,16 +29,10 @@ public interface IAiBootstrapMapper {
     @Mapping(target = "status", constant = "OK")
     @Mapping(target = "createdAt", expression = "java(java.time.Instant.now())")
     @Mapping(target = "updatedAt", expression = "java(java.time.Instant.now())")
-    MaintenanceItem toMaintenanceItem(AiBootstrapApplyRequest.BootstrapApplyItem item, String organizationCode, Long normId);
-
-    @Named("mapCategory")
-    default ItemCategory mapCategory(String category) {
-        if (category == null) return ItemCategory.OPERATIONAL;
-        return switch (category.toUpperCase()) {
-            case "SEGURANCA" -> ItemCategory.REGULATORY;
-            default -> ItemCategory.OPERATIONAL;
-        };
-    }
+    MaintenanceItem toMaintenanceItem(AiBootstrapApplyRequest.BootstrapApplyItem item,
+                                      String organizationCode,
+                                      Long normId,
+                                      ItemCategory itemCategory);
 
     default LocalDate calculateNextDueAt(AiBootstrapApplyRequest.MaintenanceApply maintenance) {
         if (maintenance == null || maintenance.getPeriodUnit() == null || maintenance.getPeriodQty() == null) {
@@ -60,20 +51,6 @@ public interface IAiBootstrapMapper {
             return now;
         }
     }
-
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "itemType", source = "item.itemType")
-    @Mapping(target = "periodUnit", source = "item.maintenance.periodUnit")
-    @Mapping(target = "periodQty", source = "item.maintenance.periodQty")
-    @Mapping(target = "toleranceDays", source = "item.maintenance.toleranceDays")
-    @Mapping(target = "authority", constant = "AI_BOOTSTRAP")
-    @Mapping(target = "source", constant = "AI_GENERATED")
-    @Mapping(target = "pendingReview", expression = "java(Boolean.TRUE)")
-    @Mapping(target = "docUrl", ignore = true)
-    @Mapping(target = "notes", expression = "java(formatNotes(item.getMaintenance()))")
-    @Mapping(target = "createdAt", expression = "java(java.time.Instant.now())")
-    @Mapping(target = "updatedAt", expression = "java(java.time.Instant.now())")
-    Norm toNorm(AiBootstrapApplyRequest.BootstrapApplyItem item);
 
     default String formatNotes(AiBootstrapApplyRequest.MaintenanceApply maintenance) {
         if (maintenance == null) return "";

@@ -106,16 +106,12 @@ class AiBootstrapResolveNormTest {
     }
 
     @Test
-    void resolveNorm_deveCriarNormAiBootstrap_quandoNaoExisteCurada() {
+    void resolveNorm_criaComoOperacional_quandoNaoExisteNormCurada() {
+        // Nova política: sem norm curada → item OPERATIONAL, sem criar AI_BOOTSTRAP
         when(normRepository.findByItemType("EXTINTOR")).thenReturn(List.of());
         when(itemTypesRepository.findByNormalizedName(any())).thenReturn(java.util.Optional.of(
                 com.brainbyte.easy_maintenance.assets.domain.ItemTypes.builder()
                         .id(1L).name("EXTINTOR").normalizedName("extintor").build()));
-
-        Norm savedNorm = new Norm();
-        savedNorm.setId(99L);
-        savedNorm.setAuthority("AI_BOOTSTRAP");
-        when(normRepository.save(any(Norm.class))).thenReturn(savedNorm);
         when(maintenanceItemRepository.save(any())).thenAnswer(inv -> {
             var item = (com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem) inv.getArgument(0);
             item.setId(101L);
@@ -128,36 +124,32 @@ class AiBootstrapResolveNormTest {
 
         service.apply(request);
 
-        // Deve criar nova norm AI_BOOTSTRAP
-        ArgumentCaptor<Norm> normCaptor = ArgumentCaptor.forClass(Norm.class);
-        verify(normRepository).save(normCaptor.capture());
-        Norm created = normCaptor.getValue();
-        assertThat(created.getAuthority()).isEqualTo("AI_BOOTSTRAP");
-        assertThat(created.getSource()).isEqualTo("AI_GENERATED");
-        assertThat(created.getPendingReview()).isTrue();
+        // Nunca deve criar AI_BOOTSTRAP
+        verify(normRepository, never()).save(any(Norm.class));
+
+        // Item criado como OPERATIONAL sem norm
+        ArgumentCaptor<com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem> captor =
+                ArgumentCaptor.forClass(com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem.class);
+        verify(maintenanceItemRepository).save(captor.capture());
+        assertThat(captor.getValue().getNormId()).isNull();
+        assertThat(captor.getValue().getItemCategory())
+                .isEqualTo(com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory.OPERATIONAL);
     }
 
     @Test
-    void resolveNorm_deveReutilizarAiBootstrapExistente_quandoNaoExisteCuradaEMesmaPeriodicidade() {
+    void resolveNorm_ignoreAiBootstrapExistente_criaComoOperacional() {
+        // Norm existente é AI_BOOTSTRAP → deve ser ignorada, item criado como OPERATIONAL
         Norm existingAi = new Norm();
         existingAi.setId(55L);
-        existingAi.setItemType("CENTRAL_OXIGENIO");
+        existingAi.setItemType("EXTINTOR");
         existingAi.setAuthority("AI_BOOTSTRAP");
         existingAi.setPeriodUnit(CustomPeriodUnit.MESES);
-        existingAi.setPeriodQty(1);
+        existingAi.setPeriodQty(12);
 
         when(normRepository.findByItemType("EXTINTOR")).thenReturn(List.of(existingAi));
         when(itemTypesRepository.findByNormalizedName(any())).thenReturn(java.util.Optional.of(
                 com.brainbyte.easy_maintenance.assets.domain.ItemTypes.builder()
                         .id(2L).name("EXTINTOR").normalizedName("extintor").build()));
-
-        // AI with period=12 months, existing AI has period=1 month → NOT a match for EXTINTOR
-        // (same item type but different period) → should create new
-        when(normRepository.save(any(Norm.class))).thenAnswer(inv -> {
-            Norm n = inv.getArgument(0);
-            n.setId(200L);
-            return n;
-        });
         when(maintenanceItemRepository.save(any())).thenAnswer(inv -> {
             var item = (com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem) inv.getArgument(0);
             item.setId(102L);
@@ -170,7 +162,15 @@ class AiBootstrapResolveNormTest {
 
         service.apply(request);
 
-        // Period mismatch (existing=1, requested=12) → creates new AI_BOOTSTRAP
-        verify(normRepository).save(any(Norm.class));
+        // AI_BOOTSTRAP existente é ignorada — não salva nova norm
+        verify(normRepository, never()).save(any(Norm.class));
+
+        // Item OPERATIONAL sem norm
+        ArgumentCaptor<com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem> captor =
+                ArgumentCaptor.forClass(com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem.class);
+        verify(maintenanceItemRepository).save(captor.capture());
+        assertThat(captor.getValue().getNormId()).isNull();
+        assertThat(captor.getValue().getItemCategory())
+                .isEqualTo(com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory.OPERATIONAL);
     }
 }
