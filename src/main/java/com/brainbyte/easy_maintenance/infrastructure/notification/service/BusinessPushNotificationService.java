@@ -26,7 +26,7 @@ public class BusinessPushNotificationService {
                 event.getEventType(), event.getOrganizationCode());
 
         // 1. Resolver todos os usuários da organização que devem receber push
-        List<User> recipients = userOrganizationRepository.findAllByOrganizationCode(event.getOrganizationCode())
+        List<User> recipients = userOrganizationRepository.findAllByOrganizationCodeWithUser(event.getOrganizationCode())
                 .stream()
                 .map(UserOrganization::getUser)
                 .toList();

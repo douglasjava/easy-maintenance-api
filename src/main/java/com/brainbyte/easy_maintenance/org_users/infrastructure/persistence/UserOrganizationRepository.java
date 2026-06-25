@@ -2,6 +2,8 @@ package com.brainbyte.easy_maintenance.org_users.infrastructure.persistence;
 
 import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,6 +15,9 @@ public interface UserOrganizationRepository extends JpaRepository<UserOrganizati
     Optional<UserOrganization> findByUserIdAndOrganizationCode(Long userId, String organizationCode);
 
     List<UserOrganization> findAllByOrganizationCode(String organizationCode);
+
+    @Query("SELECT uo FROM UserOrganization uo JOIN FETCH uo.user WHERE uo.organizationCode = :orgCode")
+    List<UserOrganization> findAllByOrganizationCodeWithUser(@Param("orgCode") String orgCode);
 
     List<UserOrganization> findAllByUserId(Long userId);
 
