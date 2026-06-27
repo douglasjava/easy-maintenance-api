@@ -33,6 +33,9 @@ public class AuthController {
     @Value("${app.cookie.domain:}")
     private String cookieDomain;
 
+    @Value("${app.cookie.same-site:None}")
+    private String cookieSameSite;
+
     private final UsersService usersService;
     private final PasswordResetService passwordResetService;
     private final TwoFactorService twoFactorService;
@@ -94,7 +97,7 @@ public class AuthController {
         ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(ACCESS_TOKEN_COOKIE, value)
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .path("/")
                 .maxAge(remember ? Duration.ofDays(30) : Duration.ofDays(7));
 

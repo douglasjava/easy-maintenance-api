@@ -26,6 +26,9 @@ public class OnboardingController {
     @Value("${app.cookie.domain:}")
     private String cookieDomain;
 
+    @Value("${app.cookie.same-site:None}")
+    private String cookieSameSite;
+
     private final AuthenticationService authenticationService;
     private final OnboardingService onboardingService;
     private final UsersService usersService;
@@ -53,7 +56,7 @@ public class OnboardingController {
         ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from("accessToken", refreshedToken)
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .path("/")
                 .maxAge(Duration.ofDays(7));
         if (cookieDomain != null && !cookieDomain.isBlank()) {

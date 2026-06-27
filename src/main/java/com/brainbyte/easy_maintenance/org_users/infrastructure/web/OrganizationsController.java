@@ -37,6 +37,9 @@ public class OrganizationsController {
     @Value("${app.cookie.domain:}")
     private String cookieDomain;
 
+    @Value("${app.cookie.same-site:None}")
+    private String cookieSameSite;
+
     private final OrganizationsService service;
     private final UsersService usersService;
 
@@ -109,7 +112,7 @@ public class OrganizationsController {
         ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from("accessToken", refreshedToken)
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .path("/")
                 .maxAge(Duration.ofDays(7));
         if (cookieDomain != null && !cookieDomain.isBlank()) {
