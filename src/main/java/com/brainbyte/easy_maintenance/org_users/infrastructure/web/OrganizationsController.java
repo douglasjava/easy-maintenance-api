@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -27,13 +28,14 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Duration;
 import java.util.List;
 
-import static com.brainbyte.easy_maintenance.org_users.infrastructure.web.AuthController.DOMAIN_NAME;
-
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/easy-maintenance/api/v1/organizations")
 @Tag(name = "Organizações", description = "Gerenciamento de organizações")
 public class OrganizationsController {
+
+    @Value("${app.cookie.domain:}")
+    private String cookieDomain;
 
     private final OrganizationsService service;
     private final UsersService usersService;
@@ -104,15 +106,16 @@ public class OrganizationsController {
         BillingSubscriptionResponse.SubscriptionItemResponse subscription = service.addOrganizationSubscription(orgCode, request);
 
         String refreshedToken = usersService.issueRefreshedToken(request.payerUserId());
-        ResponseCookie cookie = ResponseCookie.from("accessToken", refreshedToken)
+        ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from("accessToken", refreshedToken)
                 .httpOnly(true)
                 .secure(true)
-                .domain(DOMAIN_NAME)
                 .sameSite("Lax")
                 .path("/")
-                .maxAge(Duration.ofDays(7))
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+                .maxAge(Duration.ofDays(7));
+        if (cookieDomain != null && !cookieDomain.isBlank()) {
+            cookieBuilder.domain(cookieDomain);
+        }
+        response.addHeader(HttpHeaders.SET_COOKIE, cookieBuilder.build().toString());
 
         return subscription;
 
