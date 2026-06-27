@@ -6,6 +6,7 @@ import com.brainbyte.easy_maintenance.affiliates.domain.Affiliate;
 import com.brainbyte.easy_maintenance.affiliates.domain.AffiliateStatus;
 import com.brainbyte.easy_maintenance.affiliates.infrastructure.persistence.AffiliateRepository;
 import com.brainbyte.easy_maintenance.affiliates.infrastructure.persistence.ReferralCommissionRepository;
+import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.leads.domain.LandingLead;
 import com.brainbyte.easy_maintenance.leads.infrastructure.persistence.LandingLeadRepository;
 import org.junit.jupiter.api.Test;
@@ -54,12 +55,12 @@ class AffiliateServiceTest {
     }
 
     @Test
-    void createAffiliate_throwsIllegalArgument_whenEmailAlreadyExists() {
+    void createAffiliate_throwsConflict_whenEmailAlreadyExists() {
         when(affiliateRepository.existsByEmail("dup@test.com")).thenReturn(true);
 
         assertThatThrownBy(() -> service.createAffiliate(
                 new CreateAffiliateRequest("X", "dup@test.com", "31")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("já cadastrado");
 
         verify(affiliateRepository, never()).save(any());

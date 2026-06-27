@@ -10,19 +10,24 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
 
-import static com.brainbyte.easy_maintenance.org_users.infrastructure.web.AuthController.DOMAIN_NAME;
-
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/easy-maintenance/api/v1/me/onboarding")
 @Tag(name = "Onboarding Usuário", description = "Cadastro inicial de usuário e empresa")
 public class OnboardingController {
+
+    @Value("${app.cookie.domain:}")
+    private String cookieDomain;
+
+    @Value("${app.cookie.same-site:None}")
+    private String cookieSameSite;
 
     private final AuthenticationService authenticationService;
     private final OnboardingService onboardingService;
@@ -48,15 +53,16 @@ public class OnboardingController {
         // TenantFilter.validateOrgMembership() passe na próxima chamada ao /me/access-context.
 
         String refreshedToken = usersService.issueRefreshedToken(user.getId());
-        ResponseCookie cookie = ResponseCookie.from("accessToken", refreshedToken)
+        ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from("accessToken", refreshedToken)
                 .httpOnly(true)
                 .secure(true)
-                .domain(DOMAIN_NAME)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .path("/")
-                .maxAge(Duration.ofDays(7))
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+                .maxAge(Duration.ofDays(7));
+        if (cookieDomain != null && !cookieDomain.isBlank()) {
+            cookieBuilder.domain(cookieDomain);
+        }
+        response.addHeader(HttpHeaders.SET_COOKIE, cookieBuilder.build().toString());
 
         return result;
     }
