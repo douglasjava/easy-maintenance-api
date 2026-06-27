@@ -1,12 +1,18 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
+import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.specifications.UserSpecifications;
 import com.brainbyte.easy_maintenance.org_users.mapper.IUserMapper;
@@ -44,6 +50,9 @@ public class UsersService {
     private final JwtService jwtService;
     private final FirstAccessTokenService firstAccessTokenService;
     private final TwoFactorService twoFactorService;
+    private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
+    private final BillingPlanFeaturesHelper billingPlanFeaturesHelper;
+    private final UserOrganizationRepository userOrganizationRepository;
 
     public UserDTO.UserResponse createUser(UserDTO.CreateUserRequest request) {
         log.info("Creating user {} ", request.email());
@@ -277,12 +286,39 @@ public class UsersService {
             return;
         }
 
+        validateUserLimit(orgCode);
+
         UserOrganization uo = UserOrganization.builder()
                 .user(user)
                 .organizationCode(orgCode)
                 .build();
         user.getOrganizations().add(uo);
         repository.save(user);
+    }
+
+    private void validateUserLimit(String orgCode) {
+        List<BillingSubscriptionItem> subscriptionItems = billingSubscriptionItemRepository
+                .findAllBySourceTypeAndSourceIdIn(
+                        BillingSubscriptionItemSourceType.ORGANIZATION, List.of(orgCode));
+
+        if (subscriptionItems.isEmpty()) {
+            log.warn("[UserLimit] Nenhuma assinatura encontrada para organização {}", orgCode);
+            throw new RuleException("A organização não possui uma assinatura ativa.");
+        }
+
+        int maxUsers = billingPlanFeaturesHelper.parse(subscriptionItems.getFirst().getPlan()).getMaxUsers();
+
+        if (maxUsers <= 0) {
+            return; // maxUsers=0 significa ilimitado
+        }
+
+        long currentUsers = userOrganizationRepository.countByOrganizationCode(orgCode);
+
+        if (currentUsers >= maxUsers) {
+            throw new RuleException(String.format(
+                    "Limite de usuários atingido (%d/%d). Faça upgrade do seu plano para adicionar mais usuários.",
+                    currentUsers, maxUsers));
+        }
     }
 
     @Transactional

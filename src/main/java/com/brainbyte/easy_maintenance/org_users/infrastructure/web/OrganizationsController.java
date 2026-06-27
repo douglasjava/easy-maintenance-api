@@ -9,6 +9,7 @@ import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.CreateOrganizationRequest;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.OrganizationResponse;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO.UpdateOrganizationRequest;
+import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import com.brainbyte.easy_maintenance.org_users.application.service.OrganizationsService;
 import com.brainbyte.easy_maintenance.org_users.application.service.UsersService;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Plan;
@@ -42,11 +43,14 @@ public class OrganizationsController {
 
     private final OrganizationsService service;
     private final UsersService usersService;
+    private final AuthenticationService authenticationService;
 
     @PostMapping
     @RequiresFullAccess(scope = AccessScope.USER_ACCOUNT)
     @Operation(summary = "Cria uma nova organização para um usuário")
     public OrganizationResponse create(@Valid @RequestBody CreateOrganizationRequest request) {
+        Long userId = authenticationService.getCurrentUser().getId();
+        service.validateOrgLimit(userId);
         return service.create(request);
     }
 

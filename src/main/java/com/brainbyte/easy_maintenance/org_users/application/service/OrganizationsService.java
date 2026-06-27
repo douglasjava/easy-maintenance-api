@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSubscriptionResponse;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanService;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
@@ -12,6 +13,7 @@ import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingAccountRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingPlanRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
@@ -38,6 +40,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -50,6 +53,8 @@ public class OrganizationsService {
     private final BillingAccountRepository billingAccountRepository;
     private final UserRepository userRepository;
     private final AffiliateService affiliateService;
+    private final BillingPlanFeaturesHelper billingPlanFeaturesHelper;
+    private final UserOrganizationRepository userOrganizationRepository;
 
     @Transactional
     public void applyReferralCode(String orgCode, String referralCode) {
@@ -164,6 +169,29 @@ public class OrganizationsService {
 
         return IOrganizationMapper.INSTANCE.toOrganizationResponse(organizationSaved);
 
+    }
+
+    public void validateOrgLimit(Long userId) {
+        Optional<BillingSubscriptionItem> subscriptionItemOpt = billingSubscriptionItemRepository
+                .findBySourceTypeAndSourceId(BillingSubscriptionItemSourceType.USER, userId.toString());
+
+        if (subscriptionItemOpt.isEmpty()) {
+            return; // sem assinatura ativa (onboarding ainda não concluído) → permite criação
+        }
+
+        int maxOrganizations = billingPlanFeaturesHelper.parse(subscriptionItemOpt.get().getPlan()).getMaxOrganizations();
+
+        if (maxOrganizations <= 0) {
+            return; // maxOrganizations=0 significa ilimitado
+        }
+
+        long currentOrgs = userOrganizationRepository.countByUserId(userId);
+
+        if (currentOrgs >= maxOrganizations) {
+            throw new RuleException(String.format(
+                    "Limite de organizações atingido (%d/%d). Faça upgrade do seu plano para adicionar mais organizações.",
+                    currentOrgs, maxOrganizations));
+        }
     }
 
     public OrganizationDTO.OrganizationResponse create(OrganizationDTO.CreateOrganizationRequest request) {
