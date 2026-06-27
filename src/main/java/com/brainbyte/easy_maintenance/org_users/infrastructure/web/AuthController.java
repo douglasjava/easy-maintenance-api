@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -27,8 +28,10 @@ import java.time.Duration;
 @Tag(name = "Autenticação", description = "Endpoints para login e gerenciamento de senha")
 public class AuthController {
 
-    public static final String DOMAIN_NAME = "easymaintenance.com.br";
     public static final String ACCESS_TOKEN_COOKIE = "accessToken";
+
+    @Value("${app.cookie.domain:}")
+    private String cookieDomain;
 
     private final UsersService usersService;
     private final PasswordResetService passwordResetService;
@@ -43,15 +46,7 @@ public class AuthController {
         // Only set cookie when 2FA is NOT required (full token issued immediately)
         if (!loginResponse.requiresTwoFactor() && loginResponse.accessToken() != null) {
             boolean remember = Boolean.TRUE.equals(request.remember());
-            ResponseCookie cookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, loginResponse.accessToken())
-                    .httpOnly(true)
-                    .secure(true)
-                    .domain(DOMAIN_NAME)
-                    .sameSite("Lax")
-                    .path("/")
-                    .maxAge(remember ? Duration.ofDays(30) : Duration.ofDays(7))
-                    .build();
-            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+            response.addHeader(HttpHeaders.SET_COOKIE, buildCookie(loginResponse.accessToken(), remember).toString());
         }
 
         return loginResponse;
@@ -66,15 +61,7 @@ public class AuthController {
         LoginResponse loginResponse = usersService.verifyTwoFactor(request);
 
         boolean remember = Boolean.TRUE.equals(request.remember());
-        ResponseCookie cookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, loginResponse.accessToken())
-                .httpOnly(true)
-                .secure(true)
-                .domain(DOMAIN_NAME)
-                .sameSite("Lax")
-                .path("/")
-                .maxAge(remember ? Duration.ofDays(30) : Duration.ofDays(7))
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, buildCookie(loginResponse.accessToken(), remember).toString());
 
         return loginResponse;
     }
@@ -100,15 +87,22 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Encerra a sessão do usuário")
     public void logout(HttpServletResponse response) {
-        ResponseCookie clearCookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, "")
+        response.addHeader(HttpHeaders.SET_COOKIE, buildCookie("", false).mutate().maxAge(0).build().toString());
+    }
+
+    private ResponseCookie buildCookie(String value, boolean remember) {
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(ACCESS_TOKEN_COOKIE, value)
                 .httpOnly(true)
                 .secure(true)
-                .domain(DOMAIN_NAME)
                 .sameSite("Lax")
                 .path("/")
-                .maxAge(0)
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, clearCookie.toString());
+                .maxAge(remember ? Duration.ofDays(30) : Duration.ofDays(7));
+
+        if (cookieDomain != null && !cookieDomain.isBlank()) {
+            builder.domain(cookieDomain);
+        }
+
+        return builder.build();
     }
 
     @PostMapping("/change-password")
