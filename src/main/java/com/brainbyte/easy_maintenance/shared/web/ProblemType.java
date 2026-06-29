@@ -12,6 +12,7 @@ public enum ProblemType {
     TENANT_MISSING("tenant-missing", "Invalid request"),
     TENANT_INVALID("tenant-invalid", "Invalid request"),
     WITHOUT_PERMISSIONS("permissions-invalid", "Permissions invalid"),
+    FORBIDDEN("forbidden", "Access forbidden"),
     NOT_AUTHENTICATED("not-authenticated", "User not authenticated"),
     SUBSCRIPTION_DENIED("subscription-denied", "Subscription access denied"),
     RATE_LIMIT_EXCEEDED("rate-limit-exceeded", "Too many requests"),

@@ -144,6 +144,12 @@ public class GlobalExceptionHandler {
         return body;
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    public ProblemDetail handleForbiddenException(ForbiddenException ex, HttpServletRequest request) {
+        log.warn("Forbidden: {}", ex.getMessage());
+        return ProblemDetails.of(HttpStatus.FORBIDDEN, ProblemType.FORBIDDEN, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(AccessAdminException.class)
     public ProblemDetail handleAccessAdminException(AccessAdminException ex, HttpServletRequest request) {
         log.error("Permissions invalid", ex);
