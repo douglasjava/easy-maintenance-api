@@ -16,6 +16,9 @@ public interface UserOrganizationRepository extends JpaRepository<UserOrganizati
 
     List<UserOrganization> findAllByOrganizationCode(String organizationCode);
 
+    @Query("SELECT uo FROM UserOrganization uo JOIN FETCH uo.user WHERE uo.organizationCode IN :orgCodes")
+    List<UserOrganization> findAllByOrganizationCodeInWithUser(@Param("orgCodes") List<String> orgCodes);
+
     @Query("SELECT uo FROM UserOrganization uo JOIN FETCH uo.user WHERE uo.organizationCode = :orgCode")
     List<UserOrganization> findAllByOrganizationCodeWithUser(@Param("orgCode") String orgCode);
 
