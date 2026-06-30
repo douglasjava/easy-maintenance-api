@@ -10,5 +10,6 @@ public enum SubscriptionStatus {
     CANCELED,
     NONE,
     PENDING_ACTIVATION,
-    PAYMENT_FAILED
+    PAYMENT_FAILED,
+    MEMBER
 }
