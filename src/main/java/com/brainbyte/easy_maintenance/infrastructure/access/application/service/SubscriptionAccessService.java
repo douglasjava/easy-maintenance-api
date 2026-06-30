@@ -100,6 +100,7 @@ public class SubscriptionAccessService {
             case ACTIVE, TRIAL -> AccessMode.FULL_ACCESS;
             case BLOCKED -> AccessMode.NO_ACCESS;
             case TRIAL_EXPIRED, CANCELED, PAST_DUE, PENDING_PAYMENT, PAYMENT_FAILED, NONE, PENDING_ACTIVATION -> AccessMode.READ_ONLY;
+            case MEMBER -> AccessMode.FULL_ACCESS;
         };
     }
 }

@@ -14,6 +14,7 @@ import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
+import com.brainbyte.easy_maintenance.org_users.domain.enums.Role;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class FeatureAccessService {
     public static final String USER_INACTIVE_MSG = "Sua assinatura de usuário está inativa. Você ainda pode acessar os dados existentes, mas algumas operações da conta não estão permitidas.";
     public static final String USER_FULL_ACCESS_MSG = "Acesso total à conta.";
     public static final String USER_TRIAL_EXPIRED_MSG = "Seu período de trial encerrou. Assine um plano para continuar.";
+    public static final String USER_MEMBER_MSG = "Você é membro de uma equipe. Seu acesso é gerenciado pelo titular da conta.";
     public static final String ORG_INACTIVE_MSG = "A assinatura desta organização está inativa. Você ainda pode visualizar os dados existentes, mas as operações de gravação não são permitidas.";
     public static final String ORG_FULL_ACCESS_MSG = "Acesso total à organização.";
     public static final String ORG_TRIAL_EXPIRED_MSG = "Trial expirado. Visualização apenas.";
@@ -52,7 +54,7 @@ public class FeatureAccessService {
 
         log.info("user: {}", user.getName());
 
-        AccountAccessResponse accountAccess = buildAccountAccess(user.getId());
+        AccountAccessResponse accountAccess = buildAccountAccess(user.getId(), user.getRole());
 
         List<OrganizationAccessResponse> organizationsAccess = organizationRepository.findAllByUserId(user.getId())
                 .stream()
@@ -70,7 +72,13 @@ public class FeatureAccessService {
                 .build();
     }
 
-    private AccountAccessResponse buildAccountAccess(Long userId) {
+    private AccountAccessResponse buildAccountAccess(Long userId, Role userRole) {
+        // Team members (non-ADMIN role) derive account access from the current org's subscription
+        if (userRole != null && userRole != Role.ADMIN) {
+            return buildMemberAccountAccess(userId);
+        }
+
+        // Account owners use their personal subscription
         Optional<BillingSubscriptionItem> subscriptionItem = subscriptionAccessService.getUserSubscriptionItem(userId);
         SubscriptionStatus rawStatus = subscriptionItem.map(item -> item.getBillingSubscription().getStatus()).orElse(null);
         Instant periodEnd = subscriptionItem.map(item -> item.getBillingSubscription().getCurrentPeriodEnd()).orElse(null);
@@ -97,6 +105,52 @@ public class FeatureAccessService {
                 .build();
     }
 
+    private AccountAccessResponse buildMemberAccountAccess(Long userId) {
+        String orgCode = TenantContext.get().orElse(null);
+
+        if (orgCode == null) {
+            BillingPlanFeatures emptyFeatures = billingPlanFeaturesHelper.parse(null);
+            return AccountAccessResponse.builder()
+                    .subscriptionStatus("NONE")
+                    .accessMode(AccessMode.READ_ONLY)
+                    .message(USER_INACTIVE_MSG)
+                    .features(emptyFeatures)
+                    .permissions(buildMemberPermissions())
+                    .aiCreditsUsed(aiCreditService.getCreditsUsedThisMonth(userId))
+                    .aiCreditsLimit(0)
+                    .build();
+        }
+
+        Optional<BillingSubscriptionItem> orgItem = subscriptionAccessService.getOrganizationSubscriptionItem(orgCode);
+        SubscriptionStatus rawStatus = orgItem.map(item -> item.getBillingSubscription().getStatus()).orElse(null);
+        Instant periodEnd = orgItem.map(item -> item.getBillingSubscription().getCurrentPeriodEnd()).orElse(null);
+        BillingPlan orgPlan = orgItem.map(BillingSubscriptionItem::getPlan).orElse(null);
+
+        SubscriptionStatus effectiveStatus = SubscriptionAccessService.resolveEffectiveStatus(rawStatus, periodEnd);
+        AccessMode mode = subscriptionAccessService.resolveOrganizationAccessMode(orgCode);
+
+        BillingPlanFeatures memberFeatures = billingPlanFeaturesHelper.parse(orgPlan);
+
+        boolean fullAccess = mode == AccessMode.FULL_ACCESS;
+        String displayStatus = fullAccess
+                ? SubscriptionStatus.MEMBER.name()
+                : (effectiveStatus != null ? effectiveStatus.name() : "NONE");
+        String message = fullAccess ? USER_MEMBER_MSG : resolveAccountMessage(effectiveStatus, mode);
+        Instant trialExpiresAt = rawStatus == SubscriptionStatus.TRIAL ? periodEnd : null;
+
+        return AccountAccessResponse.builder()
+                .subscriptionStatus(displayStatus)
+                .accessMode(mode)
+                .message(message)
+                .plan(fullAccess ? mapPlan(orgPlan) : null)
+                .features(memberFeatures)
+                .permissions(buildMemberPermissions())
+                .trialExpiresAt(trialExpiresAt)
+                .aiCreditsUsed(aiCreditService.getCreditsUsedThisMonth(userId))
+                .aiCreditsLimit(memberFeatures.getAiMonthlyCredits())
+                .build();
+    }
+
     private static String resolveAccountMessage(SubscriptionStatus effectiveStatus, AccessMode mode) {
         if (effectiveStatus == SubscriptionStatus.TRIAL_EXPIRED) return USER_TRIAL_EXPIRED_MSG;
         return mode != AccessMode.FULL_ACCESS ? USER_INACTIVE_MSG : USER_FULL_ACCESS_MSG;
@@ -108,6 +162,14 @@ public class FeatureAccessService {
                 .canViewOrganizations(true)
                 .canCreateOrganization(fullAccess)
                 .canManageOwnBilling(true)
+                .build();
+    }
+
+    private AccountPermissionsResponse buildMemberPermissions() {
+        return AccountPermissionsResponse.builder()
+                .canViewOrganizations(true)
+                .canCreateOrganization(false)
+                .canManageOwnBilling(false)
                 .build();
     }
 
