@@ -183,7 +183,7 @@ public class MaintenanceService {
     private static void validateOrganization(String orgId, MaintenanceItem item) {
 
         if (!orgId.equals(item.getOrganizationCode())) {
-            throw new TenantException(HttpStatus.FORBIDDEN, "Item does not belong to tenant");
+            throw new TenantException(HttpStatus.FORBIDDEN, "Item não pertence a essa organização");
         }
 
     }

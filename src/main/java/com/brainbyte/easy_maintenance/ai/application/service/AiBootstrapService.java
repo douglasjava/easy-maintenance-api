@@ -98,7 +98,7 @@ public class AiBootstrapService {
     @CountedBusiness("items.created")
     public AiBootstrapApplyResponse apply(AiBootstrapApplyRequest request) {
         log.info("Applying AI Bootstrap for {} items", request.getItems().size());
-        String organizationCode = TenantContext.get().orElseThrow(() -> new TenantException(HttpStatus.FORBIDDEN, "Item does not belong to tenant"));
+        String organizationCode = TenantContext.get().orElseThrow(() -> new TenantException(HttpStatus.FORBIDDEN, "Item não pertence a essa organização"));
 
         List<AiBootstrapApplyResponse.CreatedItem> created = new ArrayList<>();
         List<AiBootstrapApplyResponse.FailedItem> failed = new ArrayList<>();
