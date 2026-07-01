@@ -12,5 +12,6 @@ public record InAppNotificationResponse(
         Long referenceId,
         String referenceLabel,
         boolean read,
-        Instant createdAt
+        Instant createdAt,
+        String orgCode
 ) {}

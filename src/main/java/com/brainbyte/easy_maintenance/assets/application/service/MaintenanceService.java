@@ -18,6 +18,7 @@ import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.commons.exceptions.TenantException;
+import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +49,7 @@ public class MaintenanceService {
     private final MaintenanceItemService maintenanceItemService;
     private final MaintenanceAttachmentRepository attachmentRepository;
     private final ServiceBase serviceBase;
+    private final AuthenticationService authenticationService;
 
     @Transactional
     public MaintenanceResponse register(String orgId, Long itemId, RegisterMaintenanceRequest req) {
@@ -61,6 +63,9 @@ public class MaintenanceService {
         validateRegister(orgId, req, item);
 
         Maintenance maintenance = IMaintenanceMapper.INSTANCE.toMaintenance(req, itemId);
+        Long currentUserId = authenticationService.getCurrentUser().getId();
+        maintenance.setCreatedBy(currentUserId);
+        maintenance.setUpdatedBy(currentUserId);
         maintenanceRepository.save(maintenance);
 
         item.setLastPerformedAt(req.performedAt());
@@ -70,6 +75,7 @@ public class MaintenanceService {
         }
         item.setStatus(StatusCalculator.calculate(item.getNextDueAt()));
         item.setUpdatedAt(Instant.now());
+        item.setUpdatedBy(currentUserId);
         MaintenanceItem savedItem = maintenanceItemService.save(item);
 
         log.info("Registered maintenance for item {}: {}", itemId, savedItem);
@@ -158,7 +164,8 @@ public class MaintenanceService {
 
         MaintenanceResponse base = IMaintenanceMapper.INSTANCE.toMaintenanceResponse(maintenance, attachmentResponses);
         return new MaintenanceResponse(base.id(), base.itemId(), item.getItemType(),
-                base.performedAt(), base.type(), base.performedBy(), base.costCents(), base.nextDueAt(), base.attachments());
+                base.performedAt(), base.type(), base.performedBy(), base.costCents(), base.nextDueAt(),
+                base.attachments(), base.createdBy(), base.updatedBy());
     }
 
 
@@ -177,7 +184,8 @@ public class MaintenanceService {
 
     private static MaintenanceResponse withItemType(MaintenanceResponse r, Map<Long, String> typeMap) {
         return new MaintenanceResponse(r.id(), r.itemId(), typeMap.get(r.itemId()),
-                r.performedAt(), r.type(), r.performedBy(), r.costCents(), r.nextDueAt(), r.attachments());
+                r.performedAt(), r.type(), r.performedBy(), r.costCents(), r.nextDueAt(),
+                r.attachments(), r.createdBy(), r.updatedBy());
     }
 
     private static void validateOrganization(String orgId, MaintenanceItem item) {

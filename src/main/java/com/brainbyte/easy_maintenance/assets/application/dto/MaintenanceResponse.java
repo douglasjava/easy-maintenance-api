@@ -33,9 +33,15 @@ public record MaintenanceResponse(
         LocalDate nextDueAt,
 
         @Schema(description = "Lista de anexos da manutenção")
-        List<MaintenanceAttachmentSimpleResponse> attachments
+        List<MaintenanceAttachmentSimpleResponse> attachments,
+
+        @Schema(description = "ID do usuário que criou a manutenção")
+        Long createdBy,
+
+        @Schema(description = "ID do usuário que atualizou por último")
+        Long updatedBy
 ) {
     public MaintenanceResponse(Long id, Long itemId, LocalDate performedAt, MaintenanceType type, String performedBy, Integer costCents, LocalDate nextDueAt) {
-        this(id, itemId, null, performedAt, type, performedBy, costCents, nextDueAt, List.of());
+        this(id, itemId, null, performedAt, type, performedBy, costCents, nextDueAt, List.of(), null, null);
     }
 }

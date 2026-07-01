@@ -10,9 +10,11 @@ import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.Billing
 import com.brainbyte.easy_maintenance.commons.exceptions.NotAuthorizedException;
 import com.brainbyte.easy_maintenance.infrastructure.access.application.service.SubscriptionAccessService;
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
+import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -34,6 +38,7 @@ public class MaintenanceExportService {
     private final UserOrganizationRepository userOrgRepository;
     private final OrganizationRepository organizationRepository;
     private final BillingSubscriptionItemRepository subscriptionItemRepository;
+    private final UserRepository userRepository;
 
     public byte[] exportCsv(String orgCode, Long itemId, LocalDate startDate, LocalDate endDate,
                              String performedBy) {
@@ -45,7 +50,10 @@ public class MaintenanceExportService {
 
         log.info("[Export] org={} itemId={} performedBy={} rows={}", orgCode, itemId, performedBy, rows.size());
 
-        return buildCsv(rows);
+        Map<Long, String> nameById = resolveUserNames(
+                rows.stream().map(MaintenanceExportProjection::getCreatedBy).filter(Objects::nonNull).collect(Collectors.toSet()));
+
+        return buildCsv(rows, nameById);
     }
 
     public byte[] exportCsvCrossOrg(Long userId, List<String> requestedOrgCodes,
@@ -90,13 +98,17 @@ public class MaintenanceExportService {
         log.info("[CrossOrgExport] userId={} orgs={} type={} itemType={} rows={}",
                 userId, authorizedOrgCodes, type, itemType, rows.size());
 
-        return buildCsvCrossOrg(rows, orgNames);
+        Map<Long, String> nameById = resolveUserNames(
+                rows.stream().map(CrossOrgMaintenanceExportProjection::getCreatedBy).filter(Objects::nonNull).collect(Collectors.toSet()));
+
+        return buildCsvCrossOrg(rows, orgNames, nameById);
     }
 
-    private byte[] buildCsvCrossOrg(List<CrossOrgMaintenanceExportProjection> rows, Map<String, String> orgNames) {
+    private byte[] buildCsvCrossOrg(List<CrossOrgMaintenanceExportProjection> rows,
+                                     Map<String, String> orgNames, Map<Long, String> nameById) {
         var sb = new StringBuilder();
         sb.append('﻿'); // UTF-8 BOM — required for Excel on Windows to decode accents correctly
-        sb.append("ID,Empresa,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável,Categoria\n");
+        sb.append("ID,Empresa,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável,Categoria,Registrado por\n");
 
         for (var row : rows) {
             sb.append(row.getId()).append(",");
@@ -108,7 +120,8 @@ public class MaintenanceExportService {
             sb.append(formatCost(row.getCostCents())).append(",");
             sb.append(dateStr(row.getNextDueAt())).append(",");
             sb.append(csv(row.getNormAuthority())).append(",");
-            sb.append(csv(translateCategory(row.getItemCategory()))).append("\n");
+            sb.append(csv(translateCategory(row.getItemCategory()))).append(",");
+            sb.append(csv(resolvedName(row.getCreatedBy(), nameById))).append("\n");
         }
 
         return sb.toString().getBytes(StandardCharsets.UTF_8);
@@ -127,10 +140,21 @@ public class MaintenanceExportService {
         }
     }
 
-    private byte[] buildCsv(List<MaintenanceExportProjection> rows) {
+    private Map<Long, String> resolveUserNames(Set<Long> ids) {
+        if (ids.isEmpty()) return Map.of();
+        return userRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(User::getId, User::getName));
+    }
+
+    private String resolvedName(Long userId, Map<Long, String> nameById) {
+        if (userId == null) return "—";
+        return nameById.getOrDefault(userId, "—");
+    }
+
+    private byte[] buildCsv(List<MaintenanceExportProjection> rows, Map<Long, String> nameById) {
         var sb = new StringBuilder();
         sb.append('﻿'); // UTF-8 BOM — required for Excel on Windows to decode accents correctly
-        sb.append("ID,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável,Categoria\n");
+        sb.append("ID,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável,Categoria,Registrado por\n");
 
         for (var row : rows) {
             sb.append(row.getId()).append(",");
@@ -141,7 +165,8 @@ public class MaintenanceExportService {
             sb.append(formatCost(row.getCostCents())).append(",");
             sb.append(dateStr(row.getNextDueAt())).append(",");
             sb.append(csv(row.getNormAuthority())).append(",");
-            sb.append(csv(translateCategory(row.getItemCategory()))).append("\n");
+            sb.append(csv(translateCategory(row.getItemCategory()))).append(",");
+            sb.append(csv(resolvedName(row.getCreatedBy(), nameById))).append("\n");
         }
 
         return sb.toString().getBytes(StandardCharsets.UTF_8);

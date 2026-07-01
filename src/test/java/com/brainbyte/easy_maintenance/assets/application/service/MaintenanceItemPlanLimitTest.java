@@ -16,6 +16,8 @@ import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.Billing
 import com.brainbyte.easy_maintenance.catalog_norms.application.service.NormService;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
+import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
+import com.brainbyte.easy_maintenance.org_users.domain.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -38,6 +40,7 @@ class MaintenanceItemPlanLimitTest {
     @Mock AuditService auditService;
     @Mock BillingSubscriptionItemRepository billingSubscriptionItemRepository;
     @Mock BillingPlanFeaturesHelper billingPlanFeaturesHelper;
+    @Mock AuthenticationService authenticationService;
 
     @InjectMocks MaintenanceItemService service;
 
@@ -71,6 +74,9 @@ class MaintenanceItemPlanLimitTest {
             item.setId(1L);
             return item;
         });
+        User user = new User();
+        user.setId(1L);
+        when(authenticationService.getCurrentUser()).thenReturn(user);
     }
 
     /** OPERACIONAL request — valid for validateCreate() without normId. */

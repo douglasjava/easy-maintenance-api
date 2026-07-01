@@ -43,12 +43,16 @@ public interface IMaintenanceMapper {
             maintenance.getPerformedBy(),
             maintenance.getCostCents(),
             maintenance.getNextDueAt(),
-            List.of()
+            List.of(),
+            maintenance.getCreatedBy(),
+            maintenance.getUpdatedBy()
     );
   }
 
   @Mapping(target = "attachments", source = "attachments")
   @Mapping(target = "itemType", ignore = true)
+  @Mapping(target = "createdBy", source = "maintenance.createdBy")
+  @Mapping(target = "updatedBy", source = "maintenance.updatedBy")
   MaintenanceResponse toMaintenanceResponse(Maintenance maintenance, List<MaintenanceAttachmentSimpleResponse> attachments);
 
   @Mapping(target = "attachmentType", source = "attachmentType")

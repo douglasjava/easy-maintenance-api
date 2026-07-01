@@ -15,6 +15,7 @@ import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -41,6 +42,7 @@ class MaintenanceExportServiceCrossOrgTest {
     @Mock BillingSubscriptionItemRepository subscriptionItemRepository;
     @Mock BillingPlanFeaturesHelper featuresHelper;
     @Mock SubscriptionAccessService subscriptionAccessService;
+    @Mock UserRepository userRepository;
 
     @InjectMocks MaintenanceExportService exportService;
 
@@ -67,7 +69,7 @@ class MaintenanceExportServiceCrossOrgTest {
     }
 
     @Test
-    void exportCsvCrossOrg_happyPath_returnsCsvWithEmpresaColumn() {
+    void exportCsvCrossOrg_happyPath_returnsCsvWithEmpresaAndRegistradoPorColumns() {
         when(userOrgRepository.findAllByUserId(1L))
                 .thenReturn(List.of(buildUserOrg(1L, "ORG-001")));
 
@@ -83,9 +85,13 @@ class MaintenanceExportServiceCrossOrgTest {
                 .thenReturn(List.of(buildOrg("ORG-001", "Alpha Corp")));
 
         CrossOrgMaintenanceExportProjection row = buildProjection(1L, "ORG-001", "EXTINTOR",
-                LocalDate.of(2026, 6, 1), "PREVENTIVA", "José", 15000, LocalDate.of(2026, 12, 1), "NR-23", "REGULATORY");
+                LocalDate.of(2026, 6, 1), "PREVENTIVA", "José", 15000, LocalDate.of(2026, 12, 1),
+                "NR-23", "REGULATORY", 7L);
         when(maintenanceRepository.findForExportCrossOrg(List.of("ORG-001"), null, null, null, null))
                 .thenReturn(List.of(row));
+
+        User user = User.builder().id(7L).name("Carlos Souza").build();
+        when(userRepository.findAllById(any())).thenReturn(List.of(user));
 
         byte[] csv = exportService.exportCsvCrossOrg(1L, null, null, null, null, null);
         String content = new String(csv, StandardCharsets.UTF_8);
@@ -97,6 +103,36 @@ class MaintenanceExportServiceCrossOrgTest {
         assertThat(content).contains("NR-23");
         assertThat(content).contains("Categoria");
         assertThat(content).contains("Regulatório");
+        assertThat(content).contains("Registrado por");
+        assertThat(content).contains("Carlos Souza");
+    }
+
+    @Test
+    void exportCsvCrossOrg_nullCreatedBy_rendersDash() {
+        when(userOrgRepository.findAllByUserId(1L))
+                .thenReturn(List.of(buildUserOrg(1L, "ORG-001")));
+
+        BillingSubscriptionItem item = buildSubscriptionItem("ORG-001");
+        when(subscriptionItemRepository.findAllBySourceTypeAndSourceIdIn(
+                BillingSubscriptionItemSourceType.ORGANIZATION, List.of("ORG-001")))
+                .thenReturn(List.of(item));
+
+        BillingPlanFeatures features = BillingPlanFeatures.builder().reportsEnabled(true).build();
+        when(featuresHelper.parse(any())).thenReturn(features);
+
+        when(organizationRepository.findAllByCodeIn(List.of("ORG-001")))
+                .thenReturn(List.of(buildOrg("ORG-001", "Alpha Corp")));
+
+        CrossOrgMaintenanceExportProjection row = buildProjection(2L, "ORG-001", "EXTINTOR",
+                LocalDate.of(2026, 6, 1), "PREVENTIVA", "José", null, null, null, null, null);
+        when(maintenanceRepository.findForExportCrossOrg(any(), any(), any(), any(), any()))
+                .thenReturn(List.of(row));
+
+        byte[] csv = exportService.exportCsvCrossOrg(1L, null, null, null, null, null);
+        String content = new String(csv, StandardCharsets.UTF_8);
+
+        // Historical records without createdBy get "—"
+        assertThat(content.split("\n")[1]).endsWith(",—");
     }
 
     @Test
@@ -146,7 +182,7 @@ class MaintenanceExportServiceCrossOrgTest {
     private CrossOrgMaintenanceExportProjection buildProjection(
             Long id, String orgCode, String itemType, LocalDate performedAt,
             String maintenanceType, String performedBy, Integer costCents,
-            LocalDate nextDueAt, String normAuthority, String itemCategory) {
+            LocalDate nextDueAt, String normAuthority, String itemCategory, Long createdBy) {
         return new CrossOrgMaintenanceExportProjection() {
             public Long getId() { return id; }
             public String getOrgCode() { return orgCode; }
@@ -158,6 +194,7 @@ class MaintenanceExportServiceCrossOrgTest {
             public LocalDate getNextDueAt() { return nextDueAt; }
             public String getNormAuthority() { return normAuthority; }
             public String getItemCategory() { return itemCategory; }
+            public Long getCreatedBy() { return createdBy; }
         };
     }
 }

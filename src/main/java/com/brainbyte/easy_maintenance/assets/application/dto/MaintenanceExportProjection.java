@@ -16,4 +16,5 @@ public interface MaintenanceExportProjection {
     LocalDate getNextDueAt();
     String getNormAuthority();
     String getItemCategory();
+    Long getCreatedBy();
 }

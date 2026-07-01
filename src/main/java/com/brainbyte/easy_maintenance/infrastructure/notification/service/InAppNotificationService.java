@@ -5,10 +5,12 @@ import com.brainbyte.easy_maintenance.infrastructure.notification.domain.InAppNo
 import com.brainbyte.easy_maintenance.infrastructure.notification.dto.InAppNotificationResponse;
 import com.brainbyte.easy_maintenance.infrastructure.notification.enums.InAppNotificationType;
 import com.brainbyte.easy_maintenance.infrastructure.notification.repository.InAppNotificationRepository;
+import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,14 +26,17 @@ public class InAppNotificationService {
     private final UserOrganizationRepository userOrganizationRepository;
 
     public List<InAppNotificationResponse> listForUser(Long userId) {
-        return repository.findTop20ByUserIdOrderByCreatedAtDesc(userId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+        return TenantContext.get()
+                .map(orgCode -> repository.findTop20ForUserAndOrg(userId, orgCode, PageRequest.of(0, 20))
+                        .stream().map(this::toResponse).toList())
+                .orElseGet(() -> repository.findTop20ByUserIdOrderByCreatedAtDesc(userId)
+                        .stream().map(this::toResponse).toList());
     }
 
     public long countUnread(Long userId) {
-        return repository.countByUserIdAndReadAtIsNull(userId);
+        return TenantContext.get()
+                .map(orgCode -> repository.countUnreadForUserAndOrg(userId, orgCode))
+                .orElseGet(() -> repository.countByUserIdAndReadAtIsNull(userId));
     }
 
     @Transactional
@@ -48,7 +53,10 @@ public class InAppNotificationService {
 
     @Transactional
     public void markAllRead(Long userId) {
-        repository.markAllReadByUserId(userId);
+        TenantContext.get().ifPresentOrElse(
+                orgCode -> repository.markAllReadForUserAndOrg(userId, orgCode),
+                () -> repository.markAllReadByUserId(userId)
+        );
     }
 
     /**
@@ -107,7 +115,8 @@ public class InAppNotificationService {
                 n.getReferenceId(),
                 n.getReferenceLabel(),
                 n.getReadAt() != null,
-                n.getCreatedAt()
+                n.getCreatedAt(),
+                n.getOrgCode()
         );
     }
 }

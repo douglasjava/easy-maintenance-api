@@ -46,7 +46,9 @@ public interface IMaintenanceItemMapper {
             normName,
             normPendingReview,
             canUpdate,
-            reason
+            reason,
+            maintenanceItem.getCreatedBy(),
+            maintenanceItem.getUpdatedBy()
     );
   }
 

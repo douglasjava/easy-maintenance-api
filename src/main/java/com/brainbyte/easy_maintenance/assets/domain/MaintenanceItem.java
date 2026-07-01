@@ -77,4 +77,10 @@ public class MaintenanceItem {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "updated_by")
+    private Long updatedBy;
+
 }

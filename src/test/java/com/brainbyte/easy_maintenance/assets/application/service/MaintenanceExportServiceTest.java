@@ -8,6 +8,8 @@ import com.brainbyte.easy_maintenance.billing.domain.BillingPlanFeatures;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotAuthorizedException;
 import com.brainbyte.easy_maintenance.infrastructure.access.application.service.SubscriptionAccessService;
+import com.brainbyte.easy_maintenance.org_users.domain.User;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -35,6 +38,9 @@ class MaintenanceExportServiceTest {
 
     @Mock
     private BillingPlanFeaturesHelper featuresHelper;
+
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private MaintenanceExportService service;
@@ -90,7 +96,7 @@ class MaintenanceExportServiceTest {
 
         String csv = new String(result, StandardCharsets.UTF_8);
         assertTrue(csv.startsWith("﻿"), "CSV must start with UTF-8 BOM so Excel on Windows decodes accents correctly");
-        assertEquals("﻿ID,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável,Categoria\n", csv);
+        assertEquals("﻿ID,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável,Categoria,Registrado por\n", csv);
     }
 
     @Test
@@ -98,17 +104,54 @@ class MaintenanceExportServiceTest {
         enableReports("org-1");
         MaintenanceExportProjection row = buildProjection(
                 1L, "Extintor", LocalDate.of(2024, 5, 20), "PREVENTIVA",
-                "Técnico João", 15000, LocalDate.of(2024, 11, 20), "NBR 12693", "REGULATORY");
+                "Técnico João", 15000, LocalDate.of(2024, 11, 20), "NBR 12693", "REGULATORY", 42L);
 
         when(maintenanceRepository.findForExport(eq("org-1"), isNull(), isNull(), isNull(), isNull()))
                 .thenReturn(List.of(row));
+
+        User user = new User();
+        user.setId(42L);
+        user.setName("Ana Lima");
+        when(userRepository.findAllById(Set.of(42L))).thenReturn(List.of(user));
 
         byte[] result = service.exportCsv("org-1", null, null, null, null);
 
         String csv = new String(result, StandardCharsets.UTF_8);
         String[] lines = csv.split("\n");
         assertEquals(2, lines.length);
-        assertEquals("1,Extintor,2024-05-20,PREVENTIVA,Técnico João,\"R$ 150,00\",2024-11-20,NBR 12693,Regulatório", lines[1]);
+        assertEquals("1,Extintor,2024-05-20,PREVENTIVA,Técnico João,\"R$ 150,00\",2024-11-20,NBR 12693,Regulatório,Ana Lima", lines[1]);
+    }
+
+    @Test
+    void shouldShowDashWhenCreatedByIsNull() {
+        enableReports("org-1");
+        MaintenanceExportProjection row = buildProjection(
+                5L, "Bomba", LocalDate.of(2024, 3, 10), "PREVENTIVA",
+                "Técnico", null, null, null, null, null);
+
+        when(maintenanceRepository.findForExport(any(), any(), any(), any(), any()))
+                .thenReturn(List.of(row));
+
+        String csv = new String(service.exportCsv("org-1", null, null, null, null), StandardCharsets.UTF_8);
+        String dataLine = csv.split("\n")[1];
+
+        assertTrue(dataLine.endsWith(",—"), "null createdBy must render as —");
+        verify(userRepository, never()).findAllById(any());
+    }
+
+    @Test
+    void shouldShowDashWhenUserNoLongerExists() {
+        enableReports("org-1");
+        MaintenanceExportProjection row = buildProjection(
+                6L, "Extintor", LocalDate.of(2024, 1, 1), "PREVENTIVA",
+                "Tec", null, null, null, null, 99L);
+
+        when(maintenanceRepository.findForExport(any(), any(), any(), any(), any()))
+                .thenReturn(List.of(row));
+        when(userRepository.findAllById(Set.of(99L))).thenReturn(List.of());
+
+        String csv = new String(service.exportCsv("org-1", null, null, null, null), StandardCharsets.UTF_8);
+        assertTrue(csv.split("\n")[1].endsWith(",—"), "deleted user must render as —");
     }
 
     @Test
@@ -116,7 +159,7 @@ class MaintenanceExportServiceTest {
         enableReports("org-1");
         MaintenanceExportProjection row = buildProjection(
                 2L, "Gerador, Elétrico", LocalDate.of(2024, 6, 1), "CORRETIVA",
-                "Empresa ABC, Ltda", null, null, null, "OPERATIONAL");
+                "Empresa ABC, Ltda", null, null, null, "OPERATIONAL", null);
 
         when(maintenanceRepository.findForExport(any(), any(), any(), any(), any()))
                 .thenReturn(List.of(row));
@@ -133,7 +176,7 @@ class MaintenanceExportServiceTest {
         enableReports("org-1");
         MaintenanceExportProjection row = buildProjection(
                 3L, "Bomba", LocalDate.of(2024, 3, 10), "PREVENTIVA",
-                "Técnico", null, null, null, null);
+                "Técnico", null, null, null, null, null);
 
         when(maintenanceRepository.findForExport(any(), any(), any(), any(), any()))
                 .thenReturn(List.of(row));
@@ -141,8 +184,8 @@ class MaintenanceExportServiceTest {
         String csv = new String(service.exportCsv("org-1", null, null, null, null), StandardCharsets.UTF_8);
         String dataLine = csv.split("\n")[1];
 
-        // nulls render as empty fields
-        assertTrue(dataLine.endsWith(",,"));
+        // null cost/dates render as empty; null createdBy renders as —
+        assertTrue(dataLine.contains(",,"), "null cost and nextDueAt must render as empty");
     }
 
     @Test
@@ -166,9 +209,9 @@ class MaintenanceExportServiceTest {
     void shouldTranslateCategoryToPortuguese() {
         enableReports("org-1");
         MaintenanceExportProjection regulatory = buildProjection(
-                10L, "Item", LocalDate.of(2024, 1, 1), "PREVENTIVA", "Tec", null, null, null, "REGULATORY");
+                10L, "Item", LocalDate.of(2024, 1, 1), "PREVENTIVA", "Tec", null, null, null, "REGULATORY", null);
         MaintenanceExportProjection operational = buildProjection(
-                11L, "Item", LocalDate.of(2024, 1, 1), "PREVENTIVA", "Tec", null, null, null, "OPERATIONAL");
+                11L, "Item", LocalDate.of(2024, 1, 1), "PREVENTIVA", "Tec", null, null, null, "OPERATIONAL", null);
 
         when(maintenanceRepository.findForExport(any(), any(), any(), any(), any()))
                 .thenReturn(List.of(regulatory, operational));
@@ -176,8 +219,8 @@ class MaintenanceExportServiceTest {
         String csv = new String(service.exportCsv("org-1", null, null, null, null), StandardCharsets.UTF_8);
         String[] lines = csv.split("\n");
 
-        assertTrue(lines[1].endsWith(",Regulatório"), "REGULATORY should translate to Regulatório");
-        assertTrue(lines[2].endsWith(",Operacional"), "OPERATIONAL should translate to Operacional");
+        assertTrue(lines[1].contains(",Regulatório,"), "REGULATORY should translate to Regulatório");
+        assertTrue(lines[2].contains(",Operacional,"), "OPERATIONAL should translate to Operacional");
     }
 
     // -----------------------------------------------------------------------
@@ -194,7 +237,7 @@ class MaintenanceExportServiceTest {
     private MaintenanceExportProjection buildProjection(
             Long id, String itemType, LocalDate performedAt, String maintenanceType,
             String performedBy, Integer costCents, LocalDate nextDueAt, String normAuthority,
-            String itemCategory) {
+            String itemCategory, Long createdBy) {
 
         return new MaintenanceExportProjection() {
             public Long getId() { return id; }
@@ -206,6 +249,7 @@ class MaintenanceExportServiceTest {
             public LocalDate getNextDueAt() { return nextDueAt; }
             public String getNormAuthority() { return normAuthority; }
             public String getItemCategory() { return itemCategory; }
+            public Long getCreatedBy() { return createdBy; }
         };
     }
 }

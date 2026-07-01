@@ -13,4 +13,5 @@ public interface CrossOrgMaintenanceExportProjection {
     LocalDate getNextDueAt();
     String getNormAuthority();
     String getItemCategory();
+    Long getCreatedBy();
 }

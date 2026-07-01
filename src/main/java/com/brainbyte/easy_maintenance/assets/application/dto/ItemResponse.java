@@ -20,5 +20,7 @@ public record ItemResponse(
         String normName,
         boolean normPendingReview,
         boolean canUpdate,
-        String reason
+        String reason,
+        Long createdBy,
+        Long updatedBy
 ) {}

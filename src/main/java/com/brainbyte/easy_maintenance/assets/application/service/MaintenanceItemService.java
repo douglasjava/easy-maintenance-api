@@ -13,6 +13,7 @@ import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.Maintena
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.specification.MaintenanceItemSpecs;
 import com.brainbyte.easy_maintenance.assets.mapper.IMaintenanceItemMapper;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
+import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlanFeatures;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
@@ -57,6 +58,7 @@ public class MaintenanceItemService {
     private final AuditService auditService;
     private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
     private final BillingPlanFeaturesHelper billingPlanFeaturesHelper;
+    private final AuthenticationService authenticationService;
 
     public MaintenanceItem findById(Long itemId) {
         log.info("findById: {}", itemId);
@@ -91,6 +93,9 @@ public class MaintenanceItemService {
         Instant now = Instant.now();
         maintenanceItem.setCreatedAt(now);
         maintenanceItem.setUpdatedAt(now);
+        Long currentUserId = authenticationService.getCurrentUser().getId();
+        maintenanceItem.setCreatedBy(currentUserId);
+        maintenanceItem.setUpdatedBy(currentUserId);
 
         repository.save(maintenanceItem);
 
@@ -269,6 +274,7 @@ public class MaintenanceItemService {
         maintenanceItem.setLastPerformedAt(request.lastPerformedAt());
         maintenanceItem.setNormId(request.normId());
         maintenanceItem.setUpdatedAt(Instant.now());
+        maintenanceItem.setUpdatedBy(authenticationService.getCurrentUser().getId());
 
         MaintenanceItem updatedItem = repository.save(maintenanceItem);
 
