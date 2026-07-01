@@ -45,7 +45,7 @@ public class TenantFilter extends OncePerRequestFilter {
           "/dev/simulate"
   );
 
-  // endpoints fixos (ex.: auth, org register)
+  // Endpoints que não requerem X-Org-Id obrigatório
   private static final Set<String> BYPASS_EXACT = Set.of(
           "POST /api/v1/auth/login",
           "POST /easy-maintenance/api/v1/auth/2fa/verify",
@@ -57,12 +57,19 @@ public class TenantFilter extends OncePerRequestFilter {
           "POST /easy-maintenance/api/v1/me/onboarding/organization",
           "POST /easy-maintenance/api/v1/public/webhooks/asaas",
           "POST /easy-maintenance/api/v1/affiliates",
-          "GET /easy-maintenance/api/v1/me/access-context",
           "GET /easy-maintenance/api/v1/affiliates",
           "GET /actuator",
           "GET /actuator/prometheus",
           "GET /actuator/health",
           "GET /actuator/info"
+  );
+
+  // Endpoints com tenant OPCIONAL: se X-Org-Id vier, valida e popula o contexto;
+  // se não vier, o request prossegue sem TenantContext (endpoint lida com os dois casos).
+  // Necessário para /me/access-context, que é chamado no primeiro login (sem org ainda)
+  // e também por membros de equipe que precisam do contexto para derivar suas permissões.
+  private static final Set<String> OPTIONAL_TENANT_EXACT = Set.of(
+          "GET /easy-maintenance/api/v1/me/access-context"
   );
 
   private final HandlerExceptionResolver resolver;
@@ -80,6 +87,23 @@ public class TenantFilter extends OncePerRequestFilter {
 
     try {
       if (shouldBypass(method, path) || "OPTIONS".equalsIgnoreCase(method)) {
+        chain.doFilter(req, res);
+        return;
+      }
+
+      // Tenant opcional: X-Org-Id presente → valida e popula; ausente → continua sem contexto
+      if (isOptionalTenant(method, path)) {
+        String tenant = req.getHeader(HDR);
+        if (tenant != null && !tenant.isBlank()) {
+          try {
+            UUID.fromString(tenant);
+          } catch (IllegalArgumentException e) {
+            throw new TenantException(HttpStatus.BAD_REQUEST, "X-Org-Id must be a valid UUID");
+          }
+          validateOrgMembership(tenant);
+          TenantContext.set(tenant);
+          MDC.put("orgId", tenant);
+        }
         chain.doFilter(req, res);
         return;
       }
@@ -111,16 +135,17 @@ public class TenantFilter extends OncePerRequestFilter {
   }
 
   private boolean shouldBypass(String method, String path) {
-
     if (BYPASS_EXACT.contains(method.toUpperCase() + " " + path)) {
       return true;
     }
-
     for (String prefix : BYPASS_PREFIXES) {
       if (path.contains(prefix)) return true;
     }
-
     return path.contains("/swagger-ui.html");
+  }
+
+  private boolean isOptionalTenant(String method, String path) {
+    return OPTIONAL_TENANT_EXACT.contains(method.toUpperCase() + " " + path);
   }
 
   private String getPath(HttpServletRequest req) {
