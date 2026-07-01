@@ -8,7 +8,6 @@ import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
-import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
@@ -161,20 +160,6 @@ public class UsersService {
         return PageResponse.of(page);
     }
 
-    public PageResponse<UserDTO.UserSummaryResponse> listAllSummary(String name, String email, Pageable pageable) {
-        log.info("Listing all users summary with filters");
-
-        var spec = Specification.allOf(
-                UserSpecifications.withNameLike(name),
-                UserSpecifications.withEmailLike(email)
-        );
-
-        Page<UserDTO.UserSummaryResponse> page =
-                repository.findAll(spec, pageable).map(IUserMapper.INSTANCE::toUserSummaryResponse);
-
-        return PageResponse.of(page);
-    }
-
     public PageResponse<UserDTO.UserResponse> listAll(String orgId, Pageable pageable) {
 
         log.info("Listing all users by organization id: {}", orgId);
@@ -288,6 +273,23 @@ public class UsersService {
 
         validateUserLimit(orgCode);
 
+        saveUserOrganization(orgCode, user);
+    }
+
+    @Transactional
+    public void addOrganizationByOnboarding(Long userId, String orgCode) {
+        log.info("[ONBOARDING] - Adding organization {} to user {}", orgCode, userId);
+        var user = repository.findById(userId)
+                .orElseThrow(() -> new NotFoundException(String.format(USER_NOT_FOUND_MESSAGE, userId)));
+
+        if (user.getOrganizations().stream().anyMatch(uo -> uo.getOrganizationCode().equals(orgCode))) {
+            return;
+        }
+
+        saveUserOrganization(orgCode, user);
+    }
+
+    private void saveUserOrganization(String orgCode, User user) {
         UserOrganization uo = UserOrganization.builder()
                 .user(user)
                 .organizationCode(orgCode)

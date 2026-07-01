@@ -104,7 +104,7 @@ public class OnboardingService {
         log.info("Organization criada com id {} ", createdOrganization.id());
 
         log.info("3. Vincular User X Organization (Permissões de domínio)");
-        usersService.addOrganization(user.getId(), createdOrganization.code());
+        usersService.addOrganizationByOnboarding(user.getId(), createdOrganization.code());
 
         if (user.getReferralCode() != null) {
             log.info("3a. Propagating referralCode={} from user to org={}", user.getReferralCode(), createdOrganization.code());

@@ -1,8 +1,8 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
+import com.brainbyte.easy_maintenance.affiliates.domain.Affiliate;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSubscriptionResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
-import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanService;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
@@ -46,6 +46,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class OrganizationsService {
 
+    public static final String ORGANIZATION_NOT_FOUND_MESSAGE = "Organization with id %s not found";
     private final OrganizationRepository repository;
     private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
     private final BillingSubscriptionService billingSubscriptionService;
@@ -90,7 +91,7 @@ public class OrganizationsService {
     public OrganizationDTO.OrganizationResponse findByIdWithoutBusiness(Long id) {
         log.info("Getting organization without Business and with id {}", id);
         var organization = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException(String.format("Organization with id %s not found", id)));
+                .orElseThrow(() -> new NotFoundException(String.format(ORGANIZATION_NOT_FOUND_MESSAGE, id)));
 
         var organizationResponse = IOrganizationMapper.INSTANCE.toOrganizationResponse(organization);
 
@@ -118,7 +119,7 @@ public class OrganizationsService {
     public OrganizationDTO.OrganizationResponse findById(Long id) {
         log.info("Getting organization with id {}", id);
         var organization = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException(String.format("Organization with id %s not found", id)));
+                .orElseThrow(() -> new NotFoundException(String.format(ORGANIZATION_NOT_FOUND_MESSAGE, id)));
 
         var organizationResponse = IOrganizationMapper.INSTANCE.toOrganizationResponse(organization);
         var billingSubscriptionItem = billingSubscriptionItemRepository.findBySourceId(organization.getCode())
@@ -150,7 +151,7 @@ public class OrganizationsService {
         log.info("Updating organization with id {}", id);
 
         var organization = repository.findById(id)
-                .orElseThrow(() -> new NotFoundException(String.format("Organization with id %s not found", id)));
+                .orElseThrow(() -> new NotFoundException(String.format(ORGANIZATION_NOT_FOUND_MESSAGE, id)));
 
         organization.setName(request.name());
         organization.setCity(request.city());
@@ -209,7 +210,7 @@ public class OrganizationsService {
             String referralCode = request.referralCode();
             if (referralCode == null && request.userEmail() != null) {
                 referralCode = affiliateService.suggestForEmail(request.userEmail())
-                        .map(a -> a.getCode())
+                        .map(Affiliate::getCode)
                         .orElse(null);
                 if (referralCode != null) {
                     log.info("[Affiliate] Auto-matched referralCode={} for email={}", referralCode, request.userEmail());
@@ -228,13 +229,6 @@ public class OrganizationsService {
             throw new RuleException("Error creating organization");
         }
 
-    }
-
-    public List<OrganizationDTO.OrganizationResponse> listAllByCodes(List<String> codes) {
-        log.info("Listing all organizations by codes: {}", codes);
-        return repository.findAllByCodeIn(codes).stream()
-                .map(IOrganizationMapper.INSTANCE::toOrganizationResponse)
-                .toList();
     }
 
     @Transactional(readOnly = true)
