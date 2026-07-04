@@ -106,7 +106,8 @@ public class TeamMemberService {
         }
 
         for (String orgCode : request.orgCodes()) {
-            usersService.addOrganization(member.getId(), orgCode);
+            usersService.validateUserLimit(owner.getId(), orgCode);
+            usersService.addOrganizationByInvite(member.getId(), orgCode);
         }
 
         if (isNewUser) {
@@ -139,7 +140,8 @@ public class TeamMemberService {
         // add newly selected orgs
         for (String orgCode : request.orgCodes()) {
             if (!currentOrgCodes.contains(orgCode)) {
-                usersService.addOrganization(memberId, orgCode);
+                usersService.validateUserLimit(owner.getId(), orgCode);
+                usersService.addOrganizationByInvite(memberId, orgCode);
             }
         }
 

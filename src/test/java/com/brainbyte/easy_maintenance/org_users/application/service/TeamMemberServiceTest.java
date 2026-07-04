@@ -2,6 +2,7 @@ package com.brainbyte.easy_maintenance.org_users.application.service;
 
 import com.brainbyte.easy_maintenance.commons.exceptions.ForbiddenException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.infrastructure.mail.utils.EmailTemplateHelper;
 import com.brainbyte.easy_maintenance.infrastructure.notification.service.CriticalEmailDispatchService;
 import com.brainbyte.easy_maintenance.org_users.application.dto.TeamMemberDTO;
@@ -127,7 +128,8 @@ class TeamMemberServiceTest {
         TeamMemberDTO.MemberResponse response = service.inviteMember(request, owner);
 
         assertThat(response.id()).isEqualTo(10L);
-        verify(usersService).addOrganization(10L, "ORGABC");
+        verify(usersService).validateUserLimit(1L, "ORGABC");
+        verify(usersService).addOrganizationByInvite(10L, "ORGABC");
         verify(firstAccessTokenService).createForUser(10L);
         verify(criticalEmailDispatchService).send(eq("joao@test.com"), any(), any(), any(), any(), any(), eq(true));
     }
@@ -146,9 +148,31 @@ class TeamMemberServiceTest {
         var request = new TeamMemberDTO.InviteRequest("existing@test.com", "Existente", Role.READER, List.of("ORGABC"));
         service.inviteMember(request, owner);
 
-        verify(usersService).addOrganization(5L, "ORGABC");
+        verify(usersService).validateUserLimit(1L, "ORGABC");
+        verify(usersService).addOrganizationByInvite(5L, "ORGABC");
         verifyNoInteractions(firstAccessTokenService);
         verifyNoInteractions(criticalEmailDispatchService);
+    }
+
+    @Test
+    void inviteMember_throwsRuleException_whenUserLimitReached() {
+        User owner = adminOwner(1L);
+        stubOwnerOrgs(1L, "ORGABC");
+
+        when(userRepository.existsByEmail("joao@test.com")).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+        User saved = User.builder().id(10L).email("joao@test.com").name("João").role(Role.READER).status(Status.ACTIVE).build();
+        when(userRepository.save(any(User.class))).thenReturn(saved);
+        doThrow(new RuleException("Limite de usuários atingido"))
+                .when(usersService).validateUserLimit(1L, "ORGABC");
+
+        var request = new TeamMemberDTO.InviteRequest("joao@test.com", "João", Role.READER, List.of("ORGABC"));
+
+        assertThatThrownBy(() -> service.inviteMember(request, owner))
+                .isInstanceOf(RuleException.class)
+                .hasMessageContaining("Limite de usuários atingido");
+
+        verify(usersService, never()).addOrganizationByInvite(any(), any());
     }
 
     @Test
