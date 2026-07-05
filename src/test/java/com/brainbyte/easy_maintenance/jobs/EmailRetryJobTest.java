@@ -9,12 +9,14 @@ import com.brainbyte.easy_maintenance.infrastructure.notification.repository.Bus
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.util.List;
@@ -39,6 +41,11 @@ class EmailRetryJobTest {
 
     @InjectMocks
     private EmailRetryJob job;
+
+    @BeforeEach
+    void setUp() {
+        ReflectionTestUtils.setField(job, "frontendBaseUrl", "http://localhost:3000");
+    }
 
     @Test
     void shouldRetryFailedDispatchAndMarkAsSent() {

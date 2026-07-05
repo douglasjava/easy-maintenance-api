@@ -13,6 +13,7 @@ import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,9 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class BusinessEmailNotificationService {
+
+    @Value("${frontend.base-url}")
+    private String frontendBaseUrl;
 
     private final BusinessEmailQuotaService quotaService;
     private final EmailNotificationProvider emailProvider;
@@ -117,11 +121,13 @@ public class BusinessEmailNotificationService {
     private NotificationPayload buildPayload(NotificationEvent event, User user) {
         String subject = resolveSubject(event);
         String description = resolveDescription(event);
-        
+        String actionLink = resolveActionLink(event);
+
         String htmlContent = EmailTemplateHelper.generateNotificationEventHtml(
-                user.getName(), 
-                subject, 
-                description
+                user.getName(),
+                subject,
+                description,
+                actionLink
         );
 
         return NotificationPayload.builder()
@@ -131,6 +137,14 @@ public class BusinessEmailNotificationService {
                 .content(description)
                 .htmlContent(htmlContent)
                 .build();
+    }
+
+    private String resolveActionLink(NotificationEvent event) {
+        if (event.getReferenceId() == null) return null;
+        return switch (event.getReferenceType()) {
+            case ITEM -> frontendBaseUrl + "/items/" + event.getReferenceId();
+            case MAINTENANCE -> frontendBaseUrl + "/maintenances/" + event.getReferenceId();
+        };
     }
 
     private String resolveSubject(NotificationEvent event) {
