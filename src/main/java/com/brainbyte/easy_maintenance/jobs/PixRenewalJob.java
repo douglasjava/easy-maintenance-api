@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.jobs;
 
+import com.brainbyte.easy_maintenance.jobs.service.CardTransitionService;
 import com.brainbyte.easy_maintenance.jobs.service.PixRenewalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
 public class PixRenewalJob {
 
     private final PixRenewalService pixRenewalService;
+    private final CardTransitionService cardTransitionService;
 
     @Value("${billing.pix.renewal.days-ahead:5}")
     private int daysAhead;
@@ -24,6 +26,8 @@ public class PixRenewalJob {
         log.info("[PixRenewalJob] Lock adquirido. Iniciando renovação de cobranças PIX (daysAhead={}).", daysAhead);
         try {
             pixRenewalService.processPixRenewals(daysAhead);
+            log.info("[PixRenewalJob] Renovação PIX concluída. Processando transições CC pendentes.");
+            cardTransitionService.processCardTransitions(daysAhead);
             log.info("[PixRenewalJob] Execução concluída com sucesso.");
         } catch (Exception e) {
             log.error("[PixRenewalJob] Erro inesperado durante execução do job: {}", e.getMessage(), e);

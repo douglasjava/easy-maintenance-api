@@ -141,6 +141,17 @@ public class AsaasClient {
                 .block();
     }
 
+    @CircuitBreaker(name = "asaas")
+    public AsaasDTO.PixQrCode getPixQrCode(String paymentId) {
+        return webClient.get()
+                .uri("/payments/{id}/pixQrCode", paymentId)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, this::mapError)
+                .bodyToMono(AsaasDTO.PixQrCode.class)
+                .timeout(ASAAS_TIMEOUT)
+                .block();
+    }
+
     private Mono<? extends Throwable> mapError(ClientResponse response) {
         return response.bodyToMono(String.class)
                 .defaultIfEmpty("")
