@@ -3,10 +3,12 @@ package com.brainbyte.easy_maintenance.admin.infrastucture.web;
 import com.brainbyte.easy_maintenance.admin.application.dto.AdminMetricsResponse;
 import com.brainbyte.easy_maintenance.admin.application.service.AdminService;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
+import com.brainbyte.easy_maintenance.jobs.service.ExternalCustomerSyncResult;
 import com.brainbyte.easy_maintenance.org_users.application.dto.OrganizationDTO;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO;
 import com.brainbyte.easy_maintenance.org_users.domain.enums.Plan;
 import com.brainbyte.easy_maintenance.shared.web.openapi.PageableAsQueryParam;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -133,6 +135,12 @@ public class AdminController {
     @GetMapping("/test-sentry")
     public String test() {
         throw new RuntimeException("Erro teste Sentry 🚀");
+    }
+
+    @Hidden
+    @PostMapping("/billing/external-customer-sync")
+    public ExternalCustomerSyncResult syncExternalCustomerIds() {
+        return adminService.syncExternalCustomerIds();
     }
 
 }

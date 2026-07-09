@@ -16,7 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
@@ -41,8 +41,9 @@ class ExternalCustomerSyncServiceTest {
     void whenNoAccountsMissingExternalCustomerId_thenNothingIsProcessed() {
         when(billingAccountRepository.findByExternalCustomerIdIsNull()).thenReturn(List.of());
 
-        service.syncMissingExternalCustomerIds();
+        ExternalCustomerSyncResult result = service.syncMissingExternalCustomerIds();
 
+        assertEquals(new ExternalCustomerSyncResult(0, 0, 0), result);
         verify(paymentProviderFactory, never()).get(any());
         verify(billingAccountRepository, never()).save(any());
     }
@@ -66,8 +67,9 @@ class ExternalCustomerSyncServiceTest {
                 .thenReturn("cust_bbb");
         when(billingAccountRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        assertDoesNotThrow(() -> service.syncMissingExternalCustomerIds());
+        ExternalCustomerSyncResult result = service.syncMissingExternalCustomerIds();
 
+        assertEquals(new ExternalCustomerSyncResult(2, 2, 0), result);
         verify(paymentProviderStrategy, times(2)).createExternalCustomer(any());
         verify(billingAccountRepository).save(argThat(a -> "cust_aaa".equals(a.getExternalCustomerId())));
         verify(billingAccountRepository).save(argThat(a -> "cust_bbb".equals(a.getExternalCustomerId())));
@@ -94,8 +96,9 @@ class ExternalCustomerSyncServiceTest {
         when(billingAccountRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         // deve completar sem lançar exceção — falha individual não para o batch
-        assertDoesNotThrow(() -> service.syncMissingExternalCustomerIds());
+        ExternalCustomerSyncResult result = service.syncMissingExternalCustomerIds();
 
+        assertEquals(new ExternalCustomerSyncResult(2, 1, 1), result);
         // conta bem-sucedida foi salva com o ID correto
         verify(billingAccountRepository).save(argThat(a -> "cust_ok".equals(a.getExternalCustomerId())));
         // conta com falha não foi salva (exception antes do save)
@@ -117,8 +120,9 @@ class ExternalCustomerSyncServiceTest {
                 .thenThrow(new RuntimeException("Asaas down"));
 
         // não deve lançar — o log.error interno já garante observabilidade via Sentry
-        assertDoesNotThrow(() -> service.syncMissingExternalCustomerIds());
+        ExternalCustomerSyncResult result = service.syncMissingExternalCustomerIds();
 
+        assertEquals(new ExternalCustomerSyncResult(1, 0, 1), result);
         verify(billingAccountRepository, never()).save(any());
     }
 }
