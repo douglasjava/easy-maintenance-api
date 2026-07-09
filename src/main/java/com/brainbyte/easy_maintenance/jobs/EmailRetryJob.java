@@ -12,6 +12,7 @@ import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserO
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,9 @@ public class EmailRetryJob {
     static final int MAX_RETRIES = 2;
     static final long RETRY_WINDOW_HOURS = 24;
     static final long MIN_INTERVAL_MINUTES = 15;
+
+    @Value("${frontend.base-url}")
+    private String frontendBaseUrl;
 
     private final BusinessEmailDispatchRepository dispatchRepository;
     private final EmailNotificationProvider emailProvider;
@@ -78,7 +82,8 @@ public class EmailRetryJob {
                 // Operational email: reconstruct dynamically from event type
                 subject = resolveSubject(dispatch);
                 String description = resolveDescription(dispatch);
-                htmlContent = EmailTemplateHelper.generateNotificationEventHtml(recipientName, subject, description);
+                String actionLink = resolveActionLink(dispatch);
+                htmlContent = EmailTemplateHelper.generateNotificationEventHtml(recipientName, subject, description, actionLink);
             }
 
             NotificationPayload payload = NotificationPayload.builder()
@@ -146,5 +151,13 @@ public class EmailRetryJob {
         String ref = dispatch.getReferenceType() == NotificationReferenceType.ITEM ? "O item" : "A manutenção";
         return String.format("%s (ID: %s) requer sua atenção. Por favor, verifique no sistema.",
                 ref, dispatch.getReferenceId());
+    }
+
+    private String resolveActionLink(BusinessEmailDispatch dispatch) {
+        if (frontendBaseUrl == null || dispatch.getReferenceType() == null || dispatch.getReferenceId() == null) return null;
+        return switch (dispatch.getReferenceType()) {
+            case ITEM -> frontendBaseUrl + "/items/" + dispatch.getReferenceId();
+            case MAINTENANCE -> frontendBaseUrl + "/maintenances/" + dispatch.getReferenceId();
+        };
     }
 }

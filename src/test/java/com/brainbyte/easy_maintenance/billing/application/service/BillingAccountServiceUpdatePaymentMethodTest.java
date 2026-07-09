@@ -70,21 +70,20 @@ class BillingAccountServiceUpdatePaymentMethodTest {
     }
 
     @Test
-    void updatePaymentMethod_pastDue_savesNewMethod() {
-        BillingAccount account = account();
-        when(repository.findByUserId(USER_ID)).thenReturn(Optional.of(account));
+    void updatePaymentMethod_pastDue_throwsRuleException() {
+        when(repository.findByUserId(USER_ID)).thenReturn(Optional.of(account()));
         when(billingSubscriptionRepository.findByBillingAccountUserId(USER_ID))
                 .thenReturn(Optional.of(subscriptionWith(SubscriptionStatus.PAST_DUE)));
-        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        service.updatePaymentMethod(USER_ID, PaymentMethodType.PIX);
+        assertThatThrownBy(() -> service.updatePaymentMethod(USER_ID, PaymentMethodType.PIX))
+                .isInstanceOf(RuleException.class);
 
-        verify(repository).save(any());
+        verify(repository, never()).save(any());
     }
 
     @ParameterizedTest
-    @EnumSource(value = SubscriptionStatus.class, names = {"ACTIVE", "CANCELED"})
-    void updatePaymentMethod_nonTrialNonPastDue_throwsRuleException(SubscriptionStatus status) {
+    @EnumSource(value = SubscriptionStatus.class, names = {"ACTIVE", "CANCELED", "PAST_DUE"})
+    void updatePaymentMethod_nonTrial_throwsRuleException(SubscriptionStatus status) {
         when(repository.findByUserId(USER_ID)).thenReturn(Optional.of(account()));
         when(billingSubscriptionRepository.findByBillingAccountUserId(USER_ID))
                 .thenReturn(Optional.of(subscriptionWith(status)));

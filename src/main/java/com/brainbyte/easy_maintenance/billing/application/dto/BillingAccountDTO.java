@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 
 public class BillingAccountDTO {
 
@@ -42,6 +43,30 @@ public class BillingAccountDTO {
             String failureReason,
             String bucket,
             String failedAt
+    ) {}
+
+    public record PaymentMethodTransitionResponse(
+            String message,
+            String warning,
+            Integer effectiveCycle
+    ) {}
+
+    public record CardUpdateResponse(
+            Long paymentId,
+            String checkoutLink
+    ) {}
+
+    public record RecoveryPixResponse(
+            Long paymentId,
+            String paymentLink,
+            String pixQrCode,
+            String pixQrCodeBase64,
+            LocalDateTime pixExpiresAt
+    ) {}
+
+    public record RecoveryCheckoutResponse(
+            Long paymentId,
+            String checkoutLink
     ) {}
 
     public record UpdateBillingAccountRequest(

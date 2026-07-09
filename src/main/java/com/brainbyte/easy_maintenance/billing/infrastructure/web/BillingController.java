@@ -10,7 +10,9 @@ import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSu
 import com.brainbyte.easy_maintenance.billing.application.service.BillingAccountService;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingDashboardService;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanService;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingRecoveryService;
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
+import com.brainbyte.easy_maintenance.billing.application.service.PaymentMethodTransitionService;
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingStatus;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
@@ -36,6 +38,8 @@ public class BillingController {
     private final AuthenticationService authenticationService;
     private final BillingAccountService billingAccountService;
     private final BillingPlanService planService;
+    private final BillingRecoveryService billingRecoveryService;
+    private final PaymentMethodTransitionService paymentMethodTransitionService;
 
     @GetMapping("/plans")
     @Operation(summary = "Lista planos disponíveis com features para exibição pública")
@@ -98,6 +102,58 @@ public class BillingController {
     public ResponseEntity<BillingAccountDTO.PaymentFailureResponse> getPaymentFailure() {
         var user = authenticationService.getCurrentUser();
         return ResponseEntity.ok(billingAccountService.getLastPaymentFailure(user.getId()));
+    }
+
+    @PostMapping("/recover/pix")
+    @Operation(summary = "Gera cobrança PIX de recuperação para assinatura em PAST_DUE",
+            description = "Cria uma cobrança PIX avulsa para o valor em atraso. "
+                    + "Retorna QR code e link de pagamento. "
+                    + "Retorna 409 se já existe pagamento pendente para a assinatura. "
+                    + "Retorna 422 se a assinatura não está em PAST_DUE.")
+    public ResponseEntity<BillingAccountDTO.RecoveryPixResponse> recoverWithPix() {
+        var user = authenticationService.getCurrentUser();
+        return ResponseEntity.ok(billingRecoveryService.recoverWithPix(user.getId()));
+    }
+
+    @PostMapping("/recover/checkout")
+    @Operation(summary = "Gera checkout CC de recuperação para assinatura em PAST_DUE",
+            description = "Cancela a subscription antiga no Asaas e cria um novo checkout CC recorrente. "
+                    + "Retorna o link do checkout para o usuário inserir os dados do cartão. "
+                    + "Retorna 422 se a assinatura não está em PAST_DUE.")
+    public ResponseEntity<BillingAccountDTO.RecoveryCheckoutResponse> recoverWithCheckout() {
+        var user = authenticationService.getCurrentUser();
+        return ResponseEntity.ok(billingRecoveryService.recoverWithCheckout(user.getId()));
+    }
+
+    @PostMapping("/transition/pix")
+    @Operation(summary = "Transição CC → PIX para assinatura ACTIVE",
+            description = "Cancela a subscription CC no Asaas e atualiza o método para PIX. "
+                    + "O próximo ciclo usará PIX avulso criado pelo PixRenewalJob. "
+                    + "Retorna 422 se a assinatura não está ACTIVE ou o método atual não é CC.")
+    public ResponseEntity<Void> transitionToPix() {
+        var user = authenticationService.getCurrentUser();
+        paymentMethodTransitionService.transitionToPixFromCard(user.getId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/update-card")
+    @Operation(summary = "Atualização de cartão CC → CC para assinatura ACTIVE",
+            description = "Cria um novo checkout CC para atualização do cartão. "
+                    + "Após pagamento, o webhook cancela a subscription antiga e vincula a nova. "
+                    + "Retorna 422 se a assinatura não está ACTIVE ou o método atual não é CC.")
+    public ResponseEntity<BillingAccountDTO.CardUpdateResponse> updateCard() {
+        var user = authenticationService.getCurrentUser();
+        return ResponseEntity.ok(paymentMethodTransitionService.initiateCardUpdate(user.getId()));
+    }
+
+    @PostMapping("/transition/card")
+    @Operation(summary = "Transição PIX → CC para assinatura ACTIVE",
+            description = "Atualiza o método de pagamento para CC. "
+                    + "Se houver PIX pendente, retorna warning indicando o ciclo efetivo. "
+                    + "Retorna 422 se a assinatura não está ACTIVE ou o método atual não é PIX.")
+    public ResponseEntity<BillingAccountDTO.PaymentMethodTransitionResponse> transitionToCard() {
+        var user = authenticationService.getCurrentUser();
+        return ResponseEntity.ok(paymentMethodTransitionService.transitionToCardFromPix(user.getId()));
     }
 
     @GetMapping("/pending-payment")

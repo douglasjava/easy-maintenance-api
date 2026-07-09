@@ -65,4 +65,14 @@ public interface BillingSubscriptionRepository extends JpaRepository<BillingSubs
             "AND s.currentPeriodEnd <= :upperBound")
     List<BillingSubscription> findPixSubscriptionsDueForRenewal(@Param("upperBound") Instant upperBound);
 
+    @Query("SELECT s FROM BillingSubscription s " +
+            "JOIN FETCH s.billingAccount ba " +
+            "JOIN FETCH ba.user " +
+            "WHERE s.status = com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus.ACTIVE " +
+            "AND ba.paymentMethod = com.brainbyte.easy_maintenance.payment.domain.enums.PaymentMethodType.CARD " +
+            "AND s.externalSubscriptionId IS NULL " +
+            "AND s.currentPeriodEnd IS NOT NULL " +
+            "AND s.currentPeriodEnd <= :upperBound")
+    List<BillingSubscription> findPendingCardTransitions(@Param("upperBound") Instant upperBound);
+
 }

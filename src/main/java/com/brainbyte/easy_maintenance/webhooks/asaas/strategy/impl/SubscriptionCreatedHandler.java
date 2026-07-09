@@ -1,9 +1,12 @@
 package com.brainbyte.easy_maintenance.webhooks.asaas.strategy.impl;
 
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
+import com.brainbyte.easy_maintenance.billing.application.service.PaymentMethodTransitionService;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
+import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.payment.domain.Payment;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentGatewayEventRepository;
@@ -19,6 +22,8 @@ import java.util.Objects;
 @Component
 public class SubscriptionCreatedHandler extends AbstractAsaasWebhookStrategy {
 
+    private final AsaasClient asaasClient;
+
     public SubscriptionCreatedHandler(InvoiceService invoiceService, PaymentRepository paymentRepository,
                                      PaymentGatewayEventRepository paymentGatewayEventRepository,
                                      InvoiceRepository invoiceRepository, BillingAccountRepository billingAccountRepository,
@@ -26,10 +31,12 @@ public class SubscriptionCreatedHandler extends AbstractAsaasWebhookStrategy {
                                      BillingSubscriptionItemRepository billingSubscriptionItemRepository,
                                      InvoiceItemRepository invoiceItemRepository,
                                      OrganizationRepository organizationRepository,
-                                     ObjectMapper objectMapper) {
+                                     ObjectMapper objectMapper,
+                                     AsaasClient asaasClient) {
         super(invoiceService, paymentRepository, paymentGatewayEventRepository, invoiceRepository, billingAccountRepository,
                 billingSubscriptionRepository, billingSubscriptionItemRepository, invoiceItemRepository,
                 organizationRepository, objectMapper);
+        this.asaasClient = asaasClient;
     }
 
     @Override
@@ -74,7 +81,11 @@ public class SubscriptionCreatedHandler extends AbstractAsaasWebhookStrategy {
 
             var subscription = payment.getBillingSubscription();
             if (subscription.getExternalSubscriptionId() != null) {
-                log.info("[AsaasWebhook] Subscription {} already linked, ignoring", subscription.getId());
+                if (isCardUpdate(payment)) {
+                    handleCardUpdate(subscription, asaasSub, payment);
+                } else {
+                    log.info("[AsaasWebhook] Subscription {} already linked, ignoring", subscription.getId());
+                }
                 return;
             }
 
@@ -95,6 +106,32 @@ public class SubscriptionCreatedHandler extends AbstractAsaasWebhookStrategy {
 
         log.info("[AsaasWebhook] Event {}/{} finished.", event.id(), event.event());
 
+    }
+
+    private boolean isCardUpdate(Payment payment) {
+        return payment.getExternalReference() != null
+                && payment.getExternalReference().startsWith(PaymentMethodTransitionService.CARD_UPDATE_PREFIX);
+    }
+
+    private void handleCardUpdate(BillingSubscription subscription, AsaasDTO.WebhookSubscription asaasSub, Payment payment) {
+        String oldExternalSubId = subscription.getExternalSubscriptionId();
+        log.info("[AsaasWebhook] CC→CC card update: replacing externalSubscriptionId {} → {} for BillingSubscription {}",
+                oldExternalSubId, asaasSub.id(), subscription.getId());
+
+        subscription.activate(asaasSub.id(), asaasSub.nextDueDate());
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        billingSubscriptionRepository.save(subscription);
+
+        try {
+            asaasClient.cancelSubscription(oldExternalSubId);
+            log.info("[AsaasWebhook] Old Asaas subscription {} canceled after card update.", oldExternalSubId);
+        } catch (Exception e) {
+            log.warn("[AsaasWebhook] Could not cancel old Asaas subscription {} after card update (may already be gone): {}",
+                    oldExternalSubId, e.getMessage());
+        }
+
+        log.info("[AsaasWebhook] Card update complete for BillingSubscription {}. New externalSubscriptionId={}",
+                subscription.getId(), asaasSub.id());
     }
 
 }

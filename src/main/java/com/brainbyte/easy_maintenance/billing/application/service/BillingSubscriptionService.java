@@ -377,6 +377,7 @@ public class BillingSubscriptionService {
         SubscriptionStatus previousStatus = subscription.getStatus();
         subscription.setCurrentPeriodStart(newPeriodStart);
         subscription.setCurrentPeriodEnd(newPeriodEnd);
+        subscription.setNextDueDate(newPeriodEnd.atZone(ZoneOffset.UTC).toLocalDate());
         subscription.setStatus(SubscriptionStatus.ACTIVE);
 
         repository.save(subscription);

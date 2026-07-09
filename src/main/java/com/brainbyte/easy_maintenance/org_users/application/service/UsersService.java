@@ -271,7 +271,7 @@ public class UsersService {
             return;
         }
 
-        validateUserLimit(orgCode);
+        validateOrgLimit(userId);
 
         saveUserOrganization(orgCode, user);
     }
@@ -298,29 +298,67 @@ public class UsersService {
         repository.save(user);
     }
 
-    private void validateUserLimit(String orgCode) {
-        List<BillingSubscriptionItem> subscriptionItems = billingSubscriptionItemRepository
-                .findAllBySourceTypeAndSourceIdIn(
-                        BillingSubscriptionItemSourceType.ORGANIZATION, List.of(orgCode));
+    private void validateOrgLimit(Long userId) {
+        var subscriptionItemOpt = billingSubscriptionItemRepository
+                .findBySourceTypeAndSourceId(BillingSubscriptionItemSourceType.USER, userId.toString());
 
-        if (subscriptionItems.isEmpty()) {
-            log.warn("[UserLimit] Nenhuma assinatura encontrada para organização {}", orgCode);
-            throw new RuleException("A organização não possui uma assinatura ativa.");
+        if (subscriptionItemOpt.isEmpty()) {
+            log.warn("[OrgLimit] Nenhuma assinatura encontrada para usuário {}", userId);
+            throw new RuleException("Usuário não possui uma assinatura ativa.");
         }
 
-        int maxUsers = billingPlanFeaturesHelper.parse(subscriptionItems.getFirst().getPlan()).getMaxUsers();
+        int maxOrganizations = billingPlanFeaturesHelper
+                .parse(subscriptionItemOpt.get().getPlan()).getMaxOrganizations();
+
+        if (maxOrganizations <= 0) {
+            return; // 0 = ilimitado
+        }
+
+        long currentOrgs = userOrganizationRepository.countByUserId(userId);
+
+        if (currentOrgs >= maxOrganizations) {
+            throw new RuleException(String.format(
+                    "Limite de organizações atingido (%d/%d). Faça upgrade do seu plano para adicionar mais organizações.",
+                    currentOrgs, maxOrganizations));
+        }
+    }
+
+    public void validateUserLimit(Long ownerId, String orgCode) {
+        var subscriptionItemOpt = billingSubscriptionItemRepository
+                .findBySourceTypeAndSourceId(BillingSubscriptionItemSourceType.USER, ownerId.toString());
+
+        if (subscriptionItemOpt.isEmpty()) {
+            log.warn("[UserLimit] Nenhuma assinatura encontrada para usuário {}", ownerId);
+            throw new RuleException("Usuário não possui uma assinatura ativa.");
+        }
+
+        int maxUsers = billingPlanFeaturesHelper
+                .parse(subscriptionItemOpt.get().getPlan()).getMaxUsers();
 
         if (maxUsers <= 0) {
-            return; // maxUsers=0 significa ilimitado
+            return; // 0 = ilimitado
         }
 
         long currentUsers = userOrganizationRepository.countByOrganizationCode(orgCode);
 
         if (currentUsers >= maxUsers) {
             throw new RuleException(String.format(
-                    "Limite de usuários atingido (%d/%d). Faça upgrade do seu plano para adicionar mais usuários.",
+                    "Limite de usuários atingido (%d/%d). Faça upgrade do seu plano para adicionar mais membros.",
                     currentUsers, maxUsers));
         }
+    }
+
+    @Transactional
+    public void addOrganizationByInvite(Long memberId, String orgCode) {
+        log.info("[TeamMember] Linking organization {} to member {}", orgCode, memberId);
+        var user = repository.findById(memberId)
+                .orElseThrow(() -> new NotFoundException(String.format(USER_NOT_FOUND_MESSAGE, memberId)));
+
+        if (user.getOrganizations().stream().anyMatch(uo -> uo.getOrganizationCode().equals(orgCode))) {
+            return;
+        }
+
+        saveUserOrganization(orgCode, user);
     }
 
     @Transactional

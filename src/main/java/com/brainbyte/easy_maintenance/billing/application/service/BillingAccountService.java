@@ -200,9 +200,8 @@ public class BillingAccountService {
         BillingSubscription subscription = billingSubscriptionRepository.findByBillingAccountUserId(userId)
                 .orElseThrow(() -> new NotFoundException("Subscription not found for user " + userId));
 
-        if (subscription.getStatus() != SubscriptionStatus.TRIAL
-                && subscription.getStatus() != SubscriptionStatus.PAST_DUE) {
-            throw new RuleException("Método de pagamento só pode ser alterado durante o período de TRIAL ou quando há fatura em atraso (PAST_DUE).");
+        if (subscription.getStatus() != SubscriptionStatus.TRIAL) {
+            throw new RuleException("Método de pagamento só pode ser alterado durante o período de TRIAL.");
         }
 
         account.setPaymentMethod(method);

@@ -313,7 +313,10 @@ public class EmailTemplateHelper {
             """.formatted(userName, recoveryLink);
     }
 
-    public static String generateNotificationEventHtml(String userName, String title, String description) {
+    public static String generateNotificationEventHtml(String userName, String title, String description, String actionLink) {
+        String ctaBlock = actionLink != null && !actionLink.isBlank()
+                ? "<p><a href=\"" + actionLink + "\" class=\"button\">Ver no sistema</a></p>"
+                : "<p>Acesse o sistema para conferir os detalhes e tomar as ações necessárias.</p>";
         return """
             <!DOCTYPE html>
             <html>
@@ -323,6 +326,7 @@ public class EmailTemplateHelper {
                     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
                     .container { width: 80%%; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
                     .header { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #0056b3; }
+                    .button { display: inline-block; padding: 10px 20px; font-size: 16px; color: #fff; background-color: #007bff; text-decoration: none; border-radius: 5px; }
                     .footer { margin-top: 30px; font-size: 12px; color: #777; }
                 </style>
             </head>
@@ -331,7 +335,7 @@ public class EmailTemplateHelper {
                     <div class="header">%s</div>
                     <p>Olá, %s,</p>
                     <p>%s</p>
-                    <p>Acesse o sistema para conferir os detalhes e tomar as ações necessárias.</p>
+                    %s
                     <div class="footer">
                         Atenciosamente,<br>
                         Equipe Easy Maintenance
@@ -339,7 +343,7 @@ public class EmailTemplateHelper {
                 </div>
             </body>
             </html>
-            """.formatted(title, userName != null ? userName : "Usuário", description);
+            """.formatted(title, userName != null ? userName : "Usuário", description, ctaBlock);
     }
 
 }

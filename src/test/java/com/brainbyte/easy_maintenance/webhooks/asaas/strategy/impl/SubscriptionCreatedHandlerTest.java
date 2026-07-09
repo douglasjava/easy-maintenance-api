@@ -1,10 +1,12 @@
 package com.brainbyte.easy_maintenance.webhooks.asaas.strategy.impl;
 
 import com.brainbyte.easy_maintenance.billing.application.service.InvoiceService;
+import com.brainbyte.easy_maintenance.billing.application.service.PaymentMethodTransitionService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.*;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
+import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.payment.domain.Payment;
@@ -42,6 +44,7 @@ class SubscriptionCreatedHandlerTest {
     @Mock private InvoiceItemRepository invoiceItemRepository;
     @Mock private OrganizationRepository organizationRepository;
     @Mock private ObjectMapper objectMapper;
+    @Mock private AsaasClient asaasClient;
 
     @InjectMocks
     private SubscriptionCreatedHandler handler;
@@ -102,6 +105,43 @@ class SubscriptionCreatedHandlerTest {
 
         assertThat(subscription.getExternalSubscriptionId()).isEqualTo("already-linked-ext-id");
         verify(billingSubscriptionRepository, never()).save(any());
+    }
+
+    @Test
+    void handle_cardUpdatePrefix_shouldReplaceExternalSubIdAndCancelOld() {
+        subscription.setExternalSubscriptionId("old-ext-sub-001");
+        payment.setExternalReference(PaymentMethodTransitionService.CARD_UPDATE_PREFIX + "20-uuid-xyz");
+
+        var asaasSub = buildSubscription("new-ext-sub-002", "checkout-session-card-update", "ACTIVE", false,
+                LocalDate.of(2026, 9, 1));
+        var event = buildEvent("evt-007", asaasSub);
+
+        when(paymentRepository.findByExternalPaymentId("checkout-session-card-update")).thenReturn(Optional.of(payment));
+
+        handler.handle(event);
+
+        assertThat(subscription.getExternalSubscriptionId()).isEqualTo("new-ext-sub-002");
+        assertThat(subscription.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
+        verify(billingSubscriptionRepository).save(subscription);
+        verify(asaasClient).cancelSubscription("old-ext-sub-001");
+    }
+
+    @Test
+    void handle_cardUpdatePrefix_cancelOldFails_doesNotThrow() {
+        subscription.setExternalSubscriptionId("old-ext-sub-999");
+        payment.setExternalReference(PaymentMethodTransitionService.CARD_UPDATE_PREFIX + "20-uuid-abc");
+
+        var asaasSub = buildSubscription("new-ext-sub-888", "checkout-session-update-2", "ACTIVE", false,
+                LocalDate.of(2026, 9, 1));
+        var event = buildEvent("evt-008", asaasSub);
+
+        when(paymentRepository.findByExternalPaymentId("checkout-session-update-2")).thenReturn(Optional.of(payment));
+        doThrow(new RuntimeException("Asaas 404")).when(asaasClient).cancelSubscription(any());
+
+        handler.handle(event);
+
+        assertThat(subscription.getExternalSubscriptionId()).isEqualTo("new-ext-sub-888");
+        verify(billingSubscriptionRepository).save(subscription);
     }
 
     @Test
