@@ -19,12 +19,12 @@ public class ExternalCustomerSyncService {
     private final BillingAccountRepository billingAccountRepository;
     private final PaymentProviderFactory paymentProviderFactory;
 
-    public void syncMissingExternalCustomerIds() {
+    public ExternalCustomerSyncResult syncMissingExternalCustomerIds() {
         List<BillingAccount> accounts = billingAccountRepository.findByExternalCustomerIdIsNull();
 
         if (accounts.isEmpty()) {
             log.info("[ExternalCustomerSync] Nenhuma conta sem externalCustomerId. Nada a sincronizar.");
-            return;
+            return new ExternalCustomerSyncResult(0, 0, 0);
         }
 
         log.info("[ExternalCustomerSync] {} conta(s) sem externalCustomerId encontradas. Iniciando sincronização.", accounts.size());
@@ -52,5 +52,7 @@ public class ExternalCustomerSyncService {
         if (failure > 0) {
             log.error("[ExternalCustomerSync] {} conta(s) não puderam ser sincronizadas com o Asaas. Verificar logs acima.", failure);
         }
+
+        return new ExternalCustomerSyncResult(accounts.size(), success, failure);
     }
 }

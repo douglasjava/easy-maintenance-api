@@ -19,6 +19,8 @@ import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserR
 import com.brainbyte.easy_maintenance.infrastructure.mail.utils.EmailTemplateHelper;
 import com.brainbyte.easy_maintenance.infrastructure.notification.enums.NotificationEventType;
 import com.brainbyte.easy_maintenance.infrastructure.notification.service.CriticalEmailDispatchService;
+import com.brainbyte.easy_maintenance.jobs.service.ExternalCustomerSyncResult;
+import com.brainbyte.easy_maintenance.jobs.service.ExternalCustomerSyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -50,11 +52,16 @@ public class AdminService {
     private final BillingSubscriptionService billingSubscriptionService;
     private final CriticalEmailDispatchService criticalEmailDispatchService;
     private final EmailTemplateHelper emailTemplateHelper;
+    private final ExternalCustomerSyncService externalCustomerSyncService;
 
     public OrganizationDTO.OrganizationResponse createOrganization(OrganizationDTO.CreateOrganizationRequest request) {
 
         return organizationsService.create(request);
 
+    }
+
+    public ExternalCustomerSyncResult syncExternalCustomerIds() {
+        return externalCustomerSyncService.syncMissingExternalCustomerIds();
     }
 
     public UserDTO.UserResponse createUser(UserDTO.CreateUserAdminRequest request) {
