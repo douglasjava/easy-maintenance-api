@@ -19,13 +19,13 @@ import jakarta.validation.Valid;
 @Tag(name = "Fornecedores", description = "Gerenciamento e busca de fornecedores")
 public class SuppliersController {
 
-  private final SupplierSearchService service;
+    private final SupplierSearchService service;
 
-  @PostMapping("/nearby")
-  @Operation(summary = "Busca fornecedores próximos com base na localização e especialidade")
-  public NearbySuppliersResponse nearby(@RequestBody @Valid NearbySuppliersRequest req) {
-    return service.searchNearby(req);
-  }
+    @PostMapping("/nearby")
+    @Operation(summary = "Busca fornecedores próximos com base na localização e especialidade")
+    public NearbySuppliersResponse nearby(@RequestBody @Valid NearbySuppliersRequest req) {
+        return service.searchNearby(req);
+    }
 
 }
 
