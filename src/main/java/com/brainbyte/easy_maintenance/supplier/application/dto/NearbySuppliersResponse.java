@@ -6,5 +6,7 @@ public record NearbySuppliersResponse(
         String serviceKey,
         int radiusKm,
         GeoPoint center,
-        List<SupplierDTO> suppliers
+        List<SupplierDTO> suppliers,
+        String status,
+        String errorMessage
 ) {}
