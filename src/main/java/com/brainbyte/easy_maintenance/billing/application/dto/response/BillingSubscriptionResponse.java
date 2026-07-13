@@ -36,4 +36,28 @@ public record BillingSubscriptionResponse(
             String planCode,
             PaymentMethodType paymentMethod
     ) {}
+
+    /**
+     * EPIC-014/TASK-113 — plano único por conta: planCode/planName/valueCents/nextPlanCode
+     * refletem o plano do item USER (conta), não mais um plano próprio da organização.
+     * itemsUsedByOrg/itemsUsedTotalAccount/maxItemsAccount expõem o uso do pool compartilhado
+     * de itens (TASK-111) para esta organização e para a conta como um todo.
+     */
+    public record OrganizationSubscriptionResponse(
+            Long id,
+            String sourceId,
+            String sourceType,
+            String planCode,
+            String planName,
+            Long valueCents,
+            String nextPlanCode,
+            Instant planChangeEffectiveAt,
+            SubscriptionStatus status,
+            Instant currentPeriodStart,
+            Instant currentPeriodEnd,
+            Instant activatedAt,
+            long itemsUsedByOrg,
+            long itemsUsedTotalAccount,
+            int maxItemsAccount
+    ) {}
 }

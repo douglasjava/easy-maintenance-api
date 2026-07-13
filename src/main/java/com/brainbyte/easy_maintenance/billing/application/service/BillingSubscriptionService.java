@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.billing.application.service;
 
+import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceItemRepository;
 import com.brainbyte.easy_maintenance.billing.application.dto.BillingAdminDTO;
 import com.brainbyte.easy_maintenance.billing.domain.BillingAccount;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
@@ -10,6 +11,7 @@ import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.Billing
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.enums.BillingCycle;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingNotificationService;
@@ -43,6 +45,8 @@ public class BillingSubscriptionService {
     private final BillingSubscriptionItemRepository itemRepository;
     private final AsaasClient asaasClient;
     private final BillingNotificationService billingNotificationService;
+    private final BillingPlanFeaturesHelper billingPlanFeaturesHelper;
+    private final MaintenanceItemRepository maintenanceItemRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<BillingAdminDTO.SubscriptionResponse> listSubscriptions(
@@ -83,10 +87,36 @@ public class BillingSubscriptionService {
         var content = page.getContent().stream()
                 .map(item -> {
                     BillingAccount billingAccount = item.getBillingSubscription().getBillingAccount();
+
+                    List<BillingSubscriptionItem> siblingItems = itemRepository
+                            .findAllByBillingSubscriptionId(item.getBillingSubscription().getId());
+
+                    BillingSubscriptionItem userItem = siblingItems.stream()
+                            .filter(sibling -> sibling.getSourceType() == BillingSubscriptionItemSourceType.USER)
+                            .findFirst()
+                            .orElse(item);
+
+                    List<String> orgCodes = siblingItems.stream()
+                            .filter(sibling -> sibling.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION)
+                            .map(BillingSubscriptionItem::getSourceId)
+                            .toList();
+
+                    // EPIC-014 bugfix: painel admin roda fora do contexto de tenant de qualquer
+                    // organização específica (bypass de X-Org-Id) — sem system context,
+                    // TenantFilterAspect lançaria TenantException ao tocar MaintenanceItemRepository.
+                    Long itemsUsedByOrg = item.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION
+                            ? TenantContext.runCrossOrg(() -> maintenanceItemRepository.countByOrganizationCode(item.getSourceId()))
+                            : null;
+                    Long itemsUsedTotalAccount = orgCodes.isEmpty()
+                            ? 0L
+                            : TenantContext.runCrossOrg(() -> maintenanceItemRepository.countByOrganizationCodeIn(orgCodes));
+                    Integer maxItems = billingPlanFeaturesHelper.parse(userItem.getPlan()).getMaxItems();
+
                     return new BillingAdminDTO.SubscriptionResponse(
                             item.getId(),
                             item.getBillingSubscription().getId(),
                             item.getSourceType(),
+                            item.getSourceId(),
                             item.getPlan().getCode(),
                             billingAccount.getId(),
                             billingAccount.getName(),
@@ -94,7 +124,10 @@ public class BillingSubscriptionService {
                             item.getBillingSubscription().getStatus(),
                             item.getBillingSubscription().getCurrentPeriodStart(),
                             item.getBillingSubscription().getCurrentPeriodEnd(),
-                            item.getBillingSubscription().getTotalCents()
+                            item.getBillingSubscription().getTotalCents(),
+                            itemsUsedByOrg,
+                            itemsUsedTotalAccount,
+                            maxItems
                     );
                 })
                 .toList();
@@ -324,13 +357,21 @@ public class BillingSubscriptionService {
     @Transactional
     public void addItem(BillingSubscription subscription, BillingSubscriptionItemSourceType sourceType, String sourceId, BillingPlan plan) {
         log.info("Adding item to subscription {}: type={}, id={}, plan={}", subscription.getId(), sourceType, sourceId, plan.getCode());
-        
+
+        // Modelo de plano único por conta (EPIC-014): apenas o item USER é cobrável.
+        // Organizações são incluídas no plano da conta até o limite do tier — o item
+        // ORGANIZATION continua existindo (plano/limites por org, usado em validações e
+        // consultas), mas não soma valor à assinatura.
+        long valueCents = sourceType == BillingSubscriptionItemSourceType.USER
+                ? plan.getPriceCents().longValue()
+                : 0L;
+
         BillingSubscriptionItem item = BillingSubscriptionItem.builder()
                 .billingSubscription(subscription)
                 .sourceType(sourceType)
                 .sourceId(sourceId)
                 .plan(plan)
-                .valueCents(plan.getPriceCents().longValue())
+                .valueCents(valueCents)
                 .activatedAt(Instant.now())
                 .build();
         

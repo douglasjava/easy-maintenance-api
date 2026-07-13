@@ -4,7 +4,6 @@ import com.brainbyte.easy_maintenance.billing.application.dto.request.ChangePlan
 import com.brainbyte.easy_maintenance.billing.application.dto.response.ChangePlanResponse;
 import com.brainbyte.easy_maintenance.billing.application.dto.request.SubscriptionItemChangePlanRequest;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.SubscriptionItemChangePlanResponse;
-import com.brainbyte.easy_maintenance.billing.application.service.OrganizationPlanChangeService;
 import com.brainbyte.easy_maintenance.billing.application.service.UserPlanChangeService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
@@ -22,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class SubscriptionItemChangePlanAdapter {
 
     private final UserPlanChangeService userPlanChangeService;
-    private final OrganizationPlanChangeService organizationPlanChangeService;
     private final BillingSubscriptionItemRepository itemRepository;
 
     @Transactional
@@ -37,16 +35,14 @@ public class SubscriptionItemChangePlanAdapter {
             throw new NotFoundException("Item de assinatura não encontrado.");
         }
 
-        ChangePlanRequest serviceRequest = new ChangePlanRequest(request.newPlanCode(), request.applyImmediately());
-        ChangePlanResponse serviceResponse;
-
-        if (item.getSourceType() == BillingSubscriptionItemSourceType.USER) {
-            serviceResponse = userPlanChangeService.changePlan(user.getId(), item.getId(), serviceRequest);
-        } else if (item.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION) {
-            serviceResponse = organizationPlanChangeService.changePlan(item.getSourceId(), item.getId(), serviceRequest);
-        } else {
-            throw new IllegalArgumentException("Tipo de item de assinatura não suportado: " + item.getSourceType());
+        // EPIC-014/TASK-112: plano único por conta — organizações não têm mais plano próprio.
+        if (item.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION) {
+            throw new NotFoundException(
+                    "Troca de plano por organização não é mais suportada. O plano é gerenciado no nível da conta (item USER).");
         }
+
+        ChangePlanRequest serviceRequest = new ChangePlanRequest(request.newPlanCode(), request.applyImmediately());
+        ChangePlanResponse serviceResponse = userPlanChangeService.changePlan(user.getId(), item.getId(), serviceRequest);
 
         return SubscriptionItemChangePlanResponse.builder()
                 .subscriptionItemId(item.getId())
