@@ -181,7 +181,7 @@ public class AdminBillingController {
 
     @PutMapping("/organizations/{orgCode}/subscription")
     @Operation(summary = "Atribui ou atualiza a assinatura de uma organização via admin")
-    public BillingSubscriptionResponse.SubscriptionItemResponse addOrganizationSubscription(
+    public BillingSubscriptionResponse.OrganizationSubscriptionResponse addOrganizationSubscription(
             @PathVariable String orgCode,
             @RequestBody BillingSubscriptionResponse.SubscriptionItemRequest request) {
         return organizationsService.addOrganizationSubscription(orgCode, request);

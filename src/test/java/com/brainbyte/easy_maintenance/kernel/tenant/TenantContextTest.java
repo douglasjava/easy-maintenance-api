@@ -69,6 +69,46 @@ class TenantContextTest {
         assertTrue(TenantContext.isSystemContext());
     }
 
+    // ── runCrossOrg() ──────────────────────────────────────────────────────
+
+    @Test
+    void runCrossOrg_enablesSystemContextDuringExecution_andRestoresAfter() {
+        TenantContext.set("org-abc");
+        assertFalse(TenantContext.isSystemContext());
+
+        boolean wasSystemDuringCall = TenantContext.runCrossOrg(TenantContext::isSystemContext);
+
+        assertTrue(wasSystemDuringCall);
+        assertFalse(TenantContext.isSystemContext());
+        assertEquals("org-abc", TenantContext.get().orElse(null),
+                "tenant org code não deve ser afetado, só o flag de system context");
+    }
+
+    @Test
+    void runCrossOrg_returnsSupplierValue() {
+        String result = TenantContext.runCrossOrg(() -> "cross-org-result");
+        assertEquals("cross-org-result", result);
+    }
+
+    @Test
+    void runCrossOrg_doesNotClearSystemContext_whenAlreadyInSystemContext() {
+        TenantContext.setSystemContext();
+
+        TenantContext.runCrossOrg(() -> "noop");
+
+        assertTrue(TenantContext.isSystemContext(),
+                "não deve desligar o system context se já estava ativo antes da chamada (evita quebrar chamador externo)");
+    }
+
+    @Test
+    void runCrossOrg_restoresSystemContext_evenWhenSupplierThrows() {
+        assertThrows(RuntimeException.class, () -> TenantContext.runCrossOrg(() -> {
+            throw new RuntimeException("boom");
+        }));
+
+        assertFalse(TenantContext.isSystemContext());
+    }
+
     @Test
     void shouldIsolateTenantByThread() throws InterruptedException {
         TenantContext.set("main-thread-org");

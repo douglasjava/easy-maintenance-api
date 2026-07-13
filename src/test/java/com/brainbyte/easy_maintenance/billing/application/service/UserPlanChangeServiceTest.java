@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.billing.application.service;
 
+import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceItemRepository;
 import com.brainbyte.easy_maintenance.billing.application.dto.request.ChangePlanRequest;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.ChangePlanResponse;
 import com.brainbyte.easy_maintenance.billing.domain.*;
@@ -13,7 +14,9 @@ import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
 import com.brainbyte.easy_maintenance.infrastructure.saas.application.dto.AsaasDTO;
 import com.brainbyte.easy_maintenance.infrastructure.saas.client.AsaasClient;
 import com.brainbyte.easy_maintenance.infrastructure.saas.properties.AsaasProperties;
+import com.brainbyte.easy_maintenance.org_users.domain.Organization;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,6 +52,8 @@ class UserPlanChangeServiceTest {
     @Mock private BillingPlanFeaturesHelper featuresHelper;
     @Mock private AsaasProperties asaasProperties;
     @Mock private UserOrganizationRepository userOrganizationRepository;
+    @Mock private OrganizationRepository organizationRepository;
+    @Mock private MaintenanceItemRepository maintenanceItemRepository;
 
     @InjectMocks
     private UserPlanChangeService service;
@@ -124,7 +130,7 @@ class UserPlanChangeServiceTest {
     @Test
     void changePlan_downgrade_shouldScheduleForNextPeriod() {
         var request = new ChangePlanRequest("FREE", false);
-        var features = BillingPlanFeatures.builder().maxOrganizations(10).build();
+        var features = BillingPlanFeatures.builder().maxOrganizations(10).maxItems(0).build();
 
         when(billingSubscriptionItemRepository.findById(1L)).thenReturn(Optional.of(item));
         when(planRepository.findByCode("FREE")).thenReturn(Optional.of(cheaperPlan));
@@ -141,17 +147,63 @@ class UserPlanChangeServiceTest {
 
         verify(invoiceRepository, never()).save(any());
         verify(paymentRepository, never()).save(any());
+        verify(organizationRepository, never()).findAllByUserId(any());
     }
 
     @Test
     void changePlan_applyImmediately_shouldApplyDowngradeImmediately() {
         var request = new ChangePlanRequest("FREE", true);
 
-        var features = BillingPlanFeatures.builder().maxOrganizations(10).build();
+        var features = BillingPlanFeatures.builder().maxOrganizations(10).maxItems(0).build();
         when(billingSubscriptionItemRepository.findById(1L)).thenReturn(Optional.of(item));
         when(planRepository.findByCode("FREE")).thenReturn(Optional.of(cheaperPlan));
         when(userOrganizationRepository.countByUserId(10L)).thenReturn(1L);
         when(featuresHelper.parse(cheaperPlan)).thenReturn(features);
+        when(billingSubscriptionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(billingSubscriptionItemRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ChangePlanResponse response = service.changePlan(10L, 1L, request);
+
+        assertThat(response.type()).isEqualTo(ChangePlanResponse.PlanChangeType.DOWNGRADE);
+    }
+
+    // ── EPIC-014/TASK-112: pool de itens compartilhado entre organizações ────
+
+    @Test
+    void changePlan_downgrade_exceedsItemPoolLimits_shouldThrowRuleException() {
+        var request = new ChangePlanRequest("FREE", false);
+        var features = BillingPlanFeatures.builder().maxOrganizations(10).maxItems(5).build();
+        var org1 = Organization.builder().code("ORG-001").build();
+        var org2 = Organization.builder().code("ORG-002").build();
+
+        when(billingSubscriptionItemRepository.findById(1L)).thenReturn(Optional.of(item));
+        when(planRepository.findByCode("FREE")).thenReturn(Optional.of(cheaperPlan));
+        when(userOrganizationRepository.countByUserId(10L)).thenReturn(1L);
+        when(featuresHelper.parse(cheaperPlan)).thenReturn(features);
+        when(organizationRepository.findAllByUserId(10L)).thenReturn(List.of(org1, org2));
+        when(maintenanceItemRepository.countByOrganizationCodeIn(List.of("ORG-001", "ORG-002"))).thenReturn(8L);
+
+        assertThatThrownBy(() -> service.changePlan(10L, 1L, request))
+                .isInstanceOf(RuleException.class)
+                .hasMessageContaining("itens")
+                .hasMessageContaining("5")
+                .hasMessageContaining("8");
+
+        verify(billingSubscriptionRepository, never()).save(any());
+    }
+
+    @Test
+    void changePlan_downgrade_withinItemPoolLimits_shouldSucceed() {
+        var request = new ChangePlanRequest("FREE", false);
+        var features = BillingPlanFeatures.builder().maxOrganizations(10).maxItems(20).build();
+        var org1 = Organization.builder().code("ORG-001").build();
+
+        when(billingSubscriptionItemRepository.findById(1L)).thenReturn(Optional.of(item));
+        when(planRepository.findByCode("FREE")).thenReturn(Optional.of(cheaperPlan));
+        when(userOrganizationRepository.countByUserId(10L)).thenReturn(1L);
+        when(featuresHelper.parse(cheaperPlan)).thenReturn(features);
+        when(organizationRepository.findAllByUserId(10L)).thenReturn(List.of(org1));
+        when(maintenanceItemRepository.countByOrganizationCodeIn(List.of("ORG-001"))).thenReturn(5L);
         when(billingSubscriptionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(billingSubscriptionItemRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 

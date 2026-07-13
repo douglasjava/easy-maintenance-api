@@ -1,8 +1,10 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlanFeatures;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
@@ -39,6 +41,7 @@ class UserPlanLimitTest {
     @Mock BillingSubscriptionItemRepository billingSubscriptionItemRepository;
     @Mock BillingPlanFeaturesHelper billingPlanFeaturesHelper;
     @Mock UserOrganizationRepository userOrganizationRepository;
+    @Mock BillingSubscriptionService billingSubscriptionService;
 
     @InjectMocks UsersService service;
 
@@ -56,7 +59,8 @@ class UserPlanLimitTest {
         BillingPlan plan = BillingPlan.builder().code("STARTER").name("Starter").priceCents(4900).build();
         when(billingPlanFeaturesHelper.parse(plan))
                 .thenReturn(BillingPlanFeatures.builder().maxOrganizations(maxOrganizations).build());
-        return BillingSubscriptionItem.builder().plan(plan).build();
+        BillingSubscription subscription = BillingSubscription.builder().id(5L).build();
+        return BillingSubscriptionItem.builder().plan(plan).billingSubscription(subscription).build();
     }
 
     private void stubUserSubscription(BillingSubscriptionItem item) {
@@ -137,6 +141,39 @@ class UserPlanLimitTest {
 
         verify(userOrganizationRepository, never()).countByUserId(any());
         verify(userRepository).save(any());
+    }
+
+    // ── EPIC-014/TASK-118: provisiona billing da org automaticamente ─────────
+
+    @Test
+    void addOrganization_provisionsOrganizationBillingItem_inheritingAccountPlan() {
+        BillingSubscriptionItem userItem = userSubItemWithMaxOrgs(3);
+        stubUserSubscription(userItem);
+        when(userOrganizationRepository.countByUserId(USER_ID)).thenReturn(1L);
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(billingSubscriptionItemRepository.findBySourceTypeAndSourceId(
+                eq(BillingSubscriptionItemSourceType.ORGANIZATION), eq(ORG)))
+                .thenReturn(Optional.empty());
+
+        service.addOrganization(USER_ID, ORG);
+
+        verify(billingSubscriptionService).addItem(
+                userItem.getBillingSubscription(), BillingSubscriptionItemSourceType.ORGANIZATION, ORG, userItem.getPlan());
+    }
+
+    @Test
+    void addOrganization_skipsProvisioning_whenOrganizationBillingItemAlreadyExists() {
+        BillingSubscriptionItem userItem = userSubItemWithMaxOrgs(3);
+        stubUserSubscription(userItem);
+        when(userOrganizationRepository.countByUserId(USER_ID)).thenReturn(1L);
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(billingSubscriptionItemRepository.findBySourceTypeAndSourceId(
+                eq(BillingSubscriptionItemSourceType.ORGANIZATION), eq(ORG)))
+                .thenReturn(Optional.of(BillingSubscriptionItem.builder().sourceId(ORG).build()));
+
+        service.addOrganization(USER_ID, ORG);
+
+        verify(billingSubscriptionService, never()).addItem(any(), any(), any(), any());
     }
 
     // ── usuário já membro ignora limite ──────────────────────────────────────
