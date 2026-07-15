@@ -16,12 +16,14 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -63,6 +65,22 @@ public class ItemsController {
             @RequestParam(defaultValue = "20") int size) {
         String orgId = TenantContext.get().orElseThrow();
         return service.findAllCursor(orgId, status, itemType, categoria, cursor, prevCursor, size);
+    }
+
+    @GetMapping("/calendar")
+    @RequireTenant
+    @Operation(
+            summary = "Lista todos os itens da organização com nextDueAt dentro do intervalo informado",
+            description = "Visão de calendário (TASK-124): sem paginação cursor, itens sem nextDueAt não entram no resultado."
+    )
+    public ResponseEntity<List<ItemResponse>> calendar(
+            @Parameter(description = "Início do intervalo (inclusive)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @Parameter(description = "Fim do intervalo (inclusive)") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) ItemStatus status,
+            @RequestParam(required = false) String itemType,
+            @RequestParam(required = false) ItemCategory categoria) {
+        String orgId = TenantContext.get().orElseThrow();
+        return ResponseEntity.ok(service.findAllForCalendar(orgId, fromDate, toDate, status, itemType, categoria));
     }
 
     @GetMapping("/{id}")

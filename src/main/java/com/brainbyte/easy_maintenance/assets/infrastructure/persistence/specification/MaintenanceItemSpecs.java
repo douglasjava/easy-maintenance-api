@@ -63,4 +63,8 @@ public final class MaintenanceItemSpecs {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
+
+    public static Specification<MaintenanceItem> dueDateBetween(LocalDate fromDate, LocalDate toDate) {
+        return (root, query, cb) -> cb.between(root.get("nextDueAt"), fromDate, toDate);
+    }
 }

@@ -244,6 +244,40 @@ public class MaintenanceItemService {
         return CursorPageResponse.ofCursor(content, nextCursor, prevCursor, hasMore, size);
     }
 
+    public List<ItemResponse> findAllForCalendar(String orgId,
+                                                  LocalDate fromDate,
+                                                  LocalDate toDate,
+                                                  ItemStatus status,
+                                                  String itemType,
+                                                  ItemCategory categoria) {
+        if (fromDate == null || toDate == null) {
+            throw new RuleException("fromDate e toDate são obrigatórios");
+        }
+        if (fromDate.isAfter(toDate)) {
+            throw new RuleException("fromDate não pode ser posterior a toDate");
+        }
+
+        Specification<MaintenanceItem> spec = MaintenanceItemSpecs
+                .filter(orgId, status, itemType, categoria)
+                .and(MaintenanceItemSpecs.dueDateBetween(fromDate, toDate));
+
+        List<MaintenanceItem> items = repository.findAll(spec);
+
+        Set<Long> itemIds = items.stream().map(MaintenanceItem::getId).collect(Collectors.toSet());
+        Set<Long> idsWithMaintenance = itemIds.isEmpty()
+                ? Set.of()
+                : maintenanceRepository.findItemIdsWithMaintenances(itemIds);
+
+        return items.stream()
+                .map(item -> {
+                    boolean canUpdate = !idsWithMaintenance.contains(item.getId());
+                    String reason = canUpdate ? null : "ITEM_ALREADY_USED_IN_MAINTENANCE";
+                    NormInfo ni = resolveNormInfo(item.getNormId());
+                    return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, ni.name(), ni.pendingReview(), canUpdate, reason);
+                })
+                .toList();
+    }
+
     public void remove(String orgId, Long itemId) {
         log.info("remove item: {}", itemId);
 
