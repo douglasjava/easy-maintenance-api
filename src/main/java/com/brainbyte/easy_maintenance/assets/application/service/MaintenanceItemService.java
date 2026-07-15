@@ -126,6 +126,16 @@ public class MaintenanceItemService {
 
     }
 
+    public MaintenanceItem findEntityForOrg(String orgId, Long itemId) {
+
+        MaintenanceItem maintenanceItem = findById(itemId);
+
+        validateTenant(orgId, maintenanceItem);
+
+        return maintenanceItem;
+
+    }
+
     public Page<ItemResponse> findAll(String orgId,
                                       ItemStatus status,
                                       String itemType,

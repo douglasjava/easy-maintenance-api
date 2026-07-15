@@ -6,6 +6,7 @@ import com.brainbyte.easy_maintenance.assets.application.dto.ItemResponse;
 import com.brainbyte.easy_maintenance.assets.application.service.MaintenanceItemService;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemCategory;
 import com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus;
+import com.brainbyte.easy_maintenance.assets.application.service.ItemCalendarExportService;
 import com.brainbyte.easy_maintenance.commons.dto.CursorPageResponse;
 import com.brainbyte.easy_maintenance.infrastructure.access.infrastructure.security.RequiresFullAccess;
 import com.brainbyte.easy_maintenance.kernel.tenant.RequireTenant;
@@ -15,7 +16,9 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,6 +31,7 @@ import java.util.List;
 public class ItemsController {
 
     private final MaintenanceItemService service;
+    private final ItemCalendarExportService calendarExportService;
 
     @PostMapping
     @RequireTenant
@@ -96,6 +100,23 @@ public class ItemsController {
 
         return ResponseEntity.ok(service.isEditable(id));
 
+    }
+
+    @GetMapping("/{id}/calendar.ics")
+    @RequireTenant
+    @Operation(
+            summary = "Exporta o vencimento do item como lembrete .ics",
+            description = "Gera um arquivo .ics (2 lembretes: 7 dias e 1 dia antes) para importar em qualquer app de calendário. Ver TASK-123."
+    )
+    public ResponseEntity<byte[]> exportCalendar(@PathVariable("id") Long id) {
+        String orgId = TenantContext.get().orElseThrow();
+        byte[] ics = calendarExportService.exportIcs(orgId, id);
+
+        String filename = "item-" + id + "-lembrete.ics";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("text/calendar; charset=UTF-8"))
+                .body(ics);
     }
 
 }
