@@ -24,10 +24,15 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -64,7 +69,7 @@ class BillingSubscriptionServiceTest {
                 .totalCents(0L)
                 .build();
 
-        when(itemRepository.findAllByBillingSubscriptionId(1L))
+        lenient().when(itemRepository.findAllByBillingSubscriptionId(1L))
                 .thenAnswer(inv -> subscription.getItems());
     }
 
@@ -183,5 +188,140 @@ class BillingSubscriptionServiceTest {
         var row = result.content().get(0);
         assertThat(row.itemsUsedTotalAccount()).isZero();
         assertThat(row.itemsUsedByOrg()).isNull();
+    }
+
+    // ── BUGFIX: cancelamento do item USER não pode virar status=CANCELED na hora — só o job de
+    // fim de ciclo (processSubscriptionCycle) deve fazer essa transição. E o flag cancelAtPeriodEnd
+    // precisa ser espelhado no item também, pois é o campo que o front lê para esconder o botão
+    // "Cancelar" e mostrar o aviso de "cancelamento agendado". ──────────────────────────────────
+
+    @Test
+    void scheduleItemCancellation_userItem_flagsSubscriptionAndItem_withoutChangingStatusImmediately() {
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        BillingPlan plan = planWithPrice("BUSINESS", 29900);
+        BillingSubscriptionItem userItem = BillingSubscriptionItem.builder()
+                .id(1L).sourceType(BillingSubscriptionItemSourceType.USER).sourceId("10")
+                .plan(plan).valueCents(29900L).build();
+        subscription.addItem(userItem);
+
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(userItem));
+
+        service.scheduleItemCancellation(1L);
+
+        assertThat(subscription.isCancelAtPeriodEnd()).isTrue();
+        assertThat(subscription.getStatus())
+                .as("status não pode mudar no pedido de cancelamento — só no fechamento do ciclo")
+                .isEqualTo(SubscriptionStatus.ACTIVE);
+        assertThat(userItem.isCancelAtPeriodEnd())
+                .as("o item precisa refletir o agendamento — é o campo que o front usa pra esconder o botão Cancelar")
+                .isTrue();
+    }
+
+    @Test
+    void scheduleItemCancellation_userItem_isIdempotent_whenAlreadyScheduled() {
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        subscription.setCancelAtPeriodEnd(true);
+        BillingPlan plan = planWithPrice("BUSINESS", 29900);
+        BillingSubscriptionItem userItem = BillingSubscriptionItem.builder()
+                .id(1L).sourceType(BillingSubscriptionItemSourceType.USER).sourceId("10")
+                .plan(plan).valueCents(29900L).build();
+        subscription.addItem(userItem);
+
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(userItem));
+
+        service.scheduleItemCancellation(1L);
+
+        verify(repository, never()).save(any());
+        verify(itemRepository, never()).save(any());
+    }
+
+    @Test
+    void scheduleItemCancellation_organizationItem_onlyFlagsTheItem_subscriptionUntouched() {
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        BillingPlan plan = planWithPrice("BUSINESS", 29900);
+        BillingSubscriptionItem orgItem = BillingSubscriptionItem.builder()
+                .id(2L).sourceType(BillingSubscriptionItemSourceType.ORGANIZATION).sourceId("ORG-001")
+                .plan(plan).valueCents(0L).build();
+        subscription.addItem(orgItem);
+
+        when(itemRepository.findById(2L)).thenReturn(Optional.of(orgItem));
+
+        service.scheduleItemCancellation(2L);
+
+        assertThat(orgItem.isCancelAtPeriodEnd()).isTrue();
+        assertThat(subscription.isCancelAtPeriodEnd()).isFalse();
+        assertThat(subscription.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void undoItemCancellation_userItem_resetsBothSubscriptionAndItemFlags() {
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        subscription.setCancelAtPeriodEnd(true);
+        BillingPlan plan = planWithPrice("BUSINESS", 29900);
+        BillingSubscriptionItem userItem = BillingSubscriptionItem.builder()
+                .id(1L).sourceType(BillingSubscriptionItemSourceType.USER).sourceId("10")
+                .plan(plan).valueCents(29900L).cancelAtPeriodEnd(true).build();
+        subscription.addItem(userItem);
+
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(userItem));
+
+        service.undoItemCancellation(1L);
+
+        assertThat(subscription.isCancelAtPeriodEnd()).isFalse();
+        assertThat(userItem.isCancelAtPeriodEnd()).isFalse();
+        assertThat(subscription.getStatus())
+                .as("undo não precisa reverter status — o pedido de cancelamento nunca deveria tê-lo alterado")
+                .isEqualTo(SubscriptionStatus.ACTIVE);
+    }
+
+    @Test
+    void processSubscriptionCycle_fullCancellation_setsStatusCanceled_andMarksAllItemsCanceled() {
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        subscription.setCancelAtPeriodEnd(true);
+        subscription.setTotalCents(29900L);
+        BillingPlan plan = planWithPrice("BUSINESS", 29900);
+        BillingSubscriptionItem userItem = BillingSubscriptionItem.builder()
+                .id(1L).sourceType(BillingSubscriptionItemSourceType.USER).sourceId("10")
+                .plan(plan).valueCents(29900L).cancelAtPeriodEnd(true).build();
+        subscription.addItem(userItem);
+
+        when(repository.findAllByNextDueDate(any(LocalDate.class))).thenReturn(List.of(subscription));
+
+        service.processSubscriptionCycle();
+
+        assertThat(subscription.getStatus()).isEqualTo(SubscriptionStatus.CANCELED);
+        assertThat(subscription.getCanceledAt()).isNotNull();
+        assertThat(userItem.isCancelAtPeriodEnd()).isFalse();
+        assertThat(userItem.getCanceledAt())
+                .as("item precisa ficar marcado como cancelado, senão o banner de 'cancelamento agendado' fica preso para sempre")
+                .isNotNull();
+        verify(billingNotificationService).sendCancellationProcessedEmail(subscription);
+    }
+
+    @Test
+    void processSubscriptionCycle_partialCancellation_removesOnlyFlaggedItem_keepsSubscriptionActive() {
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        subscription.setTotalCents(29900L);
+        BillingPlan plan = planWithPrice("BUSINESS", 29900);
+        BillingSubscriptionItem userItem = BillingSubscriptionItem.builder()
+                .id(1L).sourceType(BillingSubscriptionItemSourceType.USER).sourceId("10")
+                .plan(plan).valueCents(29900L).build();
+        BillingSubscriptionItem orgItem = BillingSubscriptionItem.builder()
+                .id(2L).sourceType(BillingSubscriptionItemSourceType.ORGANIZATION).sourceId("ORG-001")
+                .plan(plan).valueCents(0L).cancelAtPeriodEnd(true).build();
+        subscription.addItem(userItem);
+        subscription.addItem(orgItem);
+
+        when(repository.findAllByNextDueDate(any(LocalDate.class))).thenReturn(List.of(subscription));
+
+        service.processSubscriptionCycle();
+
+        assertThat(subscription.getStatus())
+                .as("cancelamento de item ORGANIZATION não deve afetar o status da assinatura")
+                .isEqualTo(SubscriptionStatus.ACTIVE);
+        assertThat(orgItem.isCancelAtPeriodEnd()).isFalse();
+        assertThat(orgItem.getCanceledAt()).isNotNull();
+        assertThat(userItem.getCanceledAt()).isNull();
     }
 }

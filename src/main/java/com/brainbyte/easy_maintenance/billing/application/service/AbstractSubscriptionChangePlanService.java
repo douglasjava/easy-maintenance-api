@@ -63,6 +63,10 @@ public abstract class AbstractSubscriptionChangePlanService<T> {
             throw new RuleException("A assinatura precisa estar ATIVA ou em PERÍODO DE TESTE para alterar o plano.");
         }
 
+        if (billingSubscription.isCancelAtPeriodEnd()) {
+            throw new RuleException("A assinatura tem um cancelamento agendado. Desfaça o cancelamento antes de alterar o plano.");
+        }
+
         BillingPlan currentPlan = item.getPlan();
         BillingPlan newPlan = planRepository.findByCode(request.newPlanCode())
                 .orElseThrow(() -> new NotFoundException("Plano não encontrado: " + request.newPlanCode()));

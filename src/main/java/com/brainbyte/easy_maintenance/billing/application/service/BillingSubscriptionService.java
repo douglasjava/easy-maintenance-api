@@ -182,8 +182,10 @@ public class BillingSubscriptionService {
             }
 
             subscription.setCancelAtPeriodEnd(true);
-            subscription.setStatus(SubscriptionStatus.CANCELED);
             repository.save(subscription);
+
+            item.setCancelAtPeriodEnd(true);
+            itemRepository.save(item);
 
             log.info("Full subscription cancellation scheduled for subscription {}", subscription.getId());
 
@@ -215,6 +217,10 @@ public class BillingSubscriptionService {
         if (item.getSourceType() == BillingSubscriptionItemSourceType.USER) {
             subscription.setCancelAtPeriodEnd(false);
             repository.save(subscription);
+
+            item.setCancelAtPeriodEnd(false);
+            itemRepository.save(item);
+
             log.info("Subscription cancellation undone for subscription {}", subscription.getId());
             return;
         }
@@ -243,6 +249,13 @@ public class BillingSubscriptionService {
                 sub.setCanceledAt(Instant.now());
 
                 repository.save(sub);
+
+                Instant canceledAt = Instant.now();
+                items.forEach(item -> {
+                    item.setCancelAtPeriodEnd(false);
+                    item.setCanceledAt(canceledAt);
+                });
+                itemRepository.saveAll(items);
 
                 log.info("Subscription {} canceled at cycle end", sub.getId());
 

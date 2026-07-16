@@ -237,6 +237,22 @@ class UserPlanChangeServiceTest {
     }
 
     @Test
+    void changePlan_subscriptionCancelAtPeriodEnd_shouldThrowRuleException() {
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        subscription.setCancelAtPeriodEnd(true);
+        var request = new ChangePlanRequest("PRO", false);
+
+        when(billingSubscriptionItemRepository.findById(1L)).thenReturn(Optional.of(item));
+
+        assertThatThrownBy(() -> service.changePlan(10L, 1L, request))
+                .isInstanceOf(RuleException.class)
+                .hasMessageContaining("cancelamento");
+
+        verify(billingSubscriptionRepository, never()).save(any());
+        verify(invoiceRepository, never()).save(any());
+    }
+
+    @Test
     void changePlan_itemNotFound_shouldThrowNotFoundException() {
         when(billingSubscriptionItemRepository.findById(99L)).thenReturn(Optional.empty());
 
