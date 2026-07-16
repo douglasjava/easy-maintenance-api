@@ -7,7 +7,9 @@ import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFea
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlanFeatures;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.domain.enums.SubscriptionStatus;
+import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.infrastructure.access.application.dto.response.*;
 import com.brainbyte.easy_maintenance.infrastructure.access.domain.enums.AccessMode;
 import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
@@ -46,6 +48,7 @@ public class FeatureAccessService {
     private final BillingPlanFeaturesHelper billingPlanFeaturesHelper;
     private final MaintenanceItemRepository maintenanceItemRepository;
     private final UserOrganizationRepository userOrganizationRepository;
+    private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
     private final AiCreditService aiCreditService;
     private final MaintenanceAttachmentRepository maintenanceAttachmentRepository;
 
@@ -200,9 +203,16 @@ public class FeatureAccessService {
                             .build();
                 })
                 .orElse(null);
-        boolean itemLimitReached = usage != null
+
+        // EPIC-014/TASK-111: maxItems é um pool compartilhado entre todas as organizações da
+        // conta, não um teto por organização. usage.currentItems acima é o uso REAL só desta
+        // organização (informativo); o bloqueio de criação precisa comparar contra o total da
+        // conta inteira. Usa TenantContext.runCrossOrg pois essa soma cruza múltiplas
+        // organizações e o TenantFilterAspect zeraria a contagem de qualquer uma que não seja a
+        // ativa na sessão (ver TASK-120).
+        boolean itemLimitReached = subscriptionItem.isPresent()
                 && features.getMaxItems() > 0
-                && usage.getCurrentItems() >= features.getMaxItems();
+                && countAccountWideItems(subscriptionItem.get()) >= features.getMaxItems();
 
         return OrganizationAccessResponse.builder()
                 .organizationCode(org.getCode())
@@ -215,6 +225,24 @@ public class FeatureAccessService {
                 .permissions(buildOrganizationPermissions(mode, itemLimitReached))
                 .currentUsage(usage)
                 .build();
+    }
+
+    // EPIC-014/TASK-111: soma itens de todas as organizações da mesma BillingSubscription
+    // (conta) — mesmo padrão usado em MaintenanceItemService.validateItemLimit.
+    private long countAccountWideItems(BillingSubscriptionItem orgSubscriptionItem) {
+        List<BillingSubscriptionItem> siblingItems = billingSubscriptionItemRepository
+                .findAllByBillingSubscriptionId(orgSubscriptionItem.getBillingSubscription().getId());
+
+        List<String> orgCodesInAccount = siblingItems.stream()
+                .filter(item -> item.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION)
+                .map(BillingSubscriptionItem::getSourceId)
+                .toList();
+
+        if (orgCodesInAccount.isEmpty()) {
+            return 0L;
+        }
+
+        return TenantContext.runCrossOrg(() -> maintenanceItemRepository.countByOrganizationCodeIn(orgCodesInAccount));
     }
 
     private static String resolveOrganizationMessage(SubscriptionStatus effectiveStatus, AccessMode mode) {

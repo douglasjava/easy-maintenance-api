@@ -31,6 +31,13 @@ public class BillingSummaryResponse {
         private LocalDate nextDueDate;
         private Long projectedTotalCents;
         private LocalDate projectedChangeDate;
+        // EPIC-014/TASK-115: uso do plano único por conta (0 = ilimitado)
+        private int maxOrganizations;
+        private long organizationsUsed;
+        private int maxUsers;
+        private long usersUsed;
+        private int maxItems;
+        private long itemsUsedTotalAccount;
     }
 
     @Data
@@ -47,6 +54,8 @@ public class BillingSummaryResponse {
         private PendingChangeDTO pendingChange;
         private boolean cancelAtPeriodEnd;
         private LocalDate scheduledCancellationDate;
+        // EPIC-014/TASK-115: itens usados por esta organização dentro do pool da conta (null para o item USER)
+        private Long itemsUsedByOrg;
     }
 
     @Data

@@ -74,7 +74,6 @@ public class OrganizationsController {
 
     @PatchMapping("/{id}")
     @RequireTenant
-    @RequiresFullAccess(scope = AccessScope.ORGANIZATION)
     @Operation(summary = "Atualiza dados de uma organização")
     public OrganizationResponse update(@PathVariable Long id, @Valid @RequestBody UpdateOrganizationRequest req) {
         return service.update(id, req);
@@ -100,17 +99,17 @@ public class OrganizationsController {
 
     @GetMapping("/{orgCode}/subscription")
     @Operation(summary = "Retorna dados de assinatura de uma organização")
-    public BillingSubscriptionResponse.SubscriptionItemResponse getOrganizationSubscription(@PathVariable String orgCode) {
+    public BillingSubscriptionResponse.OrganizationSubscriptionResponse getOrganizationSubscription(@PathVariable String orgCode) {
         return service.getOrganizationSubscription(orgCode);
     }
 
     @PutMapping("/{orgCode}/subscription")
     @Operation(summary = "Adicionar nova organização para usuário")
-    public BillingSubscriptionResponse.SubscriptionItemResponse addOrganizationSubscription(@PathVariable String orgCode,
+    public BillingSubscriptionResponse.OrganizationSubscriptionResponse addOrganizationSubscription(@PathVariable String orgCode,
                                                                                             @RequestBody BillingSubscriptionResponse.SubscriptionItemRequest request,
                                                                                             HttpServletResponse response) {
 
-        BillingSubscriptionResponse.SubscriptionItemResponse subscription = service.addOrganizationSubscription(orgCode, request);
+        BillingSubscriptionResponse.OrganizationSubscriptionResponse subscription = service.addOrganizationSubscription(orgCode, request);
 
         String refreshedToken = usersService.issueRefreshedToken(request.payerUserId());
         ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from("accessToken", refreshedToken)

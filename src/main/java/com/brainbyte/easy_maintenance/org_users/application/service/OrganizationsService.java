@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
 import com.brainbyte.easy_maintenance.affiliates.domain.Affiliate;
+import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceItemRepository;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSubscriptionResponse;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
@@ -15,6 +16,7 @@ import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.Billing
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
+import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
@@ -56,6 +58,7 @@ public class OrganizationsService {
     private final AffiliateService affiliateService;
     private final BillingPlanFeaturesHelper billingPlanFeaturesHelper;
     private final UserOrganizationRepository userOrganizationRepository;
+    private final MaintenanceItemRepository maintenanceItemRepository;
 
     @Transactional
     public void applyReferralCode(String orgCode, String referralCode) {
@@ -231,26 +234,52 @@ public class OrganizationsService {
 
     }
 
+    // EPIC-014/TASK-113: plano único por conta — planCode/planName/valueCents refletem o item
+    // USER (conta), não mais um plano próprio da organização. Inclui uso do pool de itens.
     @Transactional(readOnly = true)
-    public BillingSubscriptionResponse.SubscriptionItemResponse getOrganizationSubscription(String orgCode) {
+    public BillingSubscriptionResponse.OrganizationSubscriptionResponse getOrganizationSubscription(String orgCode) {
         log.info("Getting subscription for organization: {}", orgCode);
-        BillingSubscriptionItem item = billingSubscriptionItemRepository
+        BillingSubscriptionItem orgItem = billingSubscriptionItemRepository
                 .findBySourceTypeAndSourceId(BillingSubscriptionItemSourceType.ORGANIZATION, orgCode)
                 .orElseThrow(() -> new NotFoundException("Assinatura não encontrada para organização: " + orgCode));
 
-        return new BillingSubscriptionResponse.SubscriptionItemResponse(
-                item.getId(),
-                item.getSourceId(),
-                item.getSourceType().name(),
-                item.getPlan().getCode(),
-                item.getPlan().getName(),
-                item.getValueCents(),
-                item.getNextPlan() != null ? item.getNextPlan().getCode() : null,
-                item.getPlanChangeEffectiveAt(),
-                item.getBillingSubscription().getStatus(),
-                item.getBillingSubscription().getCurrentPeriodStart(),
-                item.getBillingSubscription().getCurrentPeriodEnd(),
-                item.getActivatedAt()
+        List<BillingSubscriptionItem> accountItems = billingSubscriptionItemRepository
+                .findAllByBillingSubscriptionId(orgItem.getBillingSubscription().getId());
+
+        BillingSubscriptionItem userItem = accountItems.stream()
+                .filter(item -> item.getSourceType() == BillingSubscriptionItemSourceType.USER)
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("Assinatura da conta não encontrada para organização: " + orgCode));
+
+        List<String> orgCodesInAccount = accountItems.stream()
+                .filter(item -> item.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION)
+                .map(BillingSubscriptionItem::getSourceId)
+                .toList();
+
+        // EPIC-014 bugfix: TenantFilterAspect escopa MaintenanceItemRepository ao X-Org-Id da
+        // requisição atual — orgCode aqui pode ser uma organização diferente da ativa na sessão
+        // (ex.: tela de detalhes/billing consultando outra empresa do usuário), então a contagem
+        // precisa rodar com o filtro de tenant desligado.
+        long itemsUsedByOrg = TenantContext.runCrossOrg(() -> maintenanceItemRepository.countByOrganizationCode(orgCode));
+        long itemsUsedTotalAccount = TenantContext.runCrossOrg(() -> maintenanceItemRepository.countByOrganizationCodeIn(orgCodesInAccount));
+        int maxItemsAccount = billingPlanFeaturesHelper.parse(userItem.getPlan()).getMaxItems();
+
+        return new BillingSubscriptionResponse.OrganizationSubscriptionResponse(
+                orgItem.getId(),
+                orgItem.getSourceId(),
+                orgItem.getSourceType().name(),
+                userItem.getPlan().getCode(),
+                userItem.getPlan().getName(),
+                userItem.getValueCents(),
+                userItem.getNextPlan() != null ? userItem.getNextPlan().getCode() : null,
+                userItem.getPlanChangeEffectiveAt(),
+                orgItem.getBillingSubscription().getStatus(),
+                orgItem.getBillingSubscription().getCurrentPeriodStart(),
+                orgItem.getBillingSubscription().getCurrentPeriodEnd(),
+                orgItem.getActivatedAt(),
+                itemsUsedByOrg,
+                itemsUsedTotalAccount,
+                maxItemsAccount
         );
     }
 
@@ -295,19 +324,36 @@ public class OrganizationsService {
                 .toList();
     }
 
+    // EPIC-014/TASK-118: plano único por conta — uma organização nova nunca "escolhe" um plano
+    // próprio. Se a conta já tem assinatura, a organização herda o plano do item USER existente
+    // (o planCode do request é ignorado). O planCode do request só é usado no bootstrap raro de
+    // um usuário sem onboarding (admin), quando ainda não existe item USER para herdar — nesse
+    // caso ele também é usado para criar o item USER, garantindo que toda BillingSubscription
+    // sempre tenha um item USER (invariante usada por validateItemLimit/getOrganizationSubscription).
     @Transactional
-    public BillingSubscriptionResponse.SubscriptionItemResponse addOrganizationSubscription(String orgCode,
+    public BillingSubscriptionResponse.OrganizationSubscriptionResponse addOrganizationSubscription(String orgCode,
                                                                 BillingSubscriptionResponse.SubscriptionItemRequest request) {
 
         log.info("1. Obter ou inicializar BillingSubscription do usuário {}", request.payerUserId());
-        var billingSubscription = billingSubscriptionService.findByUser(request.payerUserId())
+        var existingSubscription = billingSubscriptionService.findByUser(request.payerUserId());
+        var billingSubscription = existingSubscription
                 .orElseGet(() -> initializeSubscriptionForUser(request.payerUserId(), request.paymentMethod()));
 
-        BillingPlan billingPlan = billingPlanRepository.findByCode(request.planCode())
-                .orElseThrow(() -> new NotFoundException(String.format("Não existe plano %s cadastrado", request.planCode())));
+        BillingPlan accountPlan;
+        if (existingSubscription.isPresent()) {
+            accountPlan = billingSubscriptionItemRepository
+                    .findBySourceTypeAndSourceId(BillingSubscriptionItemSourceType.USER, request.payerUserId().toString())
+                    .map(BillingSubscriptionItem::getPlan)
+                    .orElseThrow(() -> new NotFoundException("Plano da conta não encontrado para o usuário: " + request.payerUserId()));
+        } else {
+            accountPlan = billingPlanRepository.findByCode(request.planCode())
+                    .orElseThrow(() -> new NotFoundException(String.format("Não existe plano %s cadastrado", request.planCode())));
+            billingSubscriptionService.addItem(billingSubscription,
+                    BillingSubscriptionItemSourceType.USER, request.payerUserId().toString(), accountPlan);
+        }
 
         billingSubscriptionService.addItem(billingSubscription,
-                BillingSubscriptionItemSourceType.ORGANIZATION, orgCode, billingPlan);
+                BillingSubscriptionItemSourceType.ORGANIZATION, orgCode, accountPlan);
 
         return getOrganizationSubscription(orgCode);
     }

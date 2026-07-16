@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.org_users.application.service;
 
 import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
+import com.brainbyte.easy_maintenance.billing.application.service.BillingSubscriptionService;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
@@ -52,6 +53,7 @@ public class UsersService {
     private final BillingSubscriptionItemRepository billingSubscriptionItemRepository;
     private final BillingPlanFeaturesHelper billingPlanFeaturesHelper;
     private final UserOrganizationRepository userOrganizationRepository;
+    private final BillingSubscriptionService billingSubscriptionService;
 
     public UserDTO.UserResponse createUser(UserDTO.CreateUserRequest request) {
         log.info("Creating user {} ", request.email());
@@ -261,6 +263,10 @@ public class UsersService {
         return buildFullToken(user, orgCodes);
     }
 
+    // EPIC-014/TASK-118: vincular uma organização à conta de um usuário (fora do onboarding, ex.:
+    // criar 2ª/3ª organização) agora provisiona automaticamente o item ORGANIZATION na
+    // BillingSubscription do usuário, herdando o plano já contratado — o frontend não precisa
+    // mais fazer uma chamada explícita de "assinatura" para isso.
     @Transactional
     public void addOrganization(Long userId, String orgCode) {
         log.info("Adding organization {} to user {}", orgCode, userId);
@@ -274,6 +280,30 @@ public class UsersService {
         validateOrgLimit(userId);
 
         saveUserOrganization(orgCode, user);
+
+        provisionOrganizationBilling(userId, orgCode);
+    }
+
+    private void provisionOrganizationBilling(Long userId, String orgCode) {
+        var userItemOpt = billingSubscriptionItemRepository
+                .findBySourceTypeAndSourceId(BillingSubscriptionItemSourceType.USER, userId.toString());
+
+        if (userItemOpt.isEmpty()) {
+            log.warn("[Billing] Usuário {} não possui item USER — organização {} vinculada sem provisionar billing", userId, orgCode);
+            return;
+        }
+
+        boolean alreadyProvisioned = billingSubscriptionItemRepository
+                .findBySourceTypeAndSourceId(BillingSubscriptionItemSourceType.ORGANIZATION, orgCode)
+                .isPresent();
+
+        if (alreadyProvisioned) {
+            return;
+        }
+
+        var userItem = userItemOpt.get();
+        billingSubscriptionService.addItem(userItem.getBillingSubscription(),
+                BillingSubscriptionItemSourceType.ORGANIZATION, orgCode, userItem.getPlan());
     }
 
     @Transactional

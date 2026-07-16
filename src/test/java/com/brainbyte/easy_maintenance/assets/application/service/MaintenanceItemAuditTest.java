@@ -11,6 +11,7 @@ import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.Maintena
 import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlan;
 import com.brainbyte.easy_maintenance.billing.domain.BillingPlanFeatures;
+import com.brainbyte.easy_maintenance.billing.domain.BillingSubscription;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItemSourceType;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionItemRepository;
@@ -57,13 +58,26 @@ class MaintenanceItemAuditTest {
     }
 
     private void stubSubscriptionUnlimited() {
+        BillingSubscription subscription = BillingSubscription.builder().id(1L).build();
         BillingPlan plan = BillingPlan.builder().code("PRO").name("Pro").priceCents(9900).build();
         when(billingPlanFeaturesHelper.parse(plan))
                 .thenReturn(BillingPlanFeatures.builder().maxItems(0).build());
-        BillingSubscriptionItem sub = BillingSubscriptionItem.builder().plan(plan).build();
-        when(billingSubscriptionItemRepository.findAllBySourceTypeAndSourceIdIn(
-                eq(BillingSubscriptionItemSourceType.ORGANIZATION), anyList()))
-                .thenReturn(List.of(sub));
+
+        BillingSubscriptionItem userItem = BillingSubscriptionItem.builder()
+                .billingSubscription(subscription)
+                .sourceType(BillingSubscriptionItemSourceType.USER)
+                .plan(plan)
+                .build();
+        BillingSubscriptionItem orgItem = BillingSubscriptionItem.builder()
+                .billingSubscription(subscription)
+                .sourceType(BillingSubscriptionItemSourceType.ORGANIZATION)
+                .sourceId(ORG)
+                .build();
+
+        when(billingSubscriptionItemRepository.findBySourceTypeAndSourceId(BillingSubscriptionItemSourceType.ORGANIZATION, ORG))
+                .thenReturn(Optional.of(orgItem));
+        when(billingSubscriptionItemRepository.findAllByBillingSubscriptionId(1L))
+                .thenReturn(List.of(userItem, orgItem));
     }
 
     private CreateItemRequest operacionalRequest() {

@@ -25,6 +25,7 @@ import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.commons.exceptions.TenantException;
 import com.brainbyte.easy_maintenance.infrastructure.audit.AuditService;
+import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -122,6 +123,16 @@ public class MaintenanceItemService {
 
         NormInfo normInfo = resolveNormInfo(maintenanceItem.getNormId());
         return IMaintenanceItemMapper.INSTANCE.toItemResponse(maintenanceItem, normInfo.name(), normInfo.pendingReview());
+
+    }
+
+    public MaintenanceItem findEntityForOrg(String orgId, Long itemId) {
+
+        MaintenanceItem maintenanceItem = findById(itemId);
+
+        validateTenant(orgId, maintenanceItem);
+
+        return maintenanceItem;
 
     }
 
@@ -233,6 +244,40 @@ public class MaintenanceItemService {
         return CursorPageResponse.ofCursor(content, nextCursor, prevCursor, hasMore, size);
     }
 
+    public List<ItemResponse> findAllForCalendar(String orgId,
+                                                  LocalDate fromDate,
+                                                  LocalDate toDate,
+                                                  ItemStatus status,
+                                                  String itemType,
+                                                  ItemCategory categoria) {
+        if (fromDate == null || toDate == null) {
+            throw new RuleException("fromDate e toDate são obrigatórios");
+        }
+        if (fromDate.isAfter(toDate)) {
+            throw new RuleException("fromDate não pode ser posterior a toDate");
+        }
+
+        Specification<MaintenanceItem> spec = MaintenanceItemSpecs
+                .filter(orgId, status, itemType, categoria)
+                .and(MaintenanceItemSpecs.dueDateBetween(fromDate, toDate));
+
+        List<MaintenanceItem> items = repository.findAll(spec);
+
+        Set<Long> itemIds = items.stream().map(MaintenanceItem::getId).collect(Collectors.toSet());
+        Set<Long> idsWithMaintenance = itemIds.isEmpty()
+                ? Set.of()
+                : maintenanceRepository.findItemIdsWithMaintenances(itemIds);
+
+        return items.stream()
+                .map(item -> {
+                    boolean canUpdate = !idsWithMaintenance.contains(item.getId());
+                    String reason = canUpdate ? null : "ITEM_ALREADY_USED_IN_MAINTENANCE";
+                    NormInfo ni = resolveNormInfo(item.getNormId());
+                    return IMaintenanceItemMapper.INSTANCE.toItemResponse(item, ni.name(), ni.pendingReview(), canUpdate, reason);
+                })
+                .toList();
+    }
+
     public void remove(String orgId, Long itemId) {
         log.info("remove item: {}", itemId);
 
@@ -290,28 +335,49 @@ public class MaintenanceItemService {
         return new ItemPermissionResponse(!existsItemToMaintenance, "ITEM_ALREADY_USED_IN_MAINTENANCE");
     }
 
+    // EPIC-014/TASK-111: maxItems é um pool compartilhado entre todas as organizações da mesma
+    // BillingSubscription (conta) — não mais um teto isolado por organização.
     private void validateItemLimit(String orgId) {
-        List<BillingSubscriptionItem> subscriptionItems = billingSubscriptionItemRepository
-                .findAllBySourceTypeAndSourceIdIn(
-                        BillingSubscriptionItemSourceType.ORGANIZATION, List.of(orgId));
+        BillingSubscriptionItem orgItem = billingSubscriptionItemRepository
+                .findBySourceTypeAndSourceId(BillingSubscriptionItemSourceType.ORGANIZATION, orgId)
+                .orElseThrow(() -> {
+                    log.warn("[ItemLimit] Nenhuma assinatura encontrada para organização {}", orgId);
+                    return new RuleException("Sua organização não possui uma assinatura ativa. Acesse o painel de cobrança para assinar um plano.");
+                });
 
-        if (subscriptionItems.isEmpty()) {
-            log.warn("[ItemLimit] Nenhuma assinatura encontrada para organização {}", orgId);
-            throw new RuleException("Sua organização não possui uma assinatura ativa. Acesse o painel de cobrança para assinar um plano.");
-        }
+        List<BillingSubscriptionItem> accountItems = billingSubscriptionItemRepository
+                .findAllByBillingSubscriptionId(orgItem.getBillingSubscription().getId());
 
-        BillingPlanFeatures features = billingPlanFeaturesHelper.parse(subscriptionItems.getFirst().getPlan());
+        BillingSubscriptionItem userItem = accountItems.stream()
+                .filter(item -> item.getSourceType() == BillingSubscriptionItemSourceType.USER)
+                .findFirst()
+                .orElseThrow(() -> {
+                    log.warn("[ItemLimit] Nenhum item USER encontrado na assinatura da organização {}", orgId);
+                    return new RuleException("Sua conta não possui uma assinatura ativa. Acesse o painel de cobrança para assinar um plano.");
+                });
+
+        BillingPlanFeatures features = billingPlanFeaturesHelper.parse(userItem.getPlan());
         int maxItems = features.getMaxItems();
 
         if (maxItems <= 0) {
             return; // sem limite configurado — não bloquear
         }
 
-        long currentItems = repository.countByOrganizationCode(orgId);
+        List<String> orgCodesInAccount = accountItems.stream()
+                .filter(item -> item.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION)
+                .map(BillingSubscriptionItem::getSourceId)
+                .toList();
+
+        // EPIC-014 bugfix: validateItemLimit roda com o X-Org-Id da própria organização sendo
+        // escrita — TenantFilterAspect então zera a contagem de itens de qualquer OUTRA
+        // organização da conta, fazendo o pool cross-org (TASK-111) colapsar para o teto de uma
+        // única organização em vez da soma real. Sem isso, o limite da conta não é de fato
+        // aplicado quando o usuário tem múltiplas organizações.
+        long currentItems = TenantContext.runCrossOrg(() -> repository.countByOrganizationCodeIn(orgCodesInAccount));
 
         if (currentItems >= maxItems) {
             throw new RuleException(String.format(
-                    "Limite de itens atingido (%d/%d). Faça upgrade do seu plano para cadastrar mais itens.",
+                    "Limite de itens da conta atingido (%d/%d) somando todas as suas organizações. Faça upgrade do seu plano para cadastrar mais itens.",
                     currentItems, maxItems));
         }
     }

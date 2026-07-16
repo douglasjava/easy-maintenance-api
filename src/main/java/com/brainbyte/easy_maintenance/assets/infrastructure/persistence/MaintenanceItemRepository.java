@@ -21,6 +21,8 @@ public interface MaintenanceItemRepository extends JpaRepository<MaintenanceItem
 
   long countByOrganizationCode(String orgId);
 
+  long countByOrganizationCodeIn(java.util.Collection<String> orgIds);
+
   long countByOrganizationCodeAndStatus(String orgId, ItemStatus status);
 
   @Query("select mi.status as status, count(mi) as cnt from MaintenanceItem mi where mi.organizationCode = :org group by mi.status")

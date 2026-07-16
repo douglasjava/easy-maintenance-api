@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.kernel.tenant;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 
 public final class TenantContext {
 
@@ -46,6 +47,28 @@ public final class TenantContext {
   public static void clear() {
     CURRENT.remove();
     SYSTEM_CONTEXT.remove();
+  }
+
+  /**
+   * Runs a legitimately cross-organization read (e.g. summing a value across every organization
+   * of an already-authorized account) with the Hibernate tenant filter bypassed, then restores the
+   * previous system-context state. The caller is responsible for ensuring any org codes involved
+   * were already resolved from data the current user/account is authorized to see — this does not
+   * perform any authorization check itself, it only lifts the single-tenant SQL filter.
+   *
+   * <p>Established pattern for the class of bug where {@code TenantFilterAspect} silently ANDs the
+   * active request's org code onto every {@code MaintenanceItemRepository} query, making
+   * cross-org aggregates (pool totals, per-org breakdowns for a multi-org account) collapse to only
+   * the currently active organization.
+   */
+  public static <T> T runCrossOrg(Supplier<T> action) {
+    boolean alreadySystem = isSystemContext();
+    if (!alreadySystem) setSystemContext();
+    try {
+      return action.get();
+    } finally {
+      if (!alreadySystem) clearSystemContext();
+    }
   }
 
 }

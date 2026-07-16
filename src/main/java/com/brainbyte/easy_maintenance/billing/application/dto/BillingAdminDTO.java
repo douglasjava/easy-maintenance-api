@@ -63,6 +63,7 @@ public class BillingAdminDTO {
             Long itemId,
             Long subscriptionId,
             BillingSubscriptionItemSourceType sourceType,
+            String sourceId,
             String planCode,
             Long payerAccountId,
             String payerName,
@@ -72,7 +73,11 @@ public class BillingAdminDTO {
             Instant periodStart,
             @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
             Instant periodEnd,
-            Long totalCents
+            Long totalCents,
+            // EPIC-014/TASK-116: uso do pool compartilhado de itens (TASK-111) para suporte/admin
+            Long itemsUsedByOrg,
+            Long itemsUsedTotalAccount,
+            Integer maxItems
     ) {}
 
 }

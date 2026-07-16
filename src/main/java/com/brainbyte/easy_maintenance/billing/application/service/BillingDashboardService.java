@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.billing.application.service;
 
+import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceItemRepository;
 import com.brainbyte.easy_maintenance.billing.application.dto.dashboard.DashboardResponseDTO;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.BillingSummaryResponse;
 import com.brainbyte.easy_maintenance.billing.application.dto.response.PendingPaymentResponse;
@@ -10,8 +11,10 @@ import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.Billing
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.BillingSubscriptionRepository;
 import com.brainbyte.easy_maintenance.billing.infrastructure.persistence.InvoiceRepository;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
+import com.brainbyte.easy_maintenance.kernel.tenant.TenantContext;
 import com.brainbyte.easy_maintenance.org_users.domain.Organization;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.OrganizationRepository;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import com.brainbyte.easy_maintenance.payment.domain.Payment;
 import com.brainbyte.easy_maintenance.payment.domain.enums.PaymentStatus;
 import com.brainbyte.easy_maintenance.payment.infrastructure.persistence.PaymentRepository;
@@ -39,6 +42,9 @@ public class BillingDashboardService {
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
     private final OrganizationRepository organizationRepository;
+    private final UserOrganizationRepository userOrganizationRepository;
+    private final MaintenanceItemRepository maintenanceItemRepository;
+    private final BillingPlanFeaturesHelper billingPlanFeaturesHelper;
 
     @Transactional(readOnly = true)
     public BillingSummaryResponse getBillingSummary(Long userId) {
@@ -60,6 +66,22 @@ public class BillingDashboardService {
         var items = getBillingSubscriptionItemActive(subscription.getId());
         Map<String, String> orgNames = getOrganizationNames(items);
 
+        List<String> orgCodes = items.stream()
+                .filter(item -> item.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION)
+                .map(BillingSubscriptionItem::getSourceId)
+                .toList();
+
+        var userItemOpt = items.stream()
+                .filter(item -> item.getSourceType() == BillingSubscriptionItemSourceType.USER)
+                .findFirst();
+
+        // EPIC-014 bugfix: TenantFilterAspect escopa toda query de MaintenanceItemRepository ao
+        // X-Org-Id da requisição atual — sem bypassar, countByOrganizationCode(orgCode) sempre
+        // retorna 0 para qualquer organização que não seja a atualmente ativa na sessão. orgCodes
+        // já vem restrito às organizações da conta do próprio usuário autenticado (items acima).
+        Map<String, Long> itemsUsedByOrgCode = TenantContext.runCrossOrg(() -> orgCodes.stream()
+                .collect(Collectors.toMap(code -> code, maintenanceItemRepository::countByOrganizationCode)));
+
         long cancelingCents = items.stream()
                 .filter(BillingSubscriptionItem::isCancelAtPeriodEnd)
                 .mapToLong(BillingSubscriptionItem::getValueCents)
@@ -68,16 +90,16 @@ public class BillingDashboardService {
         Long projectedTotal = cancelingCents > 0 ? currentTotal - cancelingCents : null;
 
         return BillingSummaryResponse.builder()
-                .subscription(mapToSubscriptionSummary(subscription, projectedTotal))
+                .subscription(mapToSubscriptionSummary(subscription, projectedTotal, userItemOpt.orElse(null), orgCodes))
                 .items(items.stream()
-                        .map(item -> mapToSubscriptionItemDTO(item, orgNames, subscription.getNextDueDate()))
+                        .map(item -> mapToSubscriptionItemDTO(item, orgNames, subscription.getNextDueDate(), itemsUsedByOrgCode))
                         .toList())
                 .invoices(mapInvoicesToSummary(recentInvoices))
                 .billingAccount(mapAccountToSummary(accountOpt.orElse(null)))
                 .build();
     }
 
-    private static BillingSummaryResponse.SubscriptionItemDTO mapToSubscriptionItemDTO(BillingSubscriptionItem item, Map<String, String> orgNames, LocalDate subscriptionNextDueDate) {
+    private static BillingSummaryResponse.SubscriptionItemDTO mapToSubscriptionItemDTO(BillingSubscriptionItem item, Map<String, String> orgNames, LocalDate subscriptionNextDueDate, Map<String, Long> itemsUsedByOrgCode) {
         return BillingSummaryResponse.SubscriptionItemDTO.builder()
                 .id(item.getId())
                 .type(item.getSourceType().name())
@@ -88,6 +110,8 @@ public class BillingDashboardService {
                 .pendingChange(item.getNextPlan() != null ? mapToPendingChangeDTO(item) : null)
                 .cancelAtPeriodEnd(item.isCancelAtPeriodEnd())
                 .scheduledCancellationDate(item.isCancelAtPeriodEnd() ? subscriptionNextDueDate : null)
+                .itemsUsedByOrg(item.getSourceType() == BillingSubscriptionItemSourceType.ORGANIZATION
+                        ? itemsUsedByOrgCode.get(item.getSourceId()) : null)
                 .build();
     }
 
@@ -106,7 +130,31 @@ public class BillingDashboardService {
                 .build();
     }
 
-    private static BillingSummaryResponse.SubscriptionSummaryDTO mapToSubscriptionSummary(BillingSubscription subscription, Long projectedTotalCents) {
+    private BillingSummaryResponse.SubscriptionSummaryDTO mapToSubscriptionSummary(
+            BillingSubscription subscription, Long projectedTotalCents,
+            BillingSubscriptionItem userItem, List<String> orgCodes) {
+
+        int maxOrganizations = 0;
+        int maxUsers = 0;
+        int maxItems = 0;
+        if (userItem != null && userItem.getPlan() != null) {
+            var features = billingPlanFeaturesHelper.parse(userItem.getPlan());
+            maxOrganizations = features.getMaxOrganizations();
+            maxUsers = features.getMaxUsers();
+            maxItems = features.getMaxItems();
+        }
+
+        long organizationsUsed = orgCodes.size();
+        long usersUsed = orgCodes.isEmpty() ? 0L
+                : userOrganizationRepository.findAllByOrganizationCodeInWithUser(orgCodes).stream()
+                        .map(uo -> uo.getUser().getId())
+                        .distinct()
+                        .count();
+        // EPIC-014 bugfix: mesma questão do TenantFilterAspect — soma cross-org precisa rodar
+        // com o filtro de tenant desligado, senão só a organização ativa da sessão é contada.
+        long itemsUsedTotalAccount = orgCodes.isEmpty() ? 0L
+                : TenantContext.runCrossOrg(() -> maintenanceItemRepository.countByOrganizationCodeIn(orgCodes));
+
         return BillingSummaryResponse.SubscriptionSummaryDTO.builder()
                 .id(subscription.getId())
                 .status(subscription.getStatus().name())
@@ -115,6 +163,12 @@ public class BillingDashboardService {
                 .nextDueDate(subscription.getNextDueDate())
                 .projectedTotalCents(projectedTotalCents)
                 .projectedChangeDate(projectedTotalCents != null ? subscription.getNextDueDate() : null)
+                .maxOrganizations(maxOrganizations)
+                .organizationsUsed(organizationsUsed)
+                .maxUsers(maxUsers)
+                .usersUsed(usersUsed)
+                .maxItems(maxItems)
+                .itemsUsedTotalAccount(itemsUsedTotalAccount)
                 .build();
     }
 
