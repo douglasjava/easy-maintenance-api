@@ -1,0 +1,3 @@
+ALTER TABLE users
+    ADD COLUMN phone_number VARCHAR(20) NULL,
+    ADD COLUMN whatsapp_opt_in BOOLEAN NOT NULL DEFAULT FALSE;
