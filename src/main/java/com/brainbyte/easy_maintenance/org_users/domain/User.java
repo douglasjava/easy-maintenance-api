@@ -46,6 +46,13 @@ public class User {
     @Column(name = "referral_code", length = 8)
     private String referralCode;
 
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
+
+    @Column(name = "whatsapp_opt_in", nullable = false)
+    @Builder.Default
+    private boolean whatsappOptIn = false;
+
     @Column(name = "created_at")
     private Instant createdAt;
 
