@@ -44,6 +44,7 @@ public class WhatsAppNotificationProvider implements NotificationProvider {
                 wamid, payload.getRecipient(), templateName);
 
         return new WhatsAppSendResult(wamid);
+
     }
 
     // Ordem fixa dos parâmetros posicionais do template (nome do destinatário, nome do item, data
@@ -55,6 +56,7 @@ public class WhatsAppNotificationProvider implements NotificationProvider {
         String recipientName = data.containsKey("recipientName")
                 ? String.valueOf(data.get("recipientName"))
                 : String.valueOf(payload.getRecipientName());
+
         String itemName = String.valueOf(data.getOrDefault("itemName", ""));
         String dueDate = String.valueOf(data.getOrDefault("dueDate", ""));
 
@@ -65,4 +67,5 @@ public class WhatsAppNotificationProvider implements NotificationProvider {
     public NotificationType getType() {
         return NotificationType.WHATSAPP;
     }
+
 }

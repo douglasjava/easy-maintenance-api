@@ -53,4 +53,5 @@ public class WhatsAppTemplateMessageRequest {
 
     public record Parameter(String type, String text) {
     }
+
 }

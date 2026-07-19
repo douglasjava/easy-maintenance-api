@@ -21,11 +21,11 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Cliente da Graph API da Meta (WhatsApp Cloud API), no mesmo estilo do AsaasClient: WebClient
  * próprio (não um bean compartilhado), timeout por chamada, classificação de erro dedicada.
- *
  * Diferente do AsaasClient/MailerSendServiceImpl, o retry aqui é seletivo — só falhas
  * transitórias (ver mapError) — configurado via resilience4j.retry.instances.whatsapp em
  * application.properties (retry-exceptions/ignore-exceptions), não "retry em qualquer exceção".
@@ -49,15 +49,18 @@ public class WhatsAppClient {
     public WhatsAppClient(WhatsAppProperties properties,
                           BusinessMetricsService businessMetricsService,
                           ObjectMapper objectMapper) {
+
         this.properties = properties;
         this.businessMetricsService = businessMetricsService;
         this.objectMapper = objectMapper;
+
         this.webClient = WebClient.builder()
                 .baseUrl(properties.baseUrl())
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + properties.apiToken())
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .filter(logRequest())
                 .build();
+
     }
 
     @Retry(name = "whatsapp", fallbackMethod = "sendTemplateMessageFallback")
@@ -74,12 +77,17 @@ public class WhatsAppClient {
                     .timeout(WHATSAPP_TIMEOUT)
                     .block();
 
-            String wamid = (response != null && response.messages() != null && !response.messages().isEmpty())
-                    ? response.messages().get(0).id()
-                    : null;
+            String wamid = Optional.ofNullable(response)
+                    .map(WhatsAppMessageResponse::messages)
+                    .filter(messages -> !messages.isEmpty())
+                    .map(List::getFirst)
+                    .map(WhatsAppMessageResponse.MessageId::id)
+                    .orElse(null);
 
             businessMetricsService.counter("whatsapp.sent");
+
             return wamid;
+
         } catch (WhatsAppTransientException | WhatsAppPermanentException e) {
             throw e;
         } catch (Exception e) {
@@ -87,10 +95,12 @@ public class WhatsAppClient {
             throw new WhatsAppTransientException(
                     "Falha transitória (conexão/timeout) ao enviar WhatsApp: " + e.getMessage(), e);
         }
+
     }
 
     public String sendTemplateMessageFallback(String toE164Phone, String templateName,
                                                List<String> templateParams, Exception ex) {
+
         businessMetricsService.counter("whatsapp.failed");
 
         if (ex instanceof WhatsAppPermanentException permanentException) {
@@ -103,6 +113,7 @@ public class WhatsAppClient {
                 toE164Phone, templateName, ex.getMessage());
         throw new WhatsAppTransientException(
                 "WhatsApp não pôde ser entregue após todas as tentativas: " + ex.getMessage(), ex);
+
     }
 
     private Mono<? extends Throwable> mapError(ClientResponse response) {
@@ -139,6 +150,7 @@ public class WhatsAppClient {
                     return new WhatsAppPermanentException(
                             "Falha permanente ao enviar WhatsApp: HTTP " + status + " - " + body);
                 });
+
     }
 
     private Integer extractErrorCode(String body) {
@@ -152,6 +164,7 @@ public class WhatsAppClient {
 
     private WhatsAppTemplateMessageRequest buildRequest(String toE164Phone, String templateName,
                                                           List<String> templateParams) {
+
         // A Graph API espera o número sem o prefixo "+" (ex.: "5531972139145").
         String toDigitsOnly = toE164Phone.startsWith("+") ? toE164Phone.substring(1) : toE164Phone;
 
@@ -172,6 +185,7 @@ public class WhatsAppClient {
                                 .build()))
                         .build())
                 .build();
+
     }
 
     private ExchangeFilterFunction logRequest() {
@@ -180,4 +194,5 @@ public class WhatsAppClient {
             return Mono.just(request);
         });
     }
+
 }
