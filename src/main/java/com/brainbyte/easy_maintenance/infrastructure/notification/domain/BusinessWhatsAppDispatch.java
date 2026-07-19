@@ -57,6 +57,16 @@ public class BusinessWhatsAppDispatch {
     @Column(name = "recipient_phone")
     private String recipientPhone;
 
+    @Column(name = "reference_label")
+    private String referenceLabel;
+
+    // Calculado uma vez, na criação do dispatch, a partir do conjunto de canais resolvido pelo
+    // NotificationChannelResolver (TASK-130). Persistido porque o WhatsAppDeferredSendJob (TASK-131)
+    // processa esse dispatch depois, sem acesso ao NotificationEvent/canais originais — precisa saber
+    // se o fallback pra e-mail duplicaria um envio já coberto.
+    @Column(name = "email_already_covered", nullable = false)
+    private boolean emailAlreadyCovered;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private BusinessWhatsAppDispatchStatus status;
