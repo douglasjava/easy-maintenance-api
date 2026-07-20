@@ -3,6 +3,7 @@ package com.brainbyte.easy_maintenance.infrastructure.notification.domain;
 import com.brainbyte.easy_maintenance.infrastructure.notification.enums.BusinessWhatsAppDispatchStatus;
 import com.brainbyte.easy_maintenance.infrastructure.notification.enums.NotificationEventType;
 import com.brainbyte.easy_maintenance.infrastructure.notification.enums.NotificationReferenceType;
+import com.brainbyte.easy_maintenance.infrastructure.notification.enums.WhatsAppDeliveryStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -79,6 +80,25 @@ public class BusinessWhatsAppDispatch {
 
     @Column(name = "sent_at")
     private Instant sentAt;
+
+    // Colunas abaixo alimentadas pelo webhook de status da Meta (TASK-128), via lookup por wamid —
+    // ver migration V83. deliveryStatus é distinto de status: status reflete o resultado do nosso
+    // envio outbound; deliveryStatus reflete o ciclo de vida da mensagem já aceita pela Graph API.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_status")
+    private WhatsAppDeliveryStatus deliveryStatus;
+
+    @Column(name = "delivered_at")
+    private Instant deliveredAt;
+
+    @Column(name = "read_at")
+    private Instant readAt;
+
+    @Column(name = "failed_error_code")
+    private String failedErrorCode;
+
+    @Column(name = "failed_error_message", columnDefinition = "TEXT")
+    private String failedErrorMessage;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

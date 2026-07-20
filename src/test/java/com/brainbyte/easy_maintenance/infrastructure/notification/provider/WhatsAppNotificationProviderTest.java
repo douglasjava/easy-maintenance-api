@@ -27,7 +27,8 @@ class WhatsAppNotificationProviderTest {
 
     private WhatsAppNotificationProvider provider() {
         WhatsAppProperties properties = new WhatsAppProperties(
-                "http://localhost", "token", "phone-id", "waba-id", "vencimento_manutencao");
+                "http://localhost", "token", "phone-id", "waba-id", "vencimento_manutencao",
+                "verify-token", "app-secret");
         return new WhatsAppNotificationProvider(whatsAppClient, properties);
     }
 
