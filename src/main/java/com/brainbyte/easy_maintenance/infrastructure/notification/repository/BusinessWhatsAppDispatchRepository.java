@@ -27,6 +27,8 @@ public interface BusinessWhatsAppDispatchRepository extends JpaRepository<Busine
 
     List<BusinessWhatsAppDispatch> findAllByStatus(BusinessWhatsAppDispatchStatus status);
 
+    Optional<BusinessWhatsAppDispatch> findByWamid(String wamid);
+
     @Query("SELECT COUNT(d) FROM BusinessWhatsAppDispatch d " +
             "WHERE d.organizationCode = :orgCode " +
             "AND d.status = 'SENT' " +

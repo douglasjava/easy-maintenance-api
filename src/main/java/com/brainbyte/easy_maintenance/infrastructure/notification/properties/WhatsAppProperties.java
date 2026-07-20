@@ -8,6 +8,8 @@ public record WhatsAppProperties(
         String apiToken,
         String phoneNumberId,
         String wabaId,
-        String defaultTemplateName
+        String defaultTemplateName,
+        String webhookVerifyToken,
+        String appSecret
 ) {
 }

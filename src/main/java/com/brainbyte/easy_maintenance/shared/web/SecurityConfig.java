@@ -79,6 +79,7 @@ public class SecurityConfig {
                         .requestMatchers("/easy-maintenance/api/v1/landing/leads").permitAll()
                         .requestMatchers("/easy-maintenance/api/v1/affiliates/**").permitAll()
                         .requestMatchers("/easy-maintenance/api/v1/public/webhooks/asaas").permitAll()
+                        .requestMatchers("/easy-maintenance/api/v1/public/webhooks/whatsapp").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

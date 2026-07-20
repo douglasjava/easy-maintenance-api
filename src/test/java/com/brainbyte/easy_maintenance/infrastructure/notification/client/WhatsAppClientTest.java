@@ -33,7 +33,9 @@ class WhatsAppClientTest {
                 "fake-token",
                 "123456",
                 "789",
-                "vencimento_manutencao"
+                "vencimento_manutencao",
+                "verify-token",
+                "app-secret"
         );
 
         client = new WhatsAppClient(properties, new BusinessMetricsService(new SimpleMeterRegistry()), new ObjectMapper());
