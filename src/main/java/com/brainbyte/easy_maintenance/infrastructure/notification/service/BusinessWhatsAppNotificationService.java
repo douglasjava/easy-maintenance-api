@@ -12,7 +12,7 @@ import com.brainbyte.easy_maintenance.infrastructure.notification.enums.Notifica
 import com.brainbyte.easy_maintenance.infrastructure.notification.provider.WhatsAppNotificationProvider;
 import com.brainbyte.easy_maintenance.infrastructure.notification.repository.BusinessWhatsAppDispatchRepository;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
-import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRecipient;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -88,13 +88,14 @@ public class BusinessWhatsAppNotificationService {
      */
     @Transactional
     public void attemptSend(BusinessWhatsAppDispatch dispatch) {
-        Optional<User> recipientOpt = resolveRecipient(dispatch.getOrganizationCode());
+        Optional<UserOrganizationRecipient> recipientOpt = resolveRecipient(dispatch.getOrganizationCode());
         if (recipientOpt.isEmpty()) {
             log.warn("[BusinessWhatsApp] Destinatário não encontrado para organização {}", dispatch.getOrganizationCode());
             saveSkipped(dispatch, BusinessWhatsAppDispatchStatus.SKIPPED_INVALID_RECIPIENT);
             return;
         }
-        User recipient = recipientOpt.get();
+        User recipient = recipientOpt.get().user();
+        String organizationName = recipientOpt.get().organizationName();
 
         if (!recipient.isWhatsappOptIn()) {
             log.info("[BusinessWhatsApp] Usuário {} não tem opt-in de WhatsApp — pulando.", recipient.getId());
@@ -134,12 +135,12 @@ public class BusinessWhatsAppNotificationService {
             return;
         }
 
-        send(dispatch, recipient, normalizedPhone.get());
+        send(dispatch, recipient, organizationName, normalizedPhone.get());
     }
 
-    private void send(BusinessWhatsAppDispatch dispatch, User recipient, String normalizedPhone) {
+    private void send(BusinessWhatsAppDispatch dispatch, User recipient, String organizationName, String normalizedPhone) {
         try {
-            NotificationPayload payload = buildPayload(dispatch, recipient, normalizedPhone);
+            NotificationPayload payload = buildPayload(dispatch, recipient, organizationName, normalizedPhone);
             WhatsAppSendResult result = whatsAppProvider.sendTemplateMessage(payload);
 
             dispatch.setStatus(BusinessWhatsAppDispatchStatus.SENT);
@@ -239,14 +240,14 @@ public class BusinessWhatsAppNotificationService {
         dispatchRepository.save(dispatch);
     }
 
-    private Optional<User> resolveRecipient(String organizationCode) {
-        return userOrganizationRepository.findAllByOrganizationCodeWithUser(organizationCode)
+    private Optional<UserOrganizationRecipient> resolveRecipient(String organizationCode) {
+        return userOrganizationRepository.findRecipientsWithOrganizationName(organizationCode)
                 .stream()
-                .map(UserOrganization::getUser)
                 .findFirst();
     }
 
-    private NotificationPayload buildPayload(BusinessWhatsAppDispatch dispatch, User user, String normalizedPhone) {
+    private NotificationPayload buildPayload(BusinessWhatsAppDispatch dispatch, User user, String organizationName,
+                                              String normalizedPhone) {
         String itemName = dispatch.getReferenceLabel();
         String dueDate = dispatch.getDueDate() != null ? dispatch.getDueDate().toString() : "";
 
@@ -256,7 +257,9 @@ public class BusinessWhatsAppNotificationService {
                 .templateData(Map.of(
                         "recipientName", user.getName(),
                         "itemName", itemName != null ? itemName : "",
-                        "dueDate", dueDate))
+                        "companyName", organizationName != null ? organizationName : "",
+                        "dueDate", dueDate,
+                        "itemId", String.valueOf(dispatch.getReferenceId())))
                 .build();
     }
 }

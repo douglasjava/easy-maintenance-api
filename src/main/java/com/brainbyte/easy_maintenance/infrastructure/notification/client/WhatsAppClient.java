@@ -64,8 +64,9 @@ public class WhatsAppClient {
     }
 
     @Retry(name = "whatsapp", fallbackMethod = "sendTemplateMessageFallback")
-    public String sendTemplateMessage(String toE164Phone, String templateName, List<String> templateParams) {
-        WhatsAppTemplateMessageRequest request = buildRequest(toE164Phone, templateName, templateParams);
+    public String sendTemplateMessage(String toE164Phone, String templateName, List<String> templateParams,
+                                       String buttonUrlParam) {
+        WhatsAppTemplateMessageRequest request = buildRequest(toE164Phone, templateName, templateParams, buttonUrlParam);
 
         try {
             WhatsAppMessageResponse response = webClient.post()
@@ -99,7 +100,7 @@ public class WhatsAppClient {
     }
 
     public String sendTemplateMessageFallback(String toE164Phone, String templateName,
-                                               List<String> templateParams, Exception ex) {
+                                               List<String> templateParams, String buttonUrlParam, Exception ex) {
 
         businessMetricsService.counter("whatsapp.failed");
 
@@ -163,14 +164,23 @@ public class WhatsAppClient {
     }
 
     private WhatsAppTemplateMessageRequest buildRequest(String toE164Phone, String templateName,
-                                                          List<String> templateParams) {
+                                                          List<String> templateParams, String buttonUrlParam) {
 
         // A Graph API espera o número sem o prefixo "+" (ex.: "5531972139145").
         String toDigitsOnly = toE164Phone.startsWith("+") ? toE164Phone.substring(1) : toE164Phone;
 
-        List<WhatsAppTemplateMessageRequest.Parameter> parameters = templateParams.stream()
+        List<WhatsAppTemplateMessageRequest.Parameter> bodyParameters = templateParams.stream()
                 .map(value -> new WhatsAppTemplateMessageRequest.Parameter("text", value))
                 .toList();
+
+        // Botão de URL dinâmica do template (ex.: vencimento_manutencao_v2 → link do item) — parâmetro
+        // separado dos 5 parâmetros do corpo, por exigência da Graph API para components[].type=button.
+        WhatsAppTemplateMessageRequest.Component buttonComponent = WhatsAppTemplateMessageRequest.Component.builder()
+                .type("button")
+                .subType("url")
+                .index("0")
+                .parameters(List.of(new WhatsAppTemplateMessageRequest.Parameter("text", buttonUrlParam)))
+                .build();
 
         return WhatsAppTemplateMessageRequest.builder()
                 .messagingProduct("whatsapp")
@@ -179,10 +189,12 @@ public class WhatsAppClient {
                 .template(WhatsAppTemplateMessageRequest.Template.builder()
                         .name(templateName)
                         .language(new WhatsAppTemplateMessageRequest.Language("pt_BR"))
-                        .components(List.of(WhatsAppTemplateMessageRequest.Component.builder()
-                                .type("body")
-                                .parameters(parameters)
-                                .build()))
+                        .components(List.of(
+                                WhatsAppTemplateMessageRequest.Component.builder()
+                                        .type("body")
+                                        .parameters(bodyParameters)
+                                        .build(),
+                                buttonComponent))
                         .build())
                 .build();
 

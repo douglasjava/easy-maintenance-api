@@ -7,10 +7,14 @@ import com.brainbyte.easy_maintenance.infrastructure.notification.enums.Notifica
 import com.brainbyte.easy_maintenance.infrastructure.notification.properties.WhatsAppProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.springframework.util.StringUtils.hasLength;
 
@@ -18,6 +22,9 @@ import static org.springframework.util.StringUtils.hasLength;
 @Component
 @RequiredArgsConstructor
 public class WhatsAppNotificationProvider implements NotificationProvider {
+
+    @Value("${notification.whatsapp.support-phone:(31) 99982-6634}")
+    private String supportPhone;
 
     private final WhatsAppClient whatsAppClient;
     private final WhatsAppProperties whatsAppProperties;
@@ -37,9 +44,10 @@ public class WhatsAppNotificationProvider implements NotificationProvider {
                 ? payload.getTemplateName()
                 : whatsAppProperties.defaultTemplateName();
 
-        List<String> params = extractTemplateParams(payload);
+        List<String> bodyParams = extractBodyParams(payload);
+        String buttonParam = extractButtonParam(payload);
 
-        String wamid = whatsAppClient.sendTemplateMessage(payload.getRecipient(), templateName, params);
+        String wamid = whatsAppClient.sendTemplateMessage(payload.getRecipient(), templateName, bodyParams, buttonParam);
         log.info("[WhatsApp] Mensagem enviada: wamid={} recipient={} template={}",
                 wamid, payload.getRecipient(), templateName);
 
@@ -47,10 +55,8 @@ public class WhatsAppNotificationProvider implements NotificationProvider {
 
     }
 
-    // Ordem fixa dos parâmetros posicionais do template (nome do destinatário, nome do item, data
-    // de vencimento) — a Graph API não valida por nome, só por posição. Confirmar esta ordem
-    // contra o template registrado no WhatsApp Manager antes de alterá-la (ver TASK-129, Escopo #1).
-    private List<String> extractTemplateParams(NotificationPayload payload) {
+
+    private List<String> extractBodyParams(NotificationPayload payload) {
         Map<String, Object> data = payload.getTemplateData() != null ? payload.getTemplateData() : Map.of();
 
         String recipientName = data.containsKey("recipientName")
@@ -58,9 +64,21 @@ public class WhatsAppNotificationProvider implements NotificationProvider {
                 : String.valueOf(payload.getRecipientName());
 
         String itemName = String.valueOf(data.getOrDefault("itemName", ""));
-        String dueDate = String.valueOf(data.getOrDefault("dueDate", ""));
+        String companyName = String.valueOf(data.getOrDefault("companyName", ""));
+        String dueDate = Optional.ofNullable(data.get("dueDate"))
+                .map(Object::toString)
+                .filter(s -> !s.isBlank())
+                .map(LocalDate::parse)
+                .map(date -> date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
+                .orElse("");
 
-        return List.of(recipientName, itemName, dueDate);
+
+        return List.of(recipientName, itemName, companyName, dueDate, supportPhone);
+    }
+
+    private String extractButtonParam(NotificationPayload payload) {
+        Map<String, Object> data = payload.getTemplateData() != null ? payload.getTemplateData() : Map.of();
+        return String.valueOf(data.getOrDefault("itemId", ""));
     }
 
     @Override

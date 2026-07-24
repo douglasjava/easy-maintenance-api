@@ -48,6 +48,9 @@ public class WhatsAppTemplateMessageRequest {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Component {
         private String type;
+        @JsonProperty("sub_type")
+        private String subType;
+        private String index;
         private List<Parameter> parameters;
     }
 

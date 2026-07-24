@@ -22,6 +22,17 @@ public interface UserOrganizationRepository extends JpaRepository<UserOrganizati
     @Query("SELECT uo FROM UserOrganization uo JOIN FETCH uo.user WHERE uo.organizationCode = :orgCode")
     List<UserOrganization> findAllByOrganizationCodeWithUser(@Param("orgCode") String orgCode);
 
+    // Mesmo join de findAllByOrganizationCodeWithUser, acrescido do nome da organização — usado pelo
+    // canal WhatsApp (template "vencimento_manutencao_v2") para preencher a variável de empresa/tenant
+    // sem round-trip extra (o join ON o.code = uo.organizationCode segue o mesmo padrão já usado em
+    // OrganizationRepository.findAllByUserId, já que UserOrganization não tem @ManyToOne para Organization).
+    @Query("SELECT new com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRecipient(uo.user, o.name) " +
+            "FROM UserOrganization uo " +
+            "JOIN uo.user " +
+            "JOIN Organization o ON o.code = uo.organizationCode " +
+            "WHERE uo.organizationCode = :orgCode")
+    List<UserOrganizationRecipient> findRecipientsWithOrganizationName(@Param("orgCode") String orgCode);
+
     List<UserOrganization> findAllByUserId(Long userId);
 
     void deleteByUserIdAndOrganizationCode(Long userId, String organizationCode);

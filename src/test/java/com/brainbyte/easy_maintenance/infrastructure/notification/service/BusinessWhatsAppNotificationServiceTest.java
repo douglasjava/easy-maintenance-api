@@ -9,10 +9,11 @@ import com.brainbyte.easy_maintenance.infrastructure.notification.enums.Business
 import com.brainbyte.easy_maintenance.infrastructure.notification.enums.NotificationChannel;
 import com.brainbyte.easy_maintenance.infrastructure.notification.enums.NotificationEventType;
 import com.brainbyte.easy_maintenance.infrastructure.notification.enums.NotificationReferenceType;
+import com.brainbyte.easy_maintenance.infrastructure.notification.dto.NotificationPayload;
 import com.brainbyte.easy_maintenance.infrastructure.notification.provider.WhatsAppNotificationProvider;
 import com.brainbyte.easy_maintenance.infrastructure.notification.repository.BusinessWhatsAppDispatchRepository;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
-import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
+import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRecipient;
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserOrganizationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -97,12 +98,16 @@ class BusinessWhatsAppNotificationServiceTest {
     }
 
     private void stubRecipient(User user) {
-        UserOrganization uo = UserOrganization.builder().user(user).organizationCode(ORG).build();
-        when(userOrganizationRepository.findAllByOrganizationCodeWithUser(ORG)).thenReturn(List.of(uo));
+        stubRecipient(user, "Empresa Teste");
+    }
+
+    private void stubRecipient(User user, String organizationName) {
+        when(userOrganizationRepository.findRecipientsWithOrganizationName(ORG))
+                .thenReturn(List.of(new UserOrganizationRecipient(user, organizationName)));
     }
 
     private void stubNoRecipient() {
-        when(userOrganizationRepository.findAllByOrganizationCodeWithUser(ORG)).thenReturn(List.of());
+        when(userOrganizationRepository.findRecipientsWithOrganizationName(ORG)).thenReturn(List.of());
     }
 
     // ── destinatário / opt-in / telefone ────────────────────────────────────
@@ -166,6 +171,20 @@ class BusinessWhatsAppNotificationServiceTest {
         assertThat(captor.getValue().getStatus()).isEqualTo(BusinessWhatsAppDispatchStatus.SENT);
         assertThat(captor.getValue().getWamid()).isEqualTo("wamid.123");
         verifyNoInteractions(emailNotificationService);
+    }
+
+    @Test
+    void sendWhatsapp_buildsPayloadWithCompanyNameAndItemId() {
+        stubRecipient(user("+5531972139145", true), "Empresa Teste LTDA");
+        when(whatsAppProvider.sendTemplateMessage(any())).thenReturn(new WhatsAppSendResult("wamid.123"));
+
+        service.sendWhatsapp(event(NotificationEventType.ITEM_OVERDUE, 0), Set.of(NotificationChannel.WHATSAPP));
+
+        ArgumentCaptor<NotificationPayload> payloadCaptor = ArgumentCaptor.forClass(NotificationPayload.class);
+        verify(whatsAppProvider).sendTemplateMessage(payloadCaptor.capture());
+        assertThat(payloadCaptor.getValue().getTemplateData())
+                .containsEntry("companyName", "Empresa Teste LTDA")
+                .containsEntry("itemId", "1");
     }
 
     // ── idempotência ─────────────────────────────────────────────────────────
