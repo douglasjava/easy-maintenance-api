@@ -19,6 +19,7 @@ public class NotificationOrchestratorService {
     private final NotificationChannelResolver channelResolver;
     private final BusinessPushNotificationService pushNotificationService;
     private final BusinessEmailNotificationService emailNotificationService;
+    private final BusinessWhatsAppNotificationService whatsAppNotificationService;
     private final InAppNotificationService inAppNotificationService;
 
     public void dispatch(NotificationEvent event) {
@@ -32,7 +33,7 @@ public class NotificationOrchestratorService {
                 switch (channel) {
                     case PUSH -> pushNotificationService.sendPush(event);
                     case EMAIL -> emailNotificationService.sendEmail(event);
-                    case WHATSAPP -> log.warn("[Orchestrator] Canal WHATSAPP ainda não implementado. Ignorando para evento {}", event.getEventType());
+                    case WHATSAPP -> whatsAppNotificationService.sendWhatsapp(event, channels);
                     default -> log.warn("[Orchestrator] Canal não suportado: {}", channel);
                 }
             } catch (Exception e) {

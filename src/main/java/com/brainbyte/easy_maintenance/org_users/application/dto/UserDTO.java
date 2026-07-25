@@ -41,7 +41,11 @@ public final class UserDTO {
             @NotNull Role role,
             @NotNull Status status,
             @Schema(example = "usuario@empresa.com")
-            @Email @NotBlank String email
+            @Email @NotBlank String email,
+            @Schema(description = "Telefone para notificações WhatsApp — aceita com ou sem máscara/DDI, normalizado para E.164 no backend", example = "(31) 97213-9145")
+            String phoneNumber,
+            @Schema(description = "Opt-in explícito de notificações via WhatsApp — exige phoneNumber cadastrado")
+            Boolean whatsappOptIn
     ) {
     }
 
@@ -51,7 +55,9 @@ public final class UserDTO {
             String name,
             Role role,
             Status status,
-            List<String> organizationCodes
+            List<String> organizationCodes,
+            String phoneNumber,
+            boolean whatsappOptIn
     ) {
     }
 

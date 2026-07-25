@@ -56,6 +56,8 @@ public class TenantFilter extends OncePerRequestFilter {
           "POST /easy-maintenance/api/v1/me/onboarding/user",
           "POST /easy-maintenance/api/v1/me/onboarding/organization",
           "POST /easy-maintenance/api/v1/public/webhooks/asaas",
+          "GET /easy-maintenance/api/v1/public/webhooks/whatsapp",
+          "POST /easy-maintenance/api/v1/public/webhooks/whatsapp",
           "POST /easy-maintenance/api/v1/affiliates",
           "GET /easy-maintenance/api/v1/affiliates",
           "GET /actuator",

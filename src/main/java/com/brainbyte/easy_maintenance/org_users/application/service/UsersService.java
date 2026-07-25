@@ -9,6 +9,7 @@ import com.brainbyte.easy_maintenance.commons.dto.PageResponse;
 import com.brainbyte.easy_maintenance.commons.exceptions.ConflictException;
 import com.brainbyte.easy_maintenance.commons.exceptions.NotFoundException;
 import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
+import com.brainbyte.easy_maintenance.commons.utils.PhoneNumberNormalizer;
 import com.brainbyte.easy_maintenance.org_users.application.dto.UserDTO;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
 import com.brainbyte.easy_maintenance.org_users.domain.UserOrganization;
@@ -447,11 +448,33 @@ public class UsersService {
         if (nonNull(request.status())) {
             user.setStatus(request.status());
         }
+        if (hasLength(request.phoneNumber())) {
+            user.setPhoneNumber(normalizePhoneNumber(request.phoneNumber()));
+        }
+        if (nonNull(request.whatsappOptIn())) {
+            applyWhatsappOptIn(user, request.whatsappOptIn());
+        }
         user.setUpdatedAt(Instant.now());
 
         var updatedUser = repository.save(user);
 
         return IUserMapper.INSTANCE.toUserResponse(updatedUser);
+    }
+
+    private String normalizePhoneNumber(String rawPhoneNumber) {
+        return PhoneNumberNormalizer.toE164BR(rawPhoneNumber)
+                .orElseThrow(() -> new RuleException(
+                        "Telefone inválido. Informe um número de celular ou fixo válido do Brasil."));
+    }
+
+    // TASK-122: WhatsApp exige opt-in verificável antes de qualquer envio (política da Meta) —
+    // não faz sentido ativar sem um telefone já cadastrado (nem no próprio request, nem já salvo).
+    private void applyWhatsappOptIn(User user, boolean whatsappOptIn) {
+        if (whatsappOptIn && !hasLength(user.getPhoneNumber())) {
+            throw new RuleException(
+                    "É necessário cadastrar um telefone antes de ativar notificações por WhatsApp.");
+        }
+        user.setWhatsappOptIn(whatsappOptIn);
     }
 
 }

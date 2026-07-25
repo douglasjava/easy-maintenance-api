@@ -15,6 +15,14 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
+/**
+ * Não é o {@code MailService} ativo por padrão desde a troca para Resend (plano grátis) — ver
+ * decisão em roadmap/kanban.md. Sempre registrado como bean (ver {@link ResendServiceImpl} para o
+ * motivo — endpoint de teste manual precisa dos dois disponíveis); qual dos dois vira o
+ * {@code MailService} de fato usado pelo resto da aplicação é decidido em
+ * {@code MailProviderConfig} via mail.provider. Religar é só mudar essa property, sem mudança
+ * de código.
+ */
 @Slf4j
 @Service
 @Profile("!local")
@@ -64,6 +72,9 @@ public class MailerSendServiceImpl implements MailService {
                 .toBodilessEntity()
                 .doOnSuccess(entity -> businessMetricsService.counter("email.sent"))
                 .block();
+
+        log.info("[MailerSend] E-mail enviado: recipient={} subject='{}'", toEmail, subject);
+
     }
 
     public void sendEmailFallback(String toEmail, String toName, String subject, String text, String html, Exception ex) {

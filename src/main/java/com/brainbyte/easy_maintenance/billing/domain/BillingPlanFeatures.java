@@ -19,6 +19,7 @@ import lombok.NoArgsConstructor;
  *   "aiEnabled"           : boolean — AI features available                       (default: false)
  *   "aiMonthlyCredits"    : int     — monthly AI token/credit budget              (default: 0)
  *   "emailMonthlyLimit"   : int     — max outbound e-mails per calendar month     (default: 100)
+ *   "whatsappMonthlyLimit": int     — max outbound WhatsApp msgs per month        (default: 30)
  *   "reportsEnabled"      : boolean — PDF/Excel report export available           (default: false)
  *   "supportLevel"        : string  — COMMUNITY | EMAIL | PRIORITY_EMAIL | DEDICATED (default: "COMMUNITY")
  *   "maxFileSizeMb"       : int     — max size per uploaded file in MB            (default: 5)
@@ -67,6 +68,12 @@ public class BillingPlanFeatures {
     @JsonProperty("emailMonthlyLimit")
     @Builder.Default
     private int emailMonthlyLimit = 100;
+
+    /** Maximum number of outbound WhatsApp messages per calendar month — custo direto por mensagem,
+     * limite mais conservador que o de e-mail por padrão. */
+    @JsonProperty("whatsappMonthlyLimit")
+    @Builder.Default
+    private int whatsappMonthlyLimit = 30;
 
     /** Whether PDF / Excel report export is available on this plan. */
     @JsonProperty("reportsEnabled")
