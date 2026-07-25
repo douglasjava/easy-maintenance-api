@@ -45,7 +45,7 @@ class WhatsAppNotificationProviderTest {
                 .recipient("+5531972139145")
                 .recipientName("João")
                 .templateData(Map.of("itemName", "Extintor", "companyName", "Empresa Teste",
-                        "dueDate", "20/07/2026", "itemId", "42"))
+                        "dueDate", "2026-07-20", "itemId", "42"))
                 .build();
 
         WhatsAppSendResult result = provider().sendTemplateMessage(payload);
@@ -64,7 +64,7 @@ class WhatsAppNotificationProviderTest {
                 .recipientName("Maria")
                 .templateName("outro_template")
                 .templateData(Map.of("itemName", "Bomba", "companyName", "Empresa Teste",
-                        "dueDate", "01/08/2026", "itemId", "7"))
+                        "dueDate", "2026-08-01", "itemId", "7"))
                 .build();
 
         provider().sendTemplateMessage(payload);
@@ -82,7 +82,7 @@ class WhatsAppNotificationProviderTest {
                 .recipient("+5531972139145")
                 .recipientName("Carlos")
                 .templateData(Map.of("itemName", "Extintor", "companyName", "Empresa Teste",
-                        "dueDate", "20/07/2026", "itemId", "42"))
+                        "dueDate", "2026-07-20", "itemId", "42"))
                 .build();
 
         provider().sendTemplateMessage(payload);
@@ -99,7 +99,7 @@ class WhatsAppNotificationProviderTest {
                 .recipient("+5531972139145")
                 .recipientName("João")
                 .templateData(Map.of("itemName", "Extintor", "companyName", "Empresa Teste",
-                        "dueDate", "20/07/2026", "itemId", "42"))
+                        "dueDate", "2026-07-20", "itemId", "42"))
                 .build();
 
         provider().sendTemplateMessage(payload);

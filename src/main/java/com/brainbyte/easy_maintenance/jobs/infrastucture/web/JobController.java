@@ -1,5 +1,9 @@
 package com.brainbyte.easy_maintenance.jobs.infrastucture.web;
 
+import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
+import com.brainbyte.easy_maintenance.infrastructure.mail.MailService;
+import com.brainbyte.easy_maintenance.infrastructure.mail.MailerSendServiceImpl;
+import com.brainbyte.easy_maintenance.infrastructure.mail.ResendServiceImpl;
 import com.brainbyte.easy_maintenance.infrastructure.notification.domain.BusinessWhatsAppDispatch;
 import com.brainbyte.easy_maintenance.infrastructure.notification.dto.NotificationEvent;
 import com.brainbyte.easy_maintenance.infrastructure.notification.enums.BusinessWhatsAppDispatchStatus;
@@ -14,10 +18,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @RestController
@@ -30,6 +36,8 @@ public class JobController {
     private final NotificationOrchestratorService orchestratorService;
     private final BusinessWhatsAppDispatchRepository dispatchRepository;
     private final BusinessWhatsAppNotificationService whatsAppNotificationService;
+    private final Optional<ResendServiceImpl> resendService;
+    private final Optional<MailerSendServiceImpl> mailerSendService;
 
     @GetMapping("/execute-trial-expiration")
     public void executeTrialExpirationJobService() {
@@ -73,6 +81,38 @@ public class JobController {
         } finally {
             TenantContext.clear();
         }
+    }
+
+    // Endpoint de QA/ops: dispara um e-mail de teste via um provedor específico, sem depender de
+    // um evento de negócio real — útil pra validar credenciais/domínio (ex.: após configurar
+    // RESEND_API_KEY em staging) e pra comparar os dois provedores lado a lado, independente de
+    // qual está ativo em mail.provider para o tráfego real (ver MailProviderConfig).
+    @GetMapping("/test-email")
+    @Operation(summary = "Disparar e-mail de teste via um provedor específico (resend|mailersend)")
+    public Map<String, Object> testEmailSend(@RequestParam String to,
+                                              @RequestParam(defaultValue = "resend") String provider) {
+        MailService mailService = resolveMailService(provider);
+
+        String subject = "Teste de envio — Easy Maintenance";
+        String body = "Este é um e-mail de teste do Easy Maintenance, disparado manualmente via "
+                + "/run-jobs/test-email para validar a integração com o provedor configurado.";
+        mailService.sendEmail(to, "Teste Easy Maintenance", subject, body, "<p>" + body + "</p>");
+
+        return Map.of("provider", provider.toLowerCase(), "sentTo", to);
+    }
+
+    private MailService resolveMailService(String provider) {
+        return switch (provider.toLowerCase()) {
+            case "resend" -> resendService.orElseThrow(() -> unavailableProvider("resend"));
+            case "mailersend" -> mailerSendService.orElseThrow(() -> unavailableProvider("mailersend"));
+            default -> throw new RuleException(
+                    "Provedor de e-mail inválido: '" + provider + "' (use 'resend' ou 'mailersend')");
+        };
+    }
+
+    private RuleException unavailableProvider(String provider) {
+        return new RuleException("Provedor de e-mail '" + provider
+                + "' não está disponível neste ambiente (perfil local usa MailHog)");
     }
 
 }
