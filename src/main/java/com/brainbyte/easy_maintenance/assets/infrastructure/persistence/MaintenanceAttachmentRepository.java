@@ -7,12 +7,17 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
 public interface MaintenanceAttachmentRepository extends JpaRepository<MaintenanceAttachment, Long> {
 
     List<MaintenanceAttachment> findByMaintenanceId(Long maintenanceId);
+
+    // TASK-142: busca os anexos de várias manutenções numa única query — usado por
+    // findCancelledByItem, que lista N manutenções de uma vez (evita 1 query por manutenção).
+    List<MaintenanceAttachment> findByMaintenanceIdIn(Collection<Long> maintenanceIds);
 
     boolean existsByFileUrl(String fileUrl);
 

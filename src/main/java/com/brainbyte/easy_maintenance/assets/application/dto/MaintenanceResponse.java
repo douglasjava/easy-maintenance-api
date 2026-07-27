@@ -3,6 +3,7 @@ package com.brainbyte.easy_maintenance.assets.application.dto;
 import com.brainbyte.easy_maintenance.assets.domain.enums.MaintenanceType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -39,9 +40,24 @@ public record MaintenanceResponse(
         Long createdBy,
 
         @Schema(description = "ID do usuário que atualizou por último")
-        Long updatedBy
+        Long updatedBy,
+
+        @Schema(description = "Se a manutenção foi cancelada (TASK-137) — nunca aparece na listagem/export padrão")
+        boolean cancelled,
+
+        @Schema(description = "Motivo do cancelamento, se cancelada")
+        String cancelReason,
+
+        @Schema(description = "Data/hora do cancelamento, se cancelada")
+        Instant cancelledAt,
+
+        @Schema(description = "ID do usuário que cancelou, se cancelada")
+        Long cancelledBy,
+
+        @Schema(description = "Nome do usuário que cancelou, se cancelada e resolvível (TASK-141)")
+        String cancelledByName
 ) {
     public MaintenanceResponse(Long id, Long itemId, LocalDate performedAt, MaintenanceType type, String performedBy, Integer costCents, LocalDate nextDueAt) {
-        this(id, itemId, null, performedAt, type, performedBy, costCents, nextDueAt, List.of(), null, null);
+        this(id, itemId, null, performedAt, type, performedBy, costCents, nextDueAt, List.of(), null, null, false, null, null, null, null);
     }
 }

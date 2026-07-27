@@ -266,6 +266,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- H2 — só pra @DataJpaTest pontuais que precisam de Hibernate/flush real, não mock
+             (ver MaintenanceCancelPersistenceTest). Não substitui MySQL em lugar nenhum. -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
