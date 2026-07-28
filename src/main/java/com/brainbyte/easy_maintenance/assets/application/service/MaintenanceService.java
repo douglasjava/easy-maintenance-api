@@ -183,17 +183,40 @@ public class MaintenanceService {
 
         List<Maintenance> cancelled = maintenanceRepository.findCancelledByItemId(itemId);
 
-        // TASK-141: "quem cancelou" precisa ser um nome, não um ID cru — mesmo padrão de resolução
-        // em lote já usado em MaintenanceExportService.resolveUserNames (TASK-104), evita N+1.
+        return enrichCancelled(cancelled).stream()
+                .map(r -> withItemType(r, item.getItemType()))
+                .toList();
+    }
+
+    // TASK-145 (EPIC-017): mesma consulta de auditoria, mas pra organização inteira num período —
+    // pré-requisito da seção "canceladas" do Relatório de Prestação de Contas. Diferente de
+    // findCancelledByItem, aqui cada manutenção pode pertencer a um item diferente, então o tipo do
+    // item é resolvido em lote (buildItemTypeMap), não a partir de um único item já carregado.
+    public List<MaintenanceResponse> findCancelledByOrganization(String orgId, LocalDate performedAtFrom, LocalDate performedAtTo) {
+        if (performedAtFrom == null || performedAtTo == null) {
+            throw new RuleException("performedAtFrom e performedAtTo são obrigatórios");
+        }
+        if (performedAtFrom.isAfter(performedAtTo)) {
+            throw new RuleException("performedAtFrom não pode ser posterior a performedAtTo");
+        }
+
+        List<Maintenance> cancelled = maintenanceRepository.findCancelledByOrgAndPeriod(orgId, performedAtFrom, performedAtTo);
+
+        List<MaintenanceResponse> base = enrichCancelled(cancelled);
+        Map<Long, String> typeMap = buildItemTypeMap(base);
+        return base.stream().map(r -> withItemType(r, typeMap)).toList();
+    }
+
+    // Compartilhado por findCancelledByItem e findCancelledByOrganization: resolve nome de quem
+    // cancelou (TASK-141) e anexos + autores em lote (TASK-142), tudo sem N+1. Não seta itemType —
+    // cada chamador resolve isso do jeito que faz sentido pro seu escopo (item único vs. em lote).
+    private List<MaintenanceResponse> enrichCancelled(List<Maintenance> cancelled) {
         Set<Long> cancelledByIds = cancelled.stream()
                 .map(Maintenance::getCancelledBy)
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toSet());
         Map<Long, String> cancellerNameById = resolveUserNames(cancelledByIds);
 
-        // TASK-142: anexos de TODAS as manutenções canceladas buscados numa única query (não uma
-        // por manutenção) — e os nomes de quem fez upload, também resolvidos numa única query sobre
-        // o conjunto combinado, não por manutenção individual.
         Set<Long> maintenanceIds = cancelled.stream().map(Maintenance::getId).collect(Collectors.toSet());
         Map<Long, List<MaintenanceAttachment>> attachmentsByMaintenanceId = maintenanceIds.isEmpty()
                 ? Map.of()
@@ -212,8 +235,7 @@ public class MaintenanceService {
                     List<MaintenanceAttachmentSimpleResponse> attachmentResponses = withAttachmentAuthorNames(
                             IMaintenanceMapper.INSTANCE.toAttachmentSimpleResponseList(attachments), uploaderNameById);
                     MaintenanceResponse base = IMaintenanceMapper.INSTANCE.toMaintenanceResponse(m, attachmentResponses);
-                    MaintenanceResponse withType = withItemType(base, item.getItemType());
-                    return withCancelledByName(withType, resolvedName(m.getCancelledBy(), cancellerNameById));
+                    return withCancelledByName(base, resolvedName(m.getCancelledBy(), cancellerNameById));
                 })
                 .toList();
     }

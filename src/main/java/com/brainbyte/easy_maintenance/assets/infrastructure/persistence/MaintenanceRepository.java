@@ -59,6 +59,22 @@ public interface MaintenanceRepository extends JpaRepository<Maintenance, Long>,
       nativeQuery = true)
   List<Maintenance> findCancelledByItemId(@Param("itemId") Long itemId);
 
+  // TASK-145 (EPIC-017): mesma lógica de findCancelledByItemId, mas escopada à organização inteira
+  // num período — pré-requisito da seção de auditoria do Relatório de Prestação de Contas. Query
+  // nativa pelo mesmo motivo de avgDaysToResolveLast90: @SQLRestriction não se aplica a nativeQuery,
+  // então precisamos do "deleted_at IS NOT NULL" explícito pra enxergar só as canceladas. Filtro de
+  // organização embutido na própria query (mesmo cuidado da TASK-137/139 — nunca checagem posterior).
+  @Query(value = "SELECT m.* FROM maintenances m " +
+      "JOIN maintenance_items i ON i.id = m.item_id " +
+      "WHERE i.organization_code = :orgCode " +
+      "AND m.deleted_at IS NOT NULL " +
+      "AND m.performed_at BETWEEN :from AND :to " +
+      "ORDER BY m.performed_at DESC",
+      nativeQuery = true)
+  List<Maintenance> findCancelledByOrgAndPeriod(@Param("orgCode") String orgCode,
+                                                 @Param("from") LocalDate from,
+                                                 @Param("to") LocalDate to);
+
   // Batch check: returns the subset of the given IDs that have at least one maintenance record.
   // Used by the list endpoint to resolve canUpdate for an entire page in a single query.
   @Query("SELECT DISTINCT m.itemId FROM Maintenance m WHERE m.itemId IN :ids")
