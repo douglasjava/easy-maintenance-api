@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.assets.infrastructure.web;
 
+import com.brainbyte.easy_maintenance.assets.application.dto.CancelMaintenanceRequest;
 import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceFilter;
 import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceResponse;
 import com.brainbyte.easy_maintenance.assets.application.dto.RegisterMaintenanceRequest;
@@ -25,6 +26,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -86,6 +88,30 @@ public class MaintenancesController {
         return service.listByItemCursor(orgId, filter, cursor, prevCursor, size);
     }
 
+    @GetMapping("/maintenances/cancelled")
+    @RequireTenant
+    @Operation(
+            summary = "Lista as manutenções canceladas de um item, ou de toda a organização num período",
+            description = "Nunca aparecem na listagem padrão, no detalhe por id nem no export — só aqui, "
+                    + "com motivo/autor/data do cancelamento visíveis (TASK-137/138). Informe `itemId` para "
+                    + "canceladas de um item específico, ou `performedAtFrom`/`performedAtTo` (ambos "
+                    + "obrigatórios juntos) para canceladas da organização inteira num período "
+                    + "(TASK-145, seção de auditoria do Relatório de Prestação de Contas)."
+    )
+    public List<MaintenanceResponse> listCancelled(
+            @Parameter(description = "ID do item de manutenção — omitir para consultar a organização inteira")
+            @RequestParam(required = false) Long itemId,
+            @Parameter(description = "Data de início do período (YYYY-MM-DD) — obrigatório se itemId não for informado")
+            @RequestParam(required = false) LocalDate performedAtFrom,
+            @Parameter(description = "Data de fim do período (YYYY-MM-DD) — obrigatório se itemId não for informado")
+            @RequestParam(required = false) LocalDate performedAtTo) {
+        String orgId = TenantContext.get().orElseThrow();
+        if (itemId != null) {
+            return service.findCancelledByItem(orgId, itemId);
+        }
+        return service.findCancelledByOrganization(orgId, performedAtFrom, performedAtTo);
+    }
+
     @GetMapping("/maintenances/export")
     @RequireTenant
     @Operation(
@@ -123,6 +149,29 @@ public class MaintenancesController {
             @Parameter(description = "ID da manutenção", example = "1") @PathVariable Long maintenanceId) {
         String orgId = TenantContext.get().orElseThrow();
         return service.findById(orgId, maintenanceId);
+    }
+
+    @PostMapping("/maintenances/{maintenanceId}/cancel")
+    @RequireTenant
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(
+            summary = "Cancela uma manutenção registrada, com motivo obrigatório",
+            description = "Cancelamento é soft-delete — o registro nunca é apagado fisicamente, só marcado "
+                    + "como cancelado. Corrigir um cadastro errado é sempre cancelar + registrar de novo, "
+                    + "nunca editar os campos originais. O recálculo do item (nextDueAt/status) é feito à parte.",
+            responses = {
+                    @ApiResponse(responseCode = "204", description = "Manutenção cancelada com sucesso"),
+                    @ApiResponse(responseCode = "400", description = "Motivo ausente ou inválido"),
+                    @ApiResponse(responseCode = "403", description = "Sem permissão para cancelar, ou manutenção de outra organização"),
+                    @ApiResponse(responseCode = "404", description = "Manutenção não encontrada"),
+                    @ApiResponse(responseCode = "409", description = "Manutenção já cancelada")
+            }
+    )
+    public void cancel(
+            @Parameter(description = "ID da manutenção", example = "1") @PathVariable Long maintenanceId,
+            @Valid @RequestBody CancelMaintenanceRequest req) {
+        String orgId = TenantContext.get().orElseThrow();
+        service.cancel(orgId, maintenanceId, req.reason());
     }
 
 }

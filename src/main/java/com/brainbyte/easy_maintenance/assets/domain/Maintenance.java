@@ -57,4 +57,23 @@ public class Maintenance {
   @Column(name = "updated_by")
   private Long updatedBy;
 
+  // TASK-137: cancelamento é a única forma de "corrigir" uma manutenção — nunca editar os campos
+  // acima. cancelReason é o que sustenta o compliance: documenta por que foi cancelada.
+  @Column(name = "cancelled_at")
+  private Instant cancelledAt;
+
+  @Column(name = "cancelled_by")
+  private Long cancelledBy;
+
+  @Column(name = "cancel_reason")
+  private String cancelReason;
+
+  // BUGFIX (QA manual, TASK-QA-MAN-011 C1): a UNIQUE (item_id, performed_at) antiga (V24) não
+  // considerava deleted_at, então soft-delete deixava a linha cancelada "ocupando" o dia e
+  // bloqueava registrar uma nova manutenção pro mesmo item/dia. Toda manutenção ATIVA usa 0 aqui
+  // (preservando a unicidade original entre elas); cancel() seta para o próprio id ao cancelar,
+  // que nunca colide com outra linha. Ver V85.
+  @Column(name = "active_dedup_key")
+  private long activeDedupKey;
+
 }

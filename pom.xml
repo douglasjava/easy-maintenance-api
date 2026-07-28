@@ -266,6 +266,22 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- H2 — só pra @DataJpaTest pontuais que precisam de Hibernate/flush real, não mock
+             (ver MaintenanceCancelPersistenceTest). Não substitui MySQL em lugar nenhum. -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- TASK-147 (EPIC-017): Excel (.xlsx) real do Relatório Analítico — poi-ooxml traz o
+             suporte a .xlsx (SpreadsheetML); poi puro só cobre o formato binário antigo (.xls). -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.3.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>

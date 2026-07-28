@@ -72,8 +72,9 @@ public class ReportsController {
 
     @GetMapping("/maintenances/export")
     @Operation(
-            summary = "Exportar manutenções cross-org em CSV",
-            description = "Gera um CSV consolidado com manutenções de todas as empresas do usuário (máx. 5000 registros). "
+            summary = "Exportar manutenções cross-org em Excel (.xlsx)",
+            description = "Gera um Excel consolidado com manutenções de todas as empresas do usuário (máx. 5000 registros), "
+                    + "incluindo status do item e quantidade de evidências anexadas (TASK-147). "
                     + "Apenas empresas com o plano que inclui exportação de relatórios são incluídas. "
                     + "Não requer X-Org-Id — usa as organizações do usuário autenticado."
     )
@@ -89,11 +90,11 @@ public class ReportsController {
             @Parameter(description = "Filtrar por tipo de item (busca parcial, ex: EXTINTOR)")
             @RequestParam(required = false) String itemType) {
         var user = authenticationService.getCurrentUser();
-        byte[] csv = exportService.exportCsvCrossOrg(user.getId(), orgCodes, startDate, endDate, type, itemType);
-        String filename = "relatorios_manutencoes_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".csv";
+        byte[] excel = exportService.exportExcelCrossOrg(user.getId(), orgCodes, startDate, endDate, type, itemType);
+        String filename = "relatorios_manutencoes_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".xlsx";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
-                .body(csv);
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(excel);
     }
 }

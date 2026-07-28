@@ -45,17 +45,33 @@ public interface IMaintenanceMapper {
             maintenance.getNextDueAt(),
             List.of(),
             maintenance.getCreatedBy(),
-            maintenance.getUpdatedBy()
+            maintenance.getUpdatedBy(),
+            maintenance.getCancelledAt() != null,
+            maintenance.getCancelReason(),
+            maintenance.getCancelledAt(),
+            maintenance.getCancelledBy(),
+            null
     );
   }
 
+  // cancelledByName não tem campo de origem em Maintenance (só o ID cru) — quem precisa do nome
+  // resolvido (TASK-141, findCancelledByItem) preenche depois, em MaintenanceService, via
+  // resolução em lote (mesmo padrão de MaintenanceExportService.resolveUserNames).
   @Mapping(target = "attachments", source = "attachments")
   @Mapping(target = "itemType", ignore = true)
   @Mapping(target = "createdBy", source = "maintenance.createdBy")
   @Mapping(target = "updatedBy", source = "maintenance.updatedBy")
+  @Mapping(target = "cancelled", expression = "java(maintenance.getCancelledAt() != null)")
+  @Mapping(target = "cancelReason", source = "maintenance.cancelReason")
+  @Mapping(target = "cancelledAt", source = "maintenance.cancelledAt")
+  @Mapping(target = "cancelledBy", source = "maintenance.cancelledBy")
+  @Mapping(target = "cancelledByName", ignore = true)
   MaintenanceResponse toMaintenanceResponse(Maintenance maintenance, List<MaintenanceAttachmentSimpleResponse> attachments);
 
+  // uploadedByName não tem campo de origem em MaintenanceAttachment (só o ID cru) — resolvido depois
+  // em MaintenanceService, em lote (TASK-142), mesmo padrão de cancelledByName (TASK-141).
   @Mapping(target = "attachmentType", source = "attachmentType")
+  @Mapping(target = "uploadedByName", ignore = true)
   MaintenanceAttachmentSimpleResponse toAttachmentSimpleResponse(MaintenanceAttachment attachment);
 
   List<MaintenanceAttachmentSimpleResponse> toAttachmentSimpleResponseList(List<MaintenanceAttachment> attachments);

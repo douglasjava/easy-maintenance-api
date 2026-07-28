@@ -3,6 +3,8 @@ package com.brainbyte.easy_maintenance.assets.application.dto;
 import com.brainbyte.easy_maintenance.assets.domain.enums.AttachmentType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.time.Instant;
+
 @Schema(description = "Dados simplificados do anexo da manutenção")
 public record MaintenanceAttachmentSimpleResponse(
         @Schema(description = "ID do anexo", example = "1")
@@ -12,5 +14,14 @@ public record MaintenanceAttachmentSimpleResponse(
         String fileName,
 
         @Schema(description = "Tipo do anexo", example = "REPORT")
-        AttachmentType attachmentType
+        AttachmentType attachmentType,
+
+        @Schema(description = "ID do usuário que fez o upload (TASK-142)")
+        Long uploadedByUserId,
+
+        @Schema(description = "Data/hora do upload — pode ser depois da data da manutenção, isso é esperado (TASK-142)")
+        Instant uploadedAt,
+
+        @Schema(description = "Nome resolvido do usuário que fez o upload, se disponível")
+        String uploadedByName
 ) {}
