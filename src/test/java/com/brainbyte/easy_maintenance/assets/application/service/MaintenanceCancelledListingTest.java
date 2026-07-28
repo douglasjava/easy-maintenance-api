@@ -7,6 +7,7 @@ import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
 import com.brainbyte.easy_maintenance.assets.domain.enums.MaintenanceType;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceAttachmentRepository;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceRepository;
+import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.commons.exceptions.TenantException;
 import com.brainbyte.easy_maintenance.org_users.application.service.AuthenticationService;
 import com.brainbyte.easy_maintenance.org_users.domain.User;
@@ -123,5 +124,68 @@ class MaintenanceCancelledListingTest {
         assertThat(response.cancelReason()).isNull();
         assertThat(response.cancelledAt()).isNull();
         assertThat(response.cancelledBy()).isNull();
+    }
+
+    // ── TASK-145: canceladas de uma organização inteira num período (auditoria pro EPIC-017) ──────
+
+    @Test
+    void findCancelledByOrganization_returnsCancelledMaintenancesAcrossDifferentItems() {
+        LocalDate from = LocalDate.now().minusDays(30);
+        LocalDate to = LocalDate.now();
+        Long otherItemId = 31L;
+
+        Maintenance cancelled1 = Maintenance.builder()
+                .id(1L).itemId(ITEM_ID).performedAt(LocalDate.now().minusDays(10))
+                .type(MaintenanceType.PREVENTIVA)
+                .cancelledAt(Instant.now()).cancelledBy(99L).cancelReason("Item errado").build();
+        Maintenance cancelled2 = Maintenance.builder()
+                .id(2L).itemId(otherItemId).performedAt(LocalDate.now().minusDays(5))
+                .type(MaintenanceType.CORRETIVA)
+                .cancelledAt(Instant.now()).cancelledBy(99L).cancelReason("Data errada").build();
+
+        when(maintenanceRepository.findCancelledByOrgAndPeriod(ORG, from, to))
+                .thenReturn(List.of(cancelled1, cancelled2));
+        when(maintenanceItemService.findAllByIds(Set.of(ITEM_ID, otherItemId))).thenReturn(List.of(
+                MaintenanceItem.builder().id(ITEM_ID).organizationCode(ORG).itemType("Extintor").build(),
+                MaintenanceItem.builder().id(otherItemId).organizationCode(ORG).itemType("Gerador").build()
+        ));
+        User canceller = new User();
+        canceller.setId(99L);
+        canceller.setName("Maria Síndica");
+        when(userRepository.findAllById(Set.of(99L))).thenReturn(List.of(canceller));
+
+        List<MaintenanceResponse> result = service.findCancelledByOrganization(ORG, from, to);
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(MaintenanceResponse::itemType).containsExactlyInAnyOrder("Extintor", "Gerador");
+        assertThat(result).allMatch(r -> r.cancelledByName().equals("Maria Síndica"));
+    }
+
+    @Test
+    void findCancelledByOrganization_returnsEmptyList_whenNoneCancelledInPeriod() {
+        LocalDate from = LocalDate.now().minusDays(30);
+        LocalDate to = LocalDate.now();
+        when(maintenanceRepository.findCancelledByOrgAndPeriod(ORG, from, to)).thenReturn(List.of());
+
+        List<MaintenanceResponse> result = service.findCancelledByOrganization(ORG, from, to);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findCancelledByOrganization_throwsRuleException_whenDatesMissing() {
+        assertThatThrownBy(() -> service.findCancelledByOrganization(ORG, null, LocalDate.now()))
+                .isInstanceOf(RuleException.class);
+        assertThatThrownBy(() -> service.findCancelledByOrganization(ORG, LocalDate.now(), null))
+                .isInstanceOf(RuleException.class);
+    }
+
+    @Test
+    void findCancelledByOrganization_throwsRuleException_whenFromAfterTo() {
+        LocalDate from = LocalDate.now();
+        LocalDate to = LocalDate.now().minusDays(1);
+
+        assertThatThrownBy(() -> service.findCancelledByOrganization(ORG, from, to))
+                .isInstanceOf(RuleException.class);
     }
 }

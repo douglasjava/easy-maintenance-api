@@ -91,14 +91,25 @@ public class MaintenancesController {
     @GetMapping("/maintenances/cancelled")
     @RequireTenant
     @Operation(
-            summary = "Lista as manutenções canceladas de um item",
+            summary = "Lista as manutenções canceladas de um item, ou de toda a organização num período",
             description = "Nunca aparecem na listagem padrão, no detalhe por id nem no export — só aqui, "
-                    + "com motivo/autor/data do cancelamento visíveis (TASK-137/138)."
+                    + "com motivo/autor/data do cancelamento visíveis (TASK-137/138). Informe `itemId` para "
+                    + "canceladas de um item específico, ou `performedAtFrom`/`performedAtTo` (ambos "
+                    + "obrigatórios juntos) para canceladas da organização inteira num período "
+                    + "(TASK-145, seção de auditoria do Relatório de Prestação de Contas)."
     )
     public List<MaintenanceResponse> listCancelled(
-            @Parameter(description = "ID do item de manutenção", example = "1") @RequestParam Long itemId) {
+            @Parameter(description = "ID do item de manutenção — omitir para consultar a organização inteira")
+            @RequestParam(required = false) Long itemId,
+            @Parameter(description = "Data de início do período (YYYY-MM-DD) — obrigatório se itemId não for informado")
+            @RequestParam(required = false) LocalDate performedAtFrom,
+            @Parameter(description = "Data de fim do período (YYYY-MM-DD) — obrigatório se itemId não for informado")
+            @RequestParam(required = false) LocalDate performedAtTo) {
         String orgId = TenantContext.get().orElseThrow();
-        return service.findCancelledByItem(orgId, itemId);
+        if (itemId != null) {
+            return service.findCancelledByItem(orgId, itemId);
+        }
+        return service.findCancelledByOrganization(orgId, performedAtFrom, performedAtTo);
     }
 
     @GetMapping("/maintenances/export")

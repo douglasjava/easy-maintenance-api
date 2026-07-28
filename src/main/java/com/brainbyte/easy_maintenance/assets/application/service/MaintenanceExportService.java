@@ -2,6 +2,9 @@ package com.brainbyte.easy_maintenance.assets.application.service;
 
 import com.brainbyte.easy_maintenance.assets.application.dto.CrossOrgMaintenanceExportProjection;
 import com.brainbyte.easy_maintenance.assets.application.dto.MaintenanceExportProjection;
+import com.brainbyte.easy_maintenance.assets.domain.MaintenanceAttachment;
+import com.brainbyte.easy_maintenance.assets.domain.rules.StatusCalculator;
+import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceAttachmentRepository;
 import com.brainbyte.easy_maintenance.assets.infrastructure.persistence.MaintenanceRepository;
 import com.brainbyte.easy_maintenance.billing.application.service.BillingPlanFeaturesHelper;
 import com.brainbyte.easy_maintenance.billing.domain.BillingSubscriptionItem;
@@ -17,8 +20,17 @@ import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserO
 import com.brainbyte.easy_maintenance.org_users.infrastructure.persistence.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
@@ -39,6 +51,7 @@ public class MaintenanceExportService {
     private final OrganizationRepository organizationRepository;
     private final BillingSubscriptionItemRepository subscriptionItemRepository;
     private final UserRepository userRepository;
+    private final MaintenanceAttachmentRepository attachmentRepository;
 
     public byte[] exportCsv(String orgCode, Long itemId, LocalDate startDate, LocalDate endDate,
                              String performedBy) {
@@ -56,9 +69,9 @@ public class MaintenanceExportService {
         return buildCsv(rows, nameById);
     }
 
-    public byte[] exportCsvCrossOrg(Long userId, List<String> requestedOrgCodes,
-                                     LocalDate startDate, LocalDate endDate,
-                                     String type, String itemType) {
+    public byte[] exportExcelCrossOrg(Long userId, List<String> requestedOrgCodes,
+                                       LocalDate startDate, LocalDate endDate,
+                                       String type, String itemType) {
         List<String> userOrgCodes = userOrgRepository.findAllByUserId(userId).stream()
                 .map(UserOrganization::getOrganizationCode)
                 .toList();
@@ -101,30 +114,90 @@ public class MaintenanceExportService {
         Map<Long, String> nameById = resolveUserNames(
                 rows.stream().map(CrossOrgMaintenanceExportProjection::getCreatedBy).filter(Objects::nonNull).collect(Collectors.toSet()));
 
-        return buildCsvCrossOrg(rows, orgNames, nameById);
+        // TASK-147: contagem de anexos por manutenção resolvida numa única query em lote — mesmo
+        // cuidado da TASK-142 (findByMaintenanceIdIn), essencial aqui porque um export pode ter até
+        // 5000 linhas.
+        Set<Long> maintenanceIds = rows.stream().map(CrossOrgMaintenanceExportProjection::getId).collect(Collectors.toSet());
+        Map<Long, Long> attachmentCountByMaintenanceId = maintenanceIds.isEmpty()
+                ? Map.of()
+                : attachmentRepository.findByMaintenanceIdIn(maintenanceIds).stream()
+                        .collect(Collectors.groupingBy(MaintenanceAttachment::getMaintenanceId, Collectors.counting()));
+
+        return buildExcelCrossOrg(rows, orgNames, nameById, attachmentCountByMaintenanceId);
     }
 
-    private byte[] buildCsvCrossOrg(List<CrossOrgMaintenanceExportProjection> rows,
-                                     Map<String, String> orgNames, Map<Long, String> nameById) {
-        var sb = new StringBuilder();
-        sb.append('﻿'); // UTF-8 BOM — required for Excel on Windows to decode accents correctly
-        sb.append("ID,Empresa,Item,Data da Manutenção,Tipo,Responsável,Custo (R$),Próxima Data,Norma Aplicável,Categoria,Registrado por\n");
+    // TASK-147: CSV puro trocado por .xlsx real (Apache POI) — tipos nativos (número, data) em vez
+    // de texto formatado, pra permitir cálculo direto no Excel sem conversão manual do usuário.
+    private byte[] buildExcelCrossOrg(List<CrossOrgMaintenanceExportProjection> rows,
+                                       Map<String, String> orgNames, Map<Long, String> nameById,
+                                       Map<Long, Long> attachmentCountByMaintenanceId) {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Manutenções");
 
-        for (var row : rows) {
-            sb.append(row.getId()).append(",");
-            sb.append(csv(orgNames.getOrDefault(row.getOrgCode(), row.getOrgCode()))).append(",");
-            sb.append(csv(row.getItemType())).append(",");
-            sb.append(dateStr(row.getPerformedAt())).append(",");
-            sb.append(csv(row.getMaintenanceType())).append(",");
-            sb.append(csv(row.getPerformedBy())).append(",");
-            sb.append(formatCost(row.getCostCents())).append(",");
-            sb.append(dateStr(row.getNextDueAt())).append(",");
-            sb.append(csv(row.getNormAuthority())).append(",");
-            sb.append(csv(translateCategory(row.getItemCategory()))).append(",");
-            sb.append(csv(resolvedName(row.getCreatedBy(), nameById))).append("\n");
+            CellStyle dateStyle = workbook.createCellStyle();
+            dateStyle.setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat("dd/mm/yyyy"));
+            CellStyle moneyStyle = workbook.createCellStyle();
+            moneyStyle.setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat("R$ #,##0.00"));
+
+            String[] headers = {
+                    "ID", "Empresa", "Item", "Data da Manutenção", "Tipo", "Responsável",
+                    "Custo (R$)", "Próxima Data", "Norma Aplicável", "Categoria", "Registrado por",
+                    "Status do item", "Qtd. de evidências anexadas"
+            };
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                headerRow.createCell(i).setCellValue(headers[i]);
+            }
+
+            int rowIdx = 1;
+            for (var row : rows) {
+                Row excelRow = sheet.createRow(rowIdx++);
+                excelRow.createCell(0).setCellValue(row.getId());
+                excelRow.createCell(1).setCellValue(orgNames.getOrDefault(row.getOrgCode(), row.getOrgCode()));
+                excelRow.createCell(2).setCellValue(row.getItemType());
+                setDateCell(excelRow.createCell(3), row.getPerformedAt(), dateStyle);
+                excelRow.createCell(4).setCellValue(row.getMaintenanceType());
+                excelRow.createCell(5).setCellValue(row.getPerformedBy());
+                setCostCell(excelRow.createCell(6), row.getCostCents(), moneyStyle);
+                setDateCell(excelRow.createCell(7), row.getNextDueAt(), dateStyle);
+                excelRow.createCell(8).setCellValue(row.getNormAuthority());
+                excelRow.createCell(9).setCellValue(translateCategory(row.getItemCategory()));
+                excelRow.createCell(10).setCellValue(resolvedName(row.getCreatedBy(), nameById));
+                excelRow.createCell(11).setCellValue(translateStatus(StatusCalculator.calculate(row.getNextDueAt())));
+                excelRow.createCell(12).setCellValue(attachmentCountByMaintenanceId.getOrDefault(row.getId(), 0L));
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+            sheet.createFreezePane(0, 1);
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Erro ao gerar arquivo Excel do relatório", e);
         }
+    }
 
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    private void setDateCell(Cell cell, LocalDate date, CellStyle style) {
+        if (date == null) return;
+        cell.setCellValue(date);
+        cell.setCellStyle(style);
+    }
+
+    private void setCostCell(Cell cell, Integer costCents, CellStyle style) {
+        if (costCents == null) return;
+        cell.setCellValue(costCents / 100.0);
+        cell.setCellStyle(style);
+    }
+
+    private String translateStatus(com.brainbyte.easy_maintenance.assets.domain.enums.ItemStatus status) {
+        return switch (status) {
+            case OK -> "Em dia";
+            case NEAR_DUE -> "Próximo do vencimento";
+            case OVERDUE -> "Vencido";
+        };
     }
 
     private void checkReportsFeature(String orgCode) {

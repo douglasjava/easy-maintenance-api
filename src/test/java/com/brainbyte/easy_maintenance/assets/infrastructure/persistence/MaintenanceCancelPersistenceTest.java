@@ -1,6 +1,7 @@
 package com.brainbyte.easy_maintenance.assets.infrastructure.persistence;
 
 import com.brainbyte.easy_maintenance.assets.domain.Maintenance;
+import com.brainbyte.easy_maintenance.assets.domain.MaintenanceItem;
 import com.brainbyte.easy_maintenance.assets.domain.enums.MaintenanceType;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import org.springframework.test.context.TestPropertySource;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -104,5 +106,52 @@ class MaintenanceCancelPersistenceTest {
         assertThat(exists)
                 .as("uma manutenção cancelada não deveria contar para a checagem de duplicidade do dia")
                 .isFalse();
+    }
+
+    // TASK-145 (EPIC-017): prova com banco real (join maintenances + maintenance_items) que
+    // findCancelledByOrgAndPeriod isola por organização de verdade — um teste Mockito só provaria
+    // que os parâmetros certos foram passados pro repositório, não que o JOIN/WHERE da query nativa
+    // está correto (ex.: coluna errada, join errado). MaintenanceItem está no mesmo pacote de
+    // Maintenance, então já está coberto pelo @EntityScan existente desta classe.
+    @Test
+    void findCancelledByOrgAndPeriod_isolatesByOrganization_andIgnoresOutOfRangeDates() {
+        MaintenanceItem itemOrgA = MaintenanceItem.builder().organizationCode("ORG-A").itemType("Extintor").build();
+        MaintenanceItem itemOrgB = MaintenanceItem.builder().organizationCode("ORG-B").itemType("Gerador").build();
+        entityManager.persistAndFlush(itemOrgA);
+        entityManager.persistAndFlush(itemOrgB);
+
+        LocalDate inRange = LocalDate.of(2026, 6, 15);
+        LocalDate outOfRange = LocalDate.of(2026, 1, 1);
+
+        Maintenance cancelledOrgAInRange = cancelledMaintenance(itemOrgA.getId(), inRange);
+        Maintenance cancelledOrgBInRange = cancelledMaintenance(itemOrgB.getId(), inRange);
+        Maintenance cancelledOrgAOutOfRange = cancelledMaintenance(itemOrgA.getId(), outOfRange);
+
+        entityManager.clear();
+
+        List<Maintenance> result = maintenanceRepository.findCancelledByOrgAndPeriod(
+                "ORG-A", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30));
+
+        assertThat(result)
+                .as("só a cancelada de ORG-A dentro do período deveria voltar — nem a de ORG-B, nem a fora do período")
+                .extracting(Maintenance::getId)
+                .containsExactly(cancelledOrgAInRange.getId());
+    }
+
+    private Maintenance cancelledMaintenance(Long itemId, LocalDate performedAt) {
+        Maintenance maintenance = Maintenance.builder()
+                .itemId(itemId)
+                .performedAt(performedAt)
+                .type(MaintenanceType.PREVENTIVA)
+                .build();
+        entityManager.persistAndFlush(maintenance);
+
+        maintenance.setCancelledAt(Instant.now());
+        maintenance.setCancelledBy(1L);
+        maintenance.setCancelReason("Reprodução TASK-145");
+        maintenanceRepository.saveAndFlush(maintenance);
+        maintenanceRepository.delete(maintenance);
+        entityManager.flush();
+        return maintenance;
     }
 }
