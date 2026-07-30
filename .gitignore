@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# local git worktrees (superpowers subagent-driven-development)
+.worktrees/
