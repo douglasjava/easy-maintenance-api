@@ -47,6 +47,9 @@ public class LandingLead {
     @Builder.Default
     private String status = "NEW";
 
+    @Column(name = "consent_accepted_at")
+    private Instant consentAcceptedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

@@ -1,5 +1,6 @@
 package com.brainbyte.easy_maintenance.leads.application.service;
 
+import com.brainbyte.easy_maintenance.commons.exceptions.RuleException;
 import com.brainbyte.easy_maintenance.leads.application.dto.CreateLeadRequest;
 import com.brainbyte.easy_maintenance.leads.application.dto.LeadResponse;
 import com.brainbyte.easy_maintenance.leads.domain.LandingLead;
@@ -9,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
 
 @Slf4j
 @Service
@@ -20,6 +23,10 @@ public class LeadService {
     @Transactional
     public LeadResponse createLead(CreateLeadRequest request, HttpServletRequest httpRequest) {
         log.info("Creating new lead with email: {}", request.email());
+
+        if (!Boolean.TRUE.equals(request.consentAccepted())) {
+            throw new RuleException("É necessário aceitar a Política de Privacidade para enviar o formulário.");
+        }
 
         LandingLead lead = LandingLead.builder()
                 .email(request.email())
@@ -34,6 +41,7 @@ public class LeadService {
                 .ip(httpRequest.getRemoteAddr())
                 .userAgent(httpRequest.getHeader("User-Agent"))
                 .status("NEW")
+                .consentAcceptedAt(Instant.now())
                 .build();
 
         LandingLead saved = repository.save(lead);

@@ -29,6 +29,9 @@ public record CreateLeadRequest(
     String utmJson,
 
     @Schema(description = "Código do afiliado que indicou o lead (opcional)", example = "ABC123")
-    String affiliateCode
+    String affiliateCode,
+
+    @Schema(description = "Indica se o lead aceitou a Política de Privacidade (obrigatório)", example = "true")
+    Boolean consentAccepted
 ) {
 }
